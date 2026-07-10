@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jetron — конструктор формы (стенд v1, mock)</title>
+  <link rel="stylesheet" href="src/css/stand.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "fabric": "./assets/vendor/fabric.min.mjs"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">J</span>
+      <span class="logo">JETRON</span>
+    </div>
+    <span class="tag">Конструктор формы · стенд Phase 0</span>
+  </header>
+
+  <main id="app">
+    <section id="stage">
+      <div id="views" class="views"></div>
+      <p class="note">Координаты зон — приближённые placeholder'ы. Заменятся реальной разметкой (U3) без изменения кода.</p>
+    </section>
+    <aside id="panel" class="panel"></aside>
+  </main>
+
+  <div id="status" class="status" hidden>Загрузка…</div>
+
+  <script type="module" src="src/js/main.browser.js"></script>
+</body>
+</html>

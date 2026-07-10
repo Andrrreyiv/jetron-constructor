@@ -1,0 +1,11 @@
+{
+  "name": "jetron-constructor",
+  "version": "0.1.0",
+  "description": "Конструктор футбольной формы и футболки для Jetron Sport",
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/tdd-guard-reporter.mjs --test-reporter-destination=stdout",
+    "test:watch": "node --test --watch"
+  },
+  "license": "UNLICENSED"
+}

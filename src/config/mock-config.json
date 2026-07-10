@@ -1,0 +1,123 @@
+{
+  "_note": "MOCK-конфиг фазы 0. Координаты зон (box в долях 0..1) — ПРИБЛИЖЁННЫЕ placeholder'ы, НЕ реальная разметка (U3 не снят). При получении топ-3 моделей (U2) и координат зон (U3) этот файл заменяется реальными данными без изменения кода. Цены/сетки/шрифты — из ТЗ (CONFIRMED).",
+  "version": "0.1.0-mock",
+
+  "prices": {
+    "form": { "adult": 1280, "child": 1090 },
+    "gaiters": 450,
+    "placement": {
+      "name_number": 600,
+      "chest_logo_small": 300,
+      "chest_logo_large": 300,
+      "chest_number": 300,
+      "logo_under_number": 300,
+      "shoulder_logo": 300,
+      "shorts_number": 0,
+      "shorts_logo": 0
+    },
+    "baseFee": 0,
+    "discounts": {
+      "jetron_chest": 0.05,
+      "jetron_back": 0.05,
+      "bulk_free_chest_logo_from": 20
+    }
+  },
+
+  "canvas": { "width": 900, "height": 1200, "displayWidth": 450 },
+
+  "textColors": [
+    { "id": "white", "name": "Белый", "hex": "#ffffff" },
+    { "id": "black", "name": "Чёрный", "hex": "#111111" },
+    { "id": "yellow", "name": "Жёлтый", "hex": "#ffd400" },
+    { "id": "red", "name": "Красный", "hex": "#e2001a" },
+    { "id": "blue", "name": "Синий", "hex": "#1f5fd6" },
+    { "id": "green", "name": "Зелёный", "hex": "#1a9c5b" },
+    { "id": "lightblue", "name": "Голубой", "hex": "#29abe2" }
+  ],
+  "_textColors_note": "Палитра цвета шрифта (ТЗ 2.4, подтверждено клиентом 2026-07-10: белый/чёрный/синий/красный/жёлтый/зелёный/голубой). Список редактируется в админке — клиент будет добавлять/убирать цвета.",
+
+  "fonts": [
+    { "id": "rpl", "name": "РПЛ", "file": "assets/fonts/RPL-Regular.otf", "cyrillic": true, "default": true },
+    { "id": "epl2023", "name": "EPL 2023", "file": "assets/fonts/EPL 2023.otf", "cyrillic": false },
+    { "id": "realmadrid", "name": "Real Madrid 21/22", "file": "assets/fonts/Real Madrid 2021 2022.otf", "cyrillic": false },
+    { "id": "mancity", "name": "Man City 24/25", "file": "assets/fonts/Manchester City 2024 2025.otf", "cyrillic": false }
+  ],
+  "_fonts_note": "Кириллицу держит только РПЛ (по умолчанию). Доп. кириллические шрифты добавим по batch-4/U8 — здесь placeholder-набор для стенда.",
+
+  "sizes": {
+    "child": {
+      "title": "Детские размеры",
+      "columns": ["Размер на бирке", "Рост, см", "Возраст, лет"],
+      "rows": [
+        ["4XS", "120-128", "5-6"],
+        ["3XS", "128-136", "6-7"],
+        ["2XS", "136-145", "8-9"],
+        ["XS", "145-155", "10-11"],
+        ["S", "155-160", "12-13"],
+        ["M", "160-165", "13-14"],
+        ["L", "165-173", "14-17"]
+      ]
+    },
+    "adult": {
+      "title": "Взрослые размеры",
+      "columns": ["Российский размер"],
+      "rows": [
+        ["44 RU (XS)"],
+        ["46 RU (S)"],
+        ["48 RU (M)"],
+        ["48-50 RU (M-L)"],
+        ["50 RU (L)"],
+        ["52 RU (XL)"],
+        ["54 RU (2XL)"]
+      ]
+    }
+  },
+  "_sizes_note": "Размерные сетки из ТЗ §10.1 (CONFIRMED). На боевом сайте редактируются в админке WooCommerce (§10.5).",
+
+  "forms": [
+    {
+      "id": "champion-blue",
+      "name": "Champion синяя",
+      "line": "Champion",
+      "color": "Синий",
+      "colorHex": "#1f5fd6",
+      "images": {
+        "front": "assets/mockups/Champion синий фон.png",
+        "back": "assets/mockups/Champion синий фон.png",
+        "shoulder": null
+      },
+      "_images_note": "back — placeholder (переиспользован front-мокап). Реальные виды спины придут с мокапами (U3). shoulder БЕЗ фонового мокапа: по ТЗ §9.3 лого плеча показывается отдельной картинкой сбоку, а НЕ на теле формы — холст плеча нейтральный, на нём только зона лого.",
+      "zones": [
+        { "key": "chest_logo_small", "label": "Лого клуба (левая грудь)", "view": "front", "type": "image", "price": 300, "box": { "x": 0.34, "y": 0.17, "w": 0.11, "h": 0.08 } },
+        { "key": "chest_number", "label": "Номер на грудь", "view": "front", "type": "text", "price": 300, "box": { "x": 0.44, "y": 0.15, "w": 0.13, "h": 0.10 } },
+        { "key": "chest_logo_large", "label": "Лого на груди", "view": "front", "type": "image", "price": 300, "box": { "x": 0.56, "y": 0.17, "w": 0.11, "h": 0.09 } },
+        { "key": "sponsor", "label": "Спонсор", "view": "front", "type": "image", "price": 0, "box": { "x": 0.33, "y": 0.28, "w": 0.35, "h": 0.09 } },
+        { "key": "shorts_number", "label": "Номер на шортах", "view": "front", "type": "text", "price": 0, "included": true, "box": { "x": 0.31, "y": 0.70, "w": 0.08, "h": 0.07 } },
+        { "key": "shorts_logo", "label": "Лого на шортах", "view": "front", "type": "image", "price": 0, "included": true, "box": { "x": 0.41, "y": 0.70, "w": 0.08, "h": 0.07 } },
+
+        { "key": "name", "label": "Фамилия", "view": "back", "type": "text", "price": 600, "priceGroup": "name_number", "maxLines": 2, "align": "center", "box": { "x": 0.30, "y": 0.16, "w": 0.40, "h": 0.08 } },
+        { "key": "back_number", "label": "Номер (спина)", "view": "back", "type": "text", "price": 0, "priceGroup": "name_number", "align": "center", "box": { "x": 0.34, "y": 0.27, "w": 0.32, "h": 0.34 } },
+        { "key": "back_logo", "label": "Логотип/надпись под номером", "view": "back", "type": "any", "price": 300, "priceGroup": "logo_under_number", "align": "center", "box": { "x": 0.32, "y": 0.63, "w": 0.36, "h": 0.10 } },
+
+        { "key": "shoulder_logo", "label": "Лого на плече", "view": "shoulder", "type": "image", "price": 300, "box": { "x": 0.28, "y": 0.34, "w": 0.44, "h": 0.32 } }
+      ]
+    },
+    {
+      "id": "champion-burgundy",
+      "name": "Champion бордовая",
+      "line": "Champion",
+      "color": "Бордовый",
+      "colorHex": "#7a1f3d",
+      "images": {
+        "front": "assets/mockups/Champion бордовый фон.png",
+        "back": "assets/mockups/Champion бордовый фон.png",
+        "shoulder": null
+      },
+      "zones": [
+        { "key": "chest_number", "label": "Номер на грудь", "view": "front", "type": "text", "price": 300, "box": { "x": 0.44, "y": 0.15, "w": 0.13, "h": 0.10 } },
+        { "key": "name", "label": "Фамилия", "view": "back", "type": "text", "price": 600, "priceGroup": "name_number", "maxLines": 2, "align": "center", "box": { "x": 0.30, "y": 0.16, "w": 0.40, "h": 0.08 } },
+        { "key": "back_number", "label": "Номер (спина)", "view": "back", "type": "text", "price": 0, "priceGroup": "name_number", "align": "center", "box": { "x": 0.34, "y": 0.27, "w": 0.32, "h": 0.34 } }
+      ]
+    }
+  ]
+}
