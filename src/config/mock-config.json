@@ -1,6 +1,6 @@
 {
-  "_note": "MOCK-конфиг фазы 0. Координаты зон (box в долях 0..1) — ПРИБЛИЖЁННЫЕ placeholder'ы, НЕ реальная разметка (U3 не снят). При получении топ-3 моделей (U2) и координат зон (U3) этот файл заменяется реальными данными без изменения кода. Цены/сетки/шрифты — из ТЗ (CONFIRMED).",
-  "version": "0.1.0-mock",
+  "_note": "MOCK-конфиг фазы 0. Каталог собран из РЕАЛЬНЫХ мокапов клиента (Мокапы.zip → assets/mockups/, 8 линеек). Архитектура выбора — цвет-первый (ТЗ §2.1): палитра цветов → карусель всех форм этого цвета. Координаты зон (zoneTemplate, box в долях 0..1) — ПРИБЛИЖЁННЫЕ placeholder'ы по модели Champion (реальные размеры зон в см — зоны-формы.md, разметка каждой модели придёт с U3). Front=back — placeholder (переиспользован один мокап), реальные виды спины придут с размеченными макетами. Цены/сетки/шрифты — из ТЗ (CONFIRMED).",
+  "version": "0.2.0-mock",
 
   "prices": {
     "form": { "adult": 1280, "child": 1090 },
@@ -25,6 +25,25 @@
 
   "canvas": { "width": 900, "height": 1200, "displayWidth": 450 },
 
+  "colors": [
+    { "id": "white", "name": "Белый", "hex": "#f2f4f7" },
+    { "id": "blue", "name": "Синий", "hex": "#1f5fd6" },
+    { "id": "red", "name": "Красный", "hex": "#e2001a" },
+    { "id": "black", "name": "Чёрный", "hex": "#1a1a1a" },
+    { "id": "teal", "name": "Бирюзовый", "hex": "#12b5ad" },
+    { "id": "green", "name": "Зелёный", "hex": "#1a9c5b" },
+    { "id": "orange", "name": "Оранжевый", "hex": "#f47b20" },
+    { "id": "yellow", "name": "Жёлтый", "hex": "#ffd400" },
+    { "id": "purple", "name": "Фиолетовый", "hex": "#7b2ff7" },
+    { "id": "pink", "name": "Розовый", "hex": "#ff6fae" },
+    { "id": "lightgreen", "name": "Салатовый", "hex": "#8bc34a" },
+    { "id": "burgundy", "name": "Бордовый", "hex": "#7a1f3d" },
+    { "id": "coral", "name": "Коралловый", "hex": "#ff6f61" },
+    { "id": "lime", "name": "Лаймовый", "hex": "#a4c639" },
+    { "id": "lilac", "name": "Сиреневый", "hex": "#b57edc" }
+  ],
+  "_colors_note": "Палитра цветов ИЗДЕЛИЯ (ТЗ §2.1, кружочки). Цвет НЕ перекрашивается программно — это готовые фото каждой формы. Список редактируется в админке (клиент добавляет/убирает цвета вместе с загрузкой мокапа).",
+
   "textColors": [
     { "id": "white", "name": "Белый", "hex": "#ffffff" },
     { "id": "black", "name": "Чёрный", "hex": "#111111" },
@@ -34,7 +53,7 @@
     { "id": "green", "name": "Зелёный", "hex": "#1a9c5b" },
     { "id": "lightblue", "name": "Голубой", "hex": "#29abe2" }
   ],
-  "_textColors_note": "Палитра цвета шрифта (ТЗ 2.4, подтверждено клиентом 2026-07-10: белый/чёрный/синий/красный/жёлтый/зелёный/голубой). Список редактируется в админке — клиент будет добавлять/убирать цвета.",
+  "_textColors_note": "Палитра цвета ШРИФТА (ТЗ §2.4, подтверждено клиентом 2026-07-10). Отдельна от палитры цвета изделия. Список редактируется в админке.",
 
   "fonts": [
     { "id": "rpl", "name": "РПЛ", "file": "assets/fonts/RPL-Regular.otf", "cyrillic": true, "default": true },
@@ -74,50 +93,78 @@
   },
   "_sizes_note": "Размерные сетки из ТЗ §10.1 (CONFIRMED). На боевом сайте редактируются в админке WooCommerce (§10.5).",
 
+  "zoneTemplate": [
+    { "key": "chest_logo_small", "label": "Лого клуба (левая грудь)", "view": "front", "type": "image", "price": 300, "box": { "x": 0.34, "y": 0.17, "w": 0.11, "h": 0.08 } },
+    { "key": "chest_number", "label": "Номер на грудь", "view": "front", "type": "text", "price": 300, "box": { "x": 0.44, "y": 0.15, "w": 0.13, "h": 0.10 } },
+    { "key": "chest_logo_large", "label": "Лого на груди", "view": "front", "type": "image", "price": 300, "box": { "x": 0.56, "y": 0.17, "w": 0.11, "h": 0.09 } },
+    { "key": "sponsor", "label": "Спонсор", "view": "front", "type": "image", "price": 0, "box": { "x": 0.33, "y": 0.28, "w": 0.35, "h": 0.09 } },
+    { "key": "shorts_number", "label": "Номер на шортах", "view": "front", "type": "text", "price": 0, "included": true, "box": { "x": 0.31, "y": 0.70, "w": 0.08, "h": 0.07 } },
+    { "key": "shorts_logo", "label": "Лого на шортах", "view": "front", "type": "image", "price": 0, "included": true, "box": { "x": 0.41, "y": 0.70, "w": 0.08, "h": 0.07 } },
+    { "key": "name", "label": "Фамилия", "view": "back", "type": "text", "price": 600, "priceGroup": "name_number", "maxLines": 2, "align": "center", "box": { "x": 0.30, "y": 0.16, "w": 0.40, "h": 0.08 } },
+    { "key": "back_number", "label": "Номер (спина)", "view": "back", "type": "text", "price": 0, "priceGroup": "name_number", "align": "center", "box": { "x": 0.34, "y": 0.27, "w": 0.32, "h": 0.34 } },
+    { "key": "back_logo", "label": "Логотип/надпись под номером", "view": "back", "type": "any", "price": 300, "priceGroup": "logo_under_number", "align": "center", "box": { "x": 0.32, "y": 0.63, "w": 0.36, "h": 0.10 } },
+    { "key": "shoulder_logo", "label": "Лого на плече", "view": "shoulder", "type": "image", "price": 300, "box": { "x": 0.28, "y": 0.34, "w": 0.44, "h": 0.32 } }
+  ],
+  "_zoneTemplate_note": "Общий шаблон зон нанесения для всех моделей стенда (placeholder по Champion). На боевом каждая модель получает СВОИ координаты зон в см (U3, зоны-формы.md), т.к. геометрия линеек разная (ТЗ §9.4). Форма может переопределить зоны своим полем zones.",
+
   "forms": [
-    {
-      "id": "champion-blue",
-      "name": "Champion синяя",
-      "line": "Champion",
-      "color": "Синий",
-      "colorHex": "#1f5fd6",
-      "images": {
-        "front": "assets/mockups/Champion синий фон.png",
-        "back": "assets/mockups/Champion синий фон.png",
-        "shoulder": null
-      },
-      "_images_note": "back — placeholder (переиспользован front-мокап). Реальные виды спины придут с мокапами (U3). shoulder БЕЗ фонового мокапа: по ТЗ §9.3 лого плеча показывается отдельной картинкой сбоку, а НЕ на теле формы — холст плеча нейтральный, на нём только зона лого.",
-      "zones": [
-        { "key": "chest_logo_small", "label": "Лого клуба (левая грудь)", "view": "front", "type": "image", "price": 300, "box": { "x": 0.34, "y": 0.17, "w": 0.11, "h": 0.08 } },
-        { "key": "chest_number", "label": "Номер на грудь", "view": "front", "type": "text", "price": 300, "box": { "x": 0.44, "y": 0.15, "w": 0.13, "h": 0.10 } },
-        { "key": "chest_logo_large", "label": "Лого на груди", "view": "front", "type": "image", "price": 300, "box": { "x": 0.56, "y": 0.17, "w": 0.11, "h": 0.09 } },
-        { "key": "sponsor", "label": "Спонсор", "view": "front", "type": "image", "price": 0, "box": { "x": 0.33, "y": 0.28, "w": 0.35, "h": 0.09 } },
-        { "key": "shorts_number", "label": "Номер на шортах", "view": "front", "type": "text", "price": 0, "included": true, "box": { "x": 0.31, "y": 0.70, "w": 0.08, "h": 0.07 } },
-        { "key": "shorts_logo", "label": "Лого на шортах", "view": "front", "type": "image", "price": 0, "included": true, "box": { "x": 0.41, "y": 0.70, "w": 0.08, "h": 0.07 } },
+    { "id": "champion-white", "line": "Champion", "colorId": "white", "color": "Белый", "colorHex": "#f2f4f7", "images": { "front": "assets/mockups/Champion белый фон.png", "back": "assets/mockups/Champion белый фон.png", "shoulder": null } },
+    { "id": "legend-white", "line": "Legend", "colorId": "white", "color": "Белый", "colorHex": "#f2f4f7", "images": { "front": "assets/mockups/Legend белая.jpg", "back": "assets/mockups/Legend белая.jpg", "shoulder": null } },
+    { "id": "new-white", "line": "New", "colorId": "white", "color": "Белый", "colorHex": "#f2f4f7", "images": { "front": "assets/mockups/New белая.jpg", "back": "assets/mockups/New белая.jpg", "shoulder": null } },
+    { "id": "rich-white", "line": "Rich", "colorId": "white", "color": "Белый", "colorHex": "#f2f4f7", "images": { "front": "assets/mockups/Rich белая.webp", "back": "assets/mockups/Rich белая.webp", "shoulder": null } },
+    { "id": "space-white", "line": "Space", "colorId": "white", "color": "Белый", "colorHex": "#f2f4f7", "images": { "front": "assets/mockups/Space белый.jpg", "back": "assets/mockups/Space белый.jpg", "shoulder": null } },
+    { "id": "star-white", "line": "Star", "colorId": "white", "color": "Белый", "colorHex": "#f2f4f7", "images": { "front": "assets/mockups/Star белый.jpg", "back": "assets/mockups/Star белый.jpg", "shoulder": null } },
+    { "id": "venom-white", "line": "Venom", "colorId": "white", "color": "Белый", "colorHex": "#f2f4f7", "images": { "front": "assets/mockups/Venom белая.png", "back": "assets/mockups/Venom белая.png", "shoulder": null } },
+    { "id": "winner-white", "line": "Winner", "colorId": "white", "color": "Белый", "colorHex": "#f2f4f7", "images": { "front": "assets/mockups/Winner белый.jpg", "back": "assets/mockups/Winner белый.jpg", "shoulder": null } },
 
-        { "key": "name", "label": "Фамилия", "view": "back", "type": "text", "price": 600, "priceGroup": "name_number", "maxLines": 2, "align": "center", "box": { "x": 0.30, "y": 0.16, "w": 0.40, "h": 0.08 } },
-        { "key": "back_number", "label": "Номер (спина)", "view": "back", "type": "text", "price": 0, "priceGroup": "name_number", "align": "center", "box": { "x": 0.34, "y": 0.27, "w": 0.32, "h": 0.34 } },
-        { "key": "back_logo", "label": "Логотип/надпись под номером", "view": "back", "type": "any", "price": 300, "priceGroup": "logo_under_number", "align": "center", "box": { "x": 0.32, "y": 0.63, "w": 0.36, "h": 0.10 } },
+    { "id": "champion-blue", "line": "Champion", "colorId": "blue", "color": "Синий", "colorHex": "#1f5fd6", "images": { "front": "assets/mockups/Champion синий фон.png", "back": "assets/mockups/Champion синий фон.png", "shoulder": null } },
+    { "id": "legend-blue", "line": "Legend", "colorId": "blue", "color": "Синий", "colorHex": "#1f5fd6", "images": { "front": "assets/mockups/Legend синяя.jpg", "back": "assets/mockups/Legend синяя.jpg", "shoulder": null } },
+    { "id": "star-blue", "line": "Star", "colorId": "blue", "color": "Синий", "colorHex": "#1f5fd6", "images": { "front": "assets/mockups/Star синяя.jpg", "back": "assets/mockups/Star синяя.jpg", "shoulder": null } },
+    { "id": "venom-blue", "line": "Venom", "colorId": "blue", "color": "Синий", "colorHex": "#1f5fd6", "images": { "front": "assets/mockups/Venom синяя.png", "back": "assets/mockups/Venom синяя.png", "shoulder": null } },
+    { "id": "winner-blue", "line": "Winner", "colorId": "blue", "color": "Синий", "colorHex": "#1f5fd6", "images": { "front": "assets/mockups/Winner синий.jpg", "back": "assets/mockups/Winner синий.jpg", "shoulder": null } },
 
-        { "key": "shoulder_logo", "label": "Лого на плече", "view": "shoulder", "type": "image", "price": 300, "box": { "x": 0.28, "y": 0.34, "w": 0.44, "h": 0.32 } }
-      ]
-    },
-    {
-      "id": "champion-burgundy",
-      "name": "Champion бордовая",
-      "line": "Champion",
-      "color": "Бордовый",
-      "colorHex": "#7a1f3d",
-      "images": {
-        "front": "assets/mockups/Champion бордовый фон.png",
-        "back": "assets/mockups/Champion бордовый фон.png",
-        "shoulder": null
-      },
-      "zones": [
-        { "key": "chest_number", "label": "Номер на грудь", "view": "front", "type": "text", "price": 300, "box": { "x": 0.44, "y": 0.15, "w": 0.13, "h": 0.10 } },
-        { "key": "name", "label": "Фамилия", "view": "back", "type": "text", "price": 600, "priceGroup": "name_number", "maxLines": 2, "align": "center", "box": { "x": 0.30, "y": 0.16, "w": 0.40, "h": 0.08 } },
-        { "key": "back_number", "label": "Номер (спина)", "view": "back", "type": "text", "price": 0, "priceGroup": "name_number", "align": "center", "box": { "x": 0.34, "y": 0.27, "w": 0.32, "h": 0.34 } }
-      ]
-    }
-  ]
+    { "id": "legend-red", "line": "Legend", "colorId": "red", "color": "Красный", "colorHex": "#e2001a", "images": { "front": "assets/mockups/Legend красная.jpg", "back": "assets/mockups/Legend красная.jpg", "shoulder": null } },
+    { "id": "rich-red", "line": "Rich", "colorId": "red", "color": "Красный", "colorHex": "#e2001a", "images": { "front": "assets/mockups/Rich красная.webp", "back": "assets/mockups/Rich красная.webp", "shoulder": null } },
+    { "id": "space-red", "line": "Space", "colorId": "red", "color": "Красный", "colorHex": "#e2001a", "images": { "front": "assets/mockups/Space красный.jpg", "back": "assets/mockups/Space красный.jpg", "shoulder": null } },
+    { "id": "star-red", "line": "Star", "colorId": "red", "color": "Красный", "colorHex": "#e2001a", "images": { "front": "assets/mockups/Star красный.jpg", "back": "assets/mockups/Star красный.jpg", "shoulder": null } },
+    { "id": "venom-red", "line": "Venom", "colorId": "red", "color": "Красный", "colorHex": "#e2001a", "images": { "front": "assets/mockups/Venom красная.png", "back": "assets/mockups/Venom красная.png", "shoulder": null } },
+    { "id": "winner-red", "line": "Winner", "colorId": "red", "color": "Красный", "colorHex": "#e2001a", "images": { "front": "assets/mockups/Winner красный.jpg", "back": "assets/mockups/Winner красный.jpg", "shoulder": null } },
+
+    { "id": "space-black", "line": "Space", "colorId": "black", "color": "Чёрный", "colorHex": "#1a1a1a", "images": { "front": "assets/mockups/Space чёрный.jpg", "back": "assets/mockups/Space чёрный.jpg", "shoulder": null } },
+    { "id": "star-black", "line": "Star", "colorId": "black", "color": "Чёрный", "colorHex": "#1a1a1a", "images": { "front": "assets/mockups/Star чёрный.jpg", "back": "assets/mockups/Star чёрный.jpg", "shoulder": null } },
+
+    { "id": "legend-teal", "line": "Legend", "colorId": "teal", "color": "Бирюзовый", "colorHex": "#12b5ad", "images": { "front": "assets/mockups/Legend бирюзовая.jpg", "back": "assets/mockups/Legend бирюзовая.jpg", "shoulder": null } },
+    { "id": "new-teal", "line": "New", "colorId": "teal", "color": "Бирюзовый", "colorHex": "#12b5ad", "images": { "front": "assets/mockups/New бирюзовая.jpg", "back": "assets/mockups/New бирюзовая.jpg", "shoulder": null } },
+    { "id": "rich-teal", "line": "Rich", "colorId": "teal", "color": "Бирюзовый", "colorHex": "#12b5ad", "images": { "front": "assets/mockups/Rich бирюзовая.webp", "back": "assets/mockups/Rich бирюзовая.webp", "shoulder": null } },
+    { "id": "space-teal", "line": "Space", "colorId": "teal", "color": "Бирюзовый", "colorHex": "#12b5ad", "images": { "front": "assets/mockups/Space бирюзовый.jpg", "back": "assets/mockups/Space бирюзовый.jpg", "shoulder": null } },
+    { "id": "star-teal", "line": "Star", "colorId": "teal", "color": "Бирюзовый", "colorHex": "#12b5ad", "images": { "front": "assets/mockups/Star бирюзовый.jpg", "back": "assets/mockups/Star бирюзовый.jpg", "shoulder": null } },
+
+    { "id": "legend-green", "line": "Legend", "colorId": "green", "color": "Зелёный", "colorHex": "#1a9c5b", "images": { "front": "assets/mockups/Legend зелёная.jpg", "back": "assets/mockups/Legend зелёная.jpg", "shoulder": null } },
+    { "id": "winner-green", "line": "Winner", "colorId": "green", "color": "Зелёный", "colorHex": "#1a9c5b", "images": { "front": "assets/mockups/Winner зелёный.jpg", "back": "assets/mockups/Winner зелёный.jpg", "shoulder": null } },
+
+    { "id": "champion-orange", "line": "Champion", "colorId": "orange", "color": "Оранжевый", "colorHex": "#f47b20", "images": { "front": "assets/mockups/Champion оранжевый фон.png", "back": "assets/mockups/Champion оранжевый фон.png", "shoulder": null } },
+    { "id": "new-orange", "line": "New", "colorId": "orange", "color": "Оранжевый", "colorHex": "#f47b20", "images": { "front": "assets/mockups/New оранжевая.jpg", "back": "assets/mockups/New оранжевая.jpg", "shoulder": null } },
+    { "id": "winner-orange", "line": "Winner", "colorId": "orange", "color": "Оранжевый", "colorHex": "#f47b20", "images": { "front": "assets/mockups/Winner оранжевый.jpg", "back": "assets/mockups/Winner оранжевый.jpg", "shoulder": null } },
+
+    { "id": "champion-yellow", "line": "Champion", "colorId": "yellow", "color": "Жёлтый", "colorHex": "#ffd400", "images": { "front": "assets/mockups/Champion жёлтый фон.png", "back": "assets/mockups/Champion жёлтый фон.png", "shoulder": null } },
+    { "id": "space-yellow", "line": "Space", "colorId": "yellow", "color": "Жёлтый", "colorHex": "#ffd400", "images": { "front": "assets/mockups/Space жёлтый.jpg", "back": "assets/mockups/Space жёлтый.jpg", "shoulder": null } },
+
+    { "id": "champion-purple", "line": "Champion", "colorId": "purple", "color": "Фиолетовый", "colorHex": "#7b2ff7", "images": { "front": "assets/mockups/Champion фиолетовый фон.png", "back": "assets/mockups/Champion фиолетовый фон.png", "shoulder": null } },
+    { "id": "new-purple", "line": "New", "colorId": "purple", "color": "Фиолетовый", "colorHex": "#7b2ff7", "images": { "front": "assets/mockups/New фиолетовая.jpg", "back": "assets/mockups/New фиолетовая.jpg", "shoulder": null } },
+
+    { "id": "new-pink", "line": "New", "colorId": "pink", "color": "Розовый", "colorHex": "#ff6fae", "images": { "front": "assets/mockups/New розовая.jpg", "back": "assets/mockups/New розовая.jpg", "shoulder": null } },
+    { "id": "rich-pink", "line": "Rich", "colorId": "pink", "color": "Розовый", "colorHex": "#ff6fae", "images": { "front": "assets/mockups/Rich розовая.webp", "back": "assets/mockups/Rich розовая.webp", "shoulder": null } },
+
+    { "id": "space-lightgreen", "line": "Space", "colorId": "lightgreen", "color": "Салатовый", "colorHex": "#8bc34a", "images": { "front": "assets/mockups/Space салатовый.jpg", "back": "assets/mockups/Space салатовый.jpg", "shoulder": null } },
+    { "id": "venom-lightgreen", "line": "Venom", "colorId": "lightgreen", "color": "Салатовый", "colorHex": "#8bc34a", "images": { "front": "assets/mockups/Venom салатовая.png", "back": "assets/mockups/Venom салатовая.png", "shoulder": null } },
+
+    { "id": "champion-burgundy", "line": "Champion", "colorId": "burgundy", "color": "Бордовый", "colorHex": "#7a1f3d", "images": { "front": "assets/mockups/Champion бордовый фон.png", "back": "assets/mockups/Champion бордовый фон.png", "shoulder": null } },
+
+    { "id": "legend-coral", "line": "Legend", "colorId": "coral", "color": "Коралловый", "colorHex": "#ff6f61", "images": { "front": "assets/mockups/Legend коралл.jpg", "back": "assets/mockups/Legend коралл.jpg", "shoulder": null } },
+
+    { "id": "legend-lime", "line": "Legend", "colorId": "lime", "color": "Лаймовый", "colorHex": "#a4c639", "images": { "front": "assets/mockups/Legend лайм.jpg", "back": "assets/mockups/Legend лайм.jpg", "shoulder": null } },
+
+    { "id": "venom-lilac", "line": "Venom", "colorId": "lilac", "color": "Сиреневый", "colorHex": "#b57edc", "images": { "front": "assets/mockups/Venom сиреневая.jpg", "back": "assets/mockups/Venom сиреневая.jpg", "shoulder": null } }
+  ],
+  "_forms_note": "43 формы из реальных мокапов (8 линеек × доступные цвета). Каждая форма наследует zoneTemplate. front=back — placeholder (один мокап на оба вида), реальные виды спины и разметка зон придут с U3. shoulder БЕЗ фонового мокапа: лого плеча показывается отдельной картинкой сбоку (ТЗ §9.3)."
 }

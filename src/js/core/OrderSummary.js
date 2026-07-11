@@ -5,7 +5,9 @@ import { calculatePrice } from './PriceCalculator.js';
 
 export function buildOrder({ config, formId, ageCategory = 'adult', gaiters = false, jetron = {}, quantity = 1, placements = [] }) {
   const form = config.forms.find((f) => f.id === formId);
-  const zonesByKey = new Map((form.zones || []).map((z) => [z.key, z]));
+  // Зоны берём из формы, иначе из общего шаблона каталога (color-first: большинство форм наследуют zoneTemplate).
+  const zones = form.zones || config.zoneTemplate || [];
+  const zonesByKey = new Map(zones.map((z) => [z.key, z]));
 
   const usedZones = placements
     .map((p) => zonesByKey.get(p.zoneKey))
@@ -27,7 +29,7 @@ export function buildOrder({ config, formId, ageCategory = 'adult', gaiters = fa
 
   return {
     formId,
-    formName: form.name,
+    formName: form.name || `${form.line} ${form.color}`,
     color: form.color,
     colorHex: form.colorHex,
     ageCategory,

@@ -22,6 +22,7 @@ export class UniformApp {
     // Перёд и спина показываются одновременно (ТЗ 2.2): по одному CanvasView на вид.
     this.views = new Map(); // viewName -> CanvasView
     this.formId = config.forms[0].id;
+    this.colorId = config.forms[0].colorId; // выбор идёт от цвета (ТЗ §2.1): цвет → карусель форм
     this.ageCategory = 'adult';
     this.gaiters = false;
     this.quantity = 1;
@@ -37,12 +38,31 @@ export class UniformApp {
     return this.config.forms.find((f) => f.id === this.formId);
   }
 
+  // Зоны текущей формы: собственные, иначе общий шаблон каталога (color-first).
+  get formZones() {
+    return this.form.zones || this.config.zoneTemplate || [];
+  }
+
+  // Все формы выбранного цвета — это и есть «карусель» из ТЗ §2.1.
+  formsForColor(colorId) {
+    return this.config.forms.filter((f) => f.colorId === colorId);
+  }
+
+  // Русское склонение числительных: 1 модель / 2 модели / 5 моделей.
+  plural(n, one, few, many) {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+    return many;
+  }
+
   get placements() {
     return this.edit.placements;
   }
 
   zonesFor(view) {
-    return this.form.zones.filter((z) => z.view === view);
+    return this.formZones.filter((z) => z.view === view);
   }
 
   // Виды к показу: перёд и спина всегда, плечо — если у модели есть зона плеча (ТЗ §9.3, C10).
@@ -52,7 +72,7 @@ export class UniformApp {
       { id: 'front', label: 'Перёд' },
       { id: 'back', label: 'Спина' }
     ];
-    if (this.form.zones.some((z) => z.view === 'shoulder')) views.push({ id: 'shoulder', label: 'Плечо' });
+    if (this.formZones.some((z) => z.view === 'shoulder')) views.push({ id: 'shoulder', label: 'Плечо' });
     return views;
   }
 
@@ -118,14 +138,24 @@ export class UniformApp {
   }
 
   buildPanel() {
-    const forms = this.config.forms;
+    // ТЗ §2.1: сначала цвет (палитра кружочков) → затем карусель всех форм этого цвета.
+    const colors = this.config.colors || [];
+    const models = this.formsForColor(this.colorId);
+    const activeColor = colors.find((c) => c.id === this.colorId);
     this.panelEl.innerHTML = `
       <section>
-        <h3>Модель и цвет</h3>
-        <div class="swatches">
-          ${forms.map((f) => `<button class="swatch ${f.id === this.formId ? 'active' : ''}"
-             data-form="${f.id}" title="${f.name}"
-             style="background:${f.colorHex || '#ccc'}"></button>`).join('')}
+        <h3>Цвет и модель ${activeColor ? `<small>${escapeHtml(activeColor.name)} · ${models.length} ${this.plural(models.length, 'модель', 'модели', 'моделей')}</small>` : ''}</h3>
+        <div class="color-palette">
+          ${colors.map((c) => `<button class="pcolor ${c.id === this.colorId ? 'active' : ''}"
+             data-color="${c.id}" title="${escapeHtml(c.name)}" aria-label="${escapeHtml(c.name)}"
+             style="background:${c.hex}"></button>`).join('')}
+        </div>
+        <div class="model-carousel">
+          ${models.map((f) => `<button class="model-card ${f.id === this.formId ? 'active' : ''}"
+             data-form="${f.id}" title="${escapeHtml(f.line)} ${escapeHtml(f.color)}">
+             <span class="model-thumb"><img src="${encodeURI(f.images.front)}" alt="${escapeHtml(f.line)}" loading="lazy"></span>
+             <span class="model-name">${escapeHtml(f.line)}</span>
+          </button>`).join('')}
         </div>
       </section>
       <section>
@@ -160,8 +190,23 @@ export class UniformApp {
       </section>
     `;
 
-    this.panelEl.querySelectorAll('.swatch').forEach((b) => {
+    // Клик по цвету: переключаем цвет и выбираем первую форму этого цвета (ТЗ §2.1 — «по умолчанию первая»).
+    this.panelEl.querySelectorAll('.pcolor').forEach((b) => {
       b.onclick = async () => {
+        if (b.dataset.color === this.colorId) return;
+        this.colorId = b.dataset.color;
+        const first = this.formsForColor(this.colorId)[0];
+        if (first) this.formId = first.id;
+        this.selected = null;
+        this.buildPanel();
+        this.buildViews();
+        await this.renderAll();
+      };
+    });
+    // Клик по модели в карусели выбранного цвета.
+    this.panelEl.querySelectorAll('.model-card').forEach((b) => {
+      b.onclick = async () => {
+        if (b.dataset.form === this.formId) return;
         this.formId = b.dataset.form;
         this.selected = null;
         this.buildPanel();
@@ -440,7 +485,7 @@ export class UniformApp {
 
   // Зоны-кандидаты для переноса нанесения: того же типа, ещё свободные, кроме текущей.
   moveTargets(zone, currentPkey) {
-    return this.form.zones
+    return this.formZones
       .filter((z) => z.type === zone.type)
       .map((z) => ({ z, pkey: `${z.view}:${z.key}` }))
       .filter(({ pkey }) => pkey !== currentPkey && !(pkey in this.placements));
@@ -574,7 +619,7 @@ export class UniformApp {
 
   // Собираем занятые зоны по всем видам (перёд+спина+плечо) → цена за весь комплект.
   usedZones() {
-    const byKey = new Map(this.form.zones.map((z) => [z.key, z]));
+    const byKey = new Map(this.formZones.map((z) => [z.key, z]));
     const out = [];
     for (const composite of Object.keys(this.placements)) {
       const key = composite.split(':').slice(1).join(':');

@@ -12,13 +12,27 @@ const config = JSON.parse(
 // Пустой дизайн: идентификация модели, размерная категория, комплекты, нулевые нанесения.
 test('пустой заказ несёт модель, категорию, комплекты и цену за комплект', () => {
   const order = buildOrder({ config, formId: 'champion-blue', ageCategory: 'adult', quantity: 3, placements: [] });
-  assert.equal(order.formName, 'Champion синяя');
+  assert.equal(order.formName, 'Champion Синий');
   assert.equal(order.color, 'Синий');
   assert.equal(order.ageCategory, 'adult');
   assert.equal(order.quantity, 3);
   assert.deepEqual(order.items, []);
   assert.equal(order.price.perKit, 1280);
   assert.equal(order.price.grandTotal, 3840);
+});
+
+// Color-first каталог: форма не хранит свои зоны, наследует общий zoneTemplate.
+// Нанесение по зоне из шаблона должно тарифицироваться (иначе заказ «теряет» позиции).
+test('форма без собственных зон использует zoneTemplate каталога', () => {
+  const form = config.forms.find((f) => f.id === 'legend-red');
+  assert.ok(form && !form.zones, 'форма каталога не должна хранить собственные зоны');
+  const order = buildOrder({
+    config, formId: 'legend-red', ageCategory: 'adult', quantity: 1,
+    placements: [{ view: 'front', zoneKey: 'chest_number', type: 'text', value: '7', fontId: 'rpl' }]
+  });
+  assert.equal(order.items.length, 1);
+  assert.equal(order.items[0].label, 'Номер на грудь');
+  assert.equal(order.price.placementTotal, 300);
 });
 
 // Каждое нанесение попадает в позиции с человекочитаемым названием и видом,
