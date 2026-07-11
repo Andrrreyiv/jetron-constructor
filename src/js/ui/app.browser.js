@@ -11,7 +11,7 @@ const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
-const VIEW_LABEL = { front: 'Перёд', back: 'Спина', shoulder: 'Плечо' };
+const VIEW_LABEL = { front: 'Перед', back: 'Спина', shoulder: 'Плечо' };
 
 export class UniformApp {
   constructor({ config, viewsEl, panelEl }) {
@@ -138,7 +138,7 @@ export class UniformApp {
   // Плечо показывается отдельной картинкой сбоку, а не на теле формы, поэтому у него нет фон-мокапа.
   viewList() {
     const views = [
-      { id: 'front', label: 'Перёд' },
+      { id: 'front', label: 'Перед' },
       { id: 'back', label: 'Спина' }
     ];
     if (this.formZones.some((z) => z.view === 'shoulder')) views.push({ id: 'shoulder', label: 'Плечо' });
