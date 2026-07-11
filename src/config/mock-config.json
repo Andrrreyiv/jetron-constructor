@@ -25,6 +25,9 @@
 
   "canvas": { "width": 900, "height": 1200, "displayWidth": 450 },
 
+  "upload": { "maxUploadMB": 15, "compressOverMB": 1.5, "maxDimension": 1600, "quality": 0.85 },
+  "_upload_note": "Лимит и сжатие загрузки (ТЗ §4): файл больше maxUploadMB отклоняется; фото тяжелее compressOverMB вписывается в maxDimension px и кодируется в web-формат (webp, иначе jpeg). Проверку качества картинки не делаем (ТЗ §4).",
+
   "colors": [
     { "id": "white", "name": "Белый", "hex": "#f2f4f7" },
     { "id": "blue", "name": "Синий", "hex": "#1f5fd6" },
@@ -57,11 +60,26 @@
 
   "fonts": [
     { "id": "rpl", "name": "РПЛ", "file": "assets/fonts/RPL-Regular.otf", "cyrillic": true, "default": true },
+    { "id": "oswald", "name": "Oswald", "file": "assets/fonts/Oswald.ttf", "cyrillic": true },
+    { "id": "russoone", "name": "Russo One", "file": "assets/fonts/RussoOne.ttf", "cyrillic": true },
+    { "id": "adventor", "name": "Adventor", "file": "assets/fonts/texgyreadventor-regular.otf", "cyrillic": false },
+    { "id": "botafogo", "name": "Botafogo 23/24", "file": "assets/fonts/Botafogo 2023 2024.otf", "cyrillic": false },
+    { "id": "brazil2021", "name": "Brazil 2021", "file": "assets/fonts/Brazil 2021.otf", "cyrillic": false },
+    { "id": "brazil2024", "name": "Brazil 2024", "file": "assets/fonts/Brazil 2024.otf", "cyrillic": false },
+    { "id": "brazilwc2022", "name": "Brazil WC 2022", "file": "assets/fonts/Brazil WC 2022.otf", "cyrillic": false },
+    { "id": "epl2017", "name": "EPL 2017", "file": "assets/fonts/EPL 2017.otf", "cyrillic": false },
     { "id": "epl2023", "name": "EPL 2023", "file": "assets/fonts/EPL 2023.otf", "cyrillic": false },
+    { "id": "france2022", "name": "France WC 2022", "file": "assets/fonts/France WC 2022.otf", "cyrillic": false },
+    { "id": "germany2024", "name": "Germany Euro 2024", "file": "assets/fonts/Germany Euro 2024.otf", "cyrillic": false },
+    { "id": "intermiami", "name": "Inter Miami 23/24", "file": "assets/fonts/Inter Miami 2023 2024.otf", "cyrillic": false },
+    { "id": "juventus", "name": "Juventus 20/21", "file": "assets/fonts/Juventus 20-21.ttf", "cyrillic": false },
+    { "id": "liverpool", "name": "Liverpool 22/23", "file": "assets/fonts/Liverpool 2022 2023.otf", "cyrillic": false },
+    { "id": "mancity", "name": "Man City 24/25", "file": "assets/fonts/Manchester City 2024 2025.otf", "cyrillic": false },
+    { "id": "manutd", "name": "Man United 23/24", "file": "assets/fonts/Manchester United 2023 2024.otf", "cyrillic": false },
     { "id": "realmadrid", "name": "Real Madrid 21/22", "file": "assets/fonts/Real Madrid 2021 2022.otf", "cyrillic": false },
-    { "id": "mancity", "name": "Man City 24/25", "file": "assets/fonts/Manchester City 2024 2025.otf", "cyrillic": false }
+    { "id": "udinese", "name": "Udinese 19/20", "file": "assets/fonts/Udinese Calcio 2019 2020.ttf", "cyrillic": false }
   ],
-  "_fonts_note": "Кириллицу держит только РПЛ (по умолчанию). Доп. кириллические шрифты добавим по batch-4/U8 — здесь placeholder-набор для стенда.",
+  "_fonts_note": "19 шрифтов. Кириллицу держат РПЛ (по умолчанию, ТЗ §2.4), Oswald и Russo One (добавлены исполнителем по batch-4/§11.2 — спортивные, с кириллицей, чтобы фамилию писать по-русски). Проверено fontTools: у 16 клубных шрифтов кириллицы нет (латиница). Fallback: при латинском шрифте + кириллическом вводе текст рисуется РПЛ + подсказка. На боевом админ добавляет .otf/.ttf через WordPress (§10.3).",
 
   "sizes": {
     "child": {

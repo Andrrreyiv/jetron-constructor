@@ -2,7 +2,18 @@
    Radical redesign: тёмная сцена-витрина + нумерованные шаги + CTA-блок цены.
    Токены в :root. Имена классов/id совпадают с JS — не переименовывать. */
 
+/* Спортивный акцентный шрифт для заголовков и цены (с кириллицей). */
+@font-face {
+  font-family: "Oswald";
+  src: url("../../assets/fonts/Oswald.ttf") format("truetype");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
 :root {
+  /* Шрифты */
+  --font-display: "Oswald", "Inter", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
   /* Бренд */
   --brand: #1f5fd6;
   --brand-strong: #0d47b5;
@@ -81,11 +92,13 @@ body {
   display: grid; place-items: center;
   border-radius: 10px;
   background: linear-gradient(145deg, #3a80ff 0%, var(--brand) 100%);
-  color: #fff; font-weight: 900; font-size: 19px;
+  color: #fff; font-family: var(--font-display); font-weight: 700; font-size: 21px;
   box-shadow: var(--sh-brand);
 }
 .topbar .logo {
-  font-weight: 900; letter-spacing: 3.5px; color: #ffffff; font-size: 20px;
+  font-family: var(--font-display);
+  font-weight: 700; letter-spacing: 4px; color: #ffffff; font-size: 23px;
+  text-transform: uppercase;
 }
 .topbar .tag {
   color: rgba(255, 255, 255, .38); font-size: 13px;
@@ -135,8 +148,9 @@ body {
 }
 .canvas-col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .canvas-label {
-  font-weight: 700; font-size: 11px; color: var(--stage-label);
-  text-transform: uppercase; letter-spacing: .14em;
+  font-family: var(--font-display);
+  font-weight: 600; font-size: 13px; color: var(--stage-label);
+  text-transform: uppercase; letter-spacing: .16em;
 }
 .line-badge {
   flex-basis: 100%;
@@ -383,8 +397,17 @@ body {
 #price-total {
   margin-top: 12px; padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, .12);
-  font-size: 28px; font-weight: 900; letter-spacing: -.02em;
+  font-family: var(--font-display);
+  font-size: 32px; font-weight: 700; letter-spacing: .01em;
   text-align: right; color: #ffffff;
+}
+#price-total strong { font-weight: 700; }
+/* Микро-удар цены при изменении суммы */
+#price-total.bump { animation: price-bump .32s var(--ease); }
+@keyframes price-bump {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.07); color: #9ec1ff; }
+  100% { transform: scale(1); }
 }
 
 #order-btn {
@@ -407,10 +430,9 @@ body {
 
 /* ── Модалка заказа ──────────────────────────────────────── */
 .order-overlay {
-  position: fixed; inset: 0; background: rgba(8, 13, 26, .75);
+  position: fixed; inset: 0; background: rgba(8, 13, 26, .82);
   display: flex; align-items: center; justify-content: center;
   padding: 20px; z-index: 100;
-  backdrop-filter: blur(6px);
   animation: overlay-in .2s var(--ease);
 }
 @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
@@ -483,7 +505,8 @@ body {
 .order-grand {
   margin-top: 14px; padding: 16px 18px; border-radius: var(--r-md);
   background: var(--stage-bg); color: rgba(255, 255, 255, .65);
-  font-size: 22px; font-weight: 900; text-align: right; letter-spacing: -.01em;
+  font-family: var(--font-display);
+  font-size: 26px; font-weight: 700; text-align: right; letter-spacing: .01em;
 }
 .order-grand b { color: #ffffff; }
 
@@ -508,10 +531,25 @@ body {
   transform: none; filter: none;
 }
 
+/* ── Появление элементов (мягкий подъём) ─────────────────── */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.canvas-col { animation: rise-in .5s var(--ease) both; }
+.canvas-col:nth-child(2) { animation-delay: .08s; }
+.panel > section { animation: rise-in .45s var(--ease) both; }
+.panel > section:nth-child(2) { animation-delay: .05s; }
+.panel > section:nth-child(3) { animation-delay: .10s; }
+.panel > section:nth-child(4) { animation-delay: .14s; }
+
 /* ── Доступность ─────────────────────────────────────────── */
 :focus-visible { outline: 2.5px solid var(--brand); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-delay: 0 !important;
+    transition-duration: .01ms !important;
+  }
 }
 
 /* ── Мобильная раскладка ─────────────────────────────────── */

@@ -57,6 +57,75 @@ export class UniformApp {
     return many;
   }
 
+  // Есть ли в строке кириллица (диапазон U+0400..U+04FF).
+  hasCyrillic(s) { return /[\u0400-\u04FF]/.test(s || ''); }
+
+  fontById(fontId) { return (this.config.fonts || []).find((f) => f.id === fontId); }
+
+  defaultFontId() {
+    const def = (this.config.fonts || []).find((f) => f.default);
+    return def ? def.id : ((this.config.fonts || [])[0] || { id: 'rpl' }).id;
+  }
+
+  // Шрифт для ОТРИСОВКИ (ТЗ §10.3/§11.2): если выбран латинский шрифт, а текст с
+  // кириллицей — рисуем шрифтом РПЛ (по умолчанию), чтобы не было пустых квадратов.
+  resolveFont(fontId, text) {
+    const f = this.fontById(fontId);
+    if (this.hasCyrillic(text) && f && !f.cyrillic) return this.defaultFontId();
+    return fontId;
+  }
+
+  // Настройки загрузки из конфига (ТЗ §4) с безопасными значениями по умолчанию.
+  uploadCfg() {
+    return Object.assign(
+      { maxUploadMB: 15, compressOverMB: 1.5, maxDimension: 1600, quality: 0.85 },
+      this.config.upload || {}
+    );
+  }
+
+  // Готовит файл логотипа к вставке (ТЗ §4): отклоняет файлы тяжелее лимита,
+  // тяжёлые фото вписывает в maxDimension px и кодирует в web-формат (webp, иначе jpeg).
+  // Проверку качества картинки не делаем. Возвращает { url } или { error }.
+  prepareImage(file) {
+    const cfg = this.uploadCfg();
+    const MB = 1024 * 1024;
+    if (file.size > cfg.maxUploadMB * MB) {
+      return Promise.resolve({
+        error: `Файл больше ${cfg.maxUploadMB} МБ. Загрузите изображение поменьше.`,
+      });
+    }
+    // Лёгкие файлы вставляем как есть.
+    if (file.size <= cfg.compressOverMB * MB) {
+      return Promise.resolve({ url: URL.createObjectURL(file) });
+    }
+    // Тяжёлые — вписываем в maxDimension и пережимаем в web-формат.
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        const longSide = Math.max(img.naturalWidth, img.naturalHeight);
+        const scale = longSide > cfg.maxDimension ? cfg.maxDimension / longSide : 1;
+        const w = Math.round(img.naturalWidth * scale);
+        const h = Math.round(img.naturalHeight * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(objUrl);
+        let out = canvas.toDataURL('image/webp', cfg.quality);
+        if (!out.startsWith('data:image/webp')) {
+          out = canvas.toDataURL('image/jpeg', cfg.quality); // fallback
+        }
+        resolve({ url: out });
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objUrl);
+        resolve({ error: 'Не удалось прочитать изображение. Попробуйте другой файл.' });
+      };
+      img.src = objUrl;
+    });
+  }
+
   get placements() {
     return this.edit.placements;
   }
@@ -438,7 +507,7 @@ export class UniformApp {
       for (const zone of this.zonesFor(viewName)) {
         const p = this.placements[`${viewName}:${zone.key}`];
         if (!p) continue;
-        if (p.type === 'text') view.placeText(zone, p.value, p.fontId, p.color);
+        if (p.type === 'text') view.placeText(zone, p.value, this.resolveFont(p.fontId, p.value), p.color);
         else if (p.type === 'image') await view.placeImage(zone, p.value);
       }
     }
@@ -543,6 +612,8 @@ export class UniformApp {
             ${fonts.map((f) => `<option value="${f.id}" ${existing && existing.fontId === f.id ? 'selected' : ''}>${f.name}${f.cyrillic ? ' (кириллица)' : ''}</option>`).join('')}
           </select>
         </label>
+        <p class="hint font-hint" id="z-font-note" hidden></p>
+        <p class="hint font-hint">Не нашли свой шрифт? Свяжитесь с нами.</p>
         <label>Цвет шрифта</label>
         <div class="swatches color-row">${colorSwatches}</div>
         ${moveBlock}
@@ -550,14 +621,29 @@ export class UniformApp {
           <button id="z-apply">${existing ? 'Обновить' : 'Добавить'}</button>
           <button id="z-remove" class="ghost">Убрать</button>
         </div>`;
+      // Подсказка про кириллический fallback (ТЗ §10.3): показываем, только если
+      // выбран латинский шрифт и в поле есть русские буквы.
+      const updateFontNote = () => {
+        const note = box.querySelector('#z-font-note');
+        const text = box.querySelector('#z-text').value;
+        const f = this.fontById(box.querySelector('#z-font').value);
+        if (f && !f.cyrillic && this.hasCyrillic(text)) {
+          note.textContent = `Шрифт «${f.name}» без кириллицы. Русские буквы покажем шрифтом РПЛ.`;
+          note.hidden = false;
+        } else {
+          note.hidden = true;
+        }
+      };
       const apply = () => {
         const text = box.querySelector('#z-text').value.trim();
         const fontId = box.querySelector('#z-font').value;
         if (!text) return;
+        // Храним выбранный шрифт, рисуем эффективным (с учётом fallback).
         this.edit = setPlacement(this.edit, pkey, { type: 'text', value: text, fontId, color: this.textColor });
-        view.placeText(zone, text, fontId, this.textColor);
+        view.placeText(zone, text, this.resolveFont(fontId, text), this.textColor);
         this.renderJetron();
         this.updatePrice();
+        updateFontNote();
       };
       box.querySelectorAll('.color-sw').forEach((b) => {
         b.onclick = () => {
@@ -569,19 +655,36 @@ export class UniformApp {
       });
       box.querySelector('#z-apply').onclick = apply;
       box.querySelector('#z-text').onkeydown = (e) => { if (e.key === 'Enter') apply(); };
+      box.querySelector('#z-text').oninput = updateFontNote;
+      box.querySelector('#z-font').onchange = () => {
+        updateFontNote();
+        if (this.placements[pkey]) apply(); // живой предпросмотр смены шрифта
+      };
+      updateFontNote();
     } else {
       box.innerHTML = `
         <h3>${zone.label} <small>${priceLabel}</small></h3>
         ${toggleBlock}
         <input type="file" id="z-file" accept="image/*">
+        <p class="hint" id="z-file-note" hidden></p>
+        <p class="hint">До ${this.uploadCfg().maxUploadMB} МБ. Тяжёлые фото сжимаем для веба автоматически.</p>
         ${moveBlock}
         <div class="row"><button id="z-remove" class="ghost">Убрать</button></div>`;
-      box.querySelector('#z-file').onchange = (e) => {
+      box.querySelector('#z-file').onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        const url = URL.createObjectURL(file);
-        this.edit = setPlacement(this.edit, pkey, { type: 'image', value: url });
-        view.placeImage(zone, url);
+        const note = box.querySelector('#z-file-note');
+        const input = e.target;
+        const res = await this.prepareImage(file);
+        if (res.error) {
+          note.textContent = res.error;
+          note.hidden = false;
+          input.value = ''; // сбрасываем, чтобы можно было выбрать тот же файл заново
+          return;
+        }
+        note.hidden = true;
+        this.edit = setPlacement(this.edit, pkey, { type: 'image', value: res.url });
+        view.placeImage(zone, res.url);
         this.renderJetron();
         this.updatePrice();
       };
@@ -653,6 +756,15 @@ export class UniformApp {
     totalEl.innerHTML = this.quantity > 1
       ? `<strong>${perKit}</strong> × ${this.quantity} = <strong>${money(r.total * this.quantity)}</strong>`
       : `<strong>${perKit}</strong>`;
+
+    // Микро-взаимодействие: лёгкий «удар» суммы при её изменении.
+    const grand = r.total * this.quantity;
+    if (this._lastGrand !== undefined && this._lastGrand !== grand) {
+      totalEl.classList.remove('bump');
+      void totalEl.offsetWidth; // reflow, чтобы перезапустить анимацию
+      totalEl.classList.add('bump');
+    }
+    this._lastGrand = grand;
 
     const undoBtn = this.panelEl.querySelector('#undo-btn');
     if (undoBtn) undoBtn.disabled = !canUndo(this.edit);
