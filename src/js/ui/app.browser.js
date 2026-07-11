@@ -154,6 +154,48 @@ export class UniformApp {
     this.buildPanel();
     this.buildViews();
     await this.renderAll();
+    this._installResizeRefit();
+  }
+
+  // Доступная ширина под ряд холстов = ширина сцены минус её внутренние отступы.
+  // Меряем именно #stage (родителя), т.к. сам #views центрируется и сжимается по контенту.
+  _availWidth() {
+    const stage = this.viewsEl.parentElement;
+    if (!stage) return 776;
+    const cs = getComputedStyle(stage);
+    const w = stage.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+    return Math.max(w, 260);
+  }
+
+  // Размер холста подстраивается под экран: на десктопе — как раньше (все виды в один ряд),
+  // на планшете — 2 в ряд, на телефоне — один большой холст на всю ширину (а не крошечные 210px).
+  _displayWidth(n) {
+    const gap = 20, chrome = 26; // gap между колонками + паддинг/бордер .canvas-wrap
+    const avail = this._availWidth();
+    const deskDW = n >= 3 ? 210 : 300;
+    const rowNeed = n * (deskDW + chrome) + (n - 1) * gap;
+    if (avail >= rowNeed) return deskDW; // десктоп: поведение не меняется
+    if (n >= 2 && avail >= 2 * (240 + chrome) + gap) { // планшет: 2 в ряд
+      return Math.max(150, Math.min(300, Math.floor((avail - gap) / 2) - chrome));
+    }
+    return Math.max(150, Math.min(440, Math.round(avail - chrome))); // телефон: один на всю ширину
+  }
+
+  // Перестроить холсты при смене ширины экрана / повороте телефона (с дебаунсом).
+  // Размещения переживают перестройку — они хранятся в this.edit, renderAll их восстановит.
+  _installResizeRefit() {
+    if (this._resizeInstalled) return;
+    this._resizeInstalled = true;
+    let t;
+    window.addEventListener('resize', () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        const dw = this._displayWidth(this.viewList().length);
+        if (Math.abs(dw - (this._lastDisplayWidth || 0)) < 8) return; // мелкие дрожания игнорируем
+        this.buildViews();
+        this.renderAll();
+      }, 180);
+    }, { passive: true });
   }
 
   async loadFonts() {
@@ -187,7 +229,8 @@ export class UniformApp {
 
     const list = this.viewList();
     const base = this.config.canvas || { width: 900, height: 1200, displayWidth: 450 };
-    const displayWidth = list.length >= 3 ? 210 : 300;
+    const displayWidth = this._displayWidth(list.length);
+    this._lastDisplayWidth = displayWidth;
 
     for (const v of list) {
       const col = document.createElement('div');

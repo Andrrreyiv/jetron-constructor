@@ -594,16 +594,56 @@ body {
   }
 }
 
+/* ── Тач-эргономика (телефоны/планшеты) ──────────────────── */
+button, .pcolor, .color-sw, .seg-btn, .model-card, label,
+input[type="radio"], input[type="checkbox"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+/* Инерционный скролл карусели на iOS */
+.model-carousel { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+
 /* ── Мобильная раскладка ─────────────────────────────────── */
 @media (max-width: 900px) {
-  #app { grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
+  #app {
+    grid-template-columns: 1fr; gap: 16px; margin-top: 16px;
+    padding-left: max(24px, env(safe-area-inset-left));
+    padding-right: max(24px, env(safe-area-inset-right));
+  }
   #stage { padding: 28px 16px 22px; border-radius: var(--r-lg); }
   #price-box { position: static; }
-  .topbar { position: static; }
+  .topbar { position: static; padding-top: max(15px, env(safe-area-inset-top)); }
+  /* Ряд кнопок в панели тянется на всю ширину — удобнее пальцем */
+  .row { gap: 10px; }
+  .row button:not(.swatch):not(.color-sw):not(.seg-btn) { flex: 1 1 auto; min-height: 46px; }
 }
 @media (max-width: 560px) {
-  #app { padding: 0 12px; }
+  #app {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  #stage { padding: 22px 10px 18px; }
   .panel > section { padding: 16px; }
   .topbar { padding: 12px 16px; }
-  #price-total { font-size: 22px; }
+  .topbar .logo { font-size: 21px; letter-spacing: 3.5px; }
+  #price-total { font-size: 26px; }
+  /* Пункт списка/чекбоксы — крупнее для касания */
+  .panel label { padding: 3px 0; min-height: 30px; }
+  .pcolor { width: 40px; height: 40px; }
+  .color-palette { gap: 11px; }
+  /* Карусель моделей — карточки чуть крупнее и заметнее, что скроллятся */
+  .model-card { width: 96px; }
+  /* Заказ раскрывается как нижняя «шторка» на всю высоту — привычно на телефоне */
+  .order-overlay { padding: 0; align-items: flex-end; }
+  .order-card {
+    max-width: 100%; max-height: 96vh; width: 100%;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    animation: sheet-up .26s var(--ease);
+  }
+  .order-foot { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .order-foot button { flex: 1; min-height: 48px; }
+}
+@keyframes sheet-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: none; }
 }
