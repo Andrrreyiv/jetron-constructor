@@ -38,9 +38,13 @@ export class UniformApp {
     return this.config.forms.find((f) => f.id === this.formId);
   }
 
-  // Зоны текущей формы: собственные, иначе общий шаблон каталога (color-first).
+  // Зоны текущей формы: собственные zones, иначе именованный zoneSet
+  // (напр. singleFront для линеек с отдельным фото переда), иначе общий шаблон.
   get formZones() {
-    return this.form.zones || this.config.zoneTemplate || [];
+    const named = this.form.zoneSet && this.config.zoneSets
+      ? this.config.zoneSets[this.form.zoneSet]
+      : null;
+    return this.form.zones || named || this.config.zoneTemplate || [];
   }
 
   // Все формы выбранного цвета — это и есть «карусель» из ТЗ §2.1.
