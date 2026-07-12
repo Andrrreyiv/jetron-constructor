@@ -22,39 +22,43 @@
   --font-display: "Oswald", "Manrope", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-body: "Manrope", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 
-  /* Бренд */
-  --brand: #1f5fd6;
-  --brand-strong: #0d47b5;
-  --brand-soft: #e8f0ff;
-  --brand-ring: rgba(31, 95, 214, .28);
+  /* Синий акцент — кнопка «+» загрузки, фокус полей, ссылки */
+  --brand: #2f6fe0;
+  --brand-strong: #1f56c4;
+  --brand-soft: #eaf1ff;
+  --brand-ring: rgba(47, 111, 224, .24);
 
-  /* Тёмная сцена */
-  --stage-bg: #0b1120;
-  --stage-card: #141f35;
-  --stage-border: rgba(255, 255, 255, .08);
-  --stage-text: rgba(255, 255, 255, .50);
-  --stage-label: rgba(255, 255, 255, .82);
+  /* Тёмно-синий — главные кнопки (Оформить заказ, Перейти в каталог) */
+  --navy: #14294c;
+  --navy-strong: #0c1c39;
 
-  /* Нейтральные */
-  --ink: #0f1826;
-  --ink-2: #38424f;
-  --muted: #6b7684;
-  --line: #e6ebf2;
-  --line-strong: #d3dae5;
+  /* Светлая тёплая сцена (макет-панель) */
+  --stage-bg: #fdf9ef;
+  --stage-card: #ffffff;
+  --stage-border: #ece3d0;
+  --stage-text: #8b8578;
+  --stage-label: #1b1b1b;
+
+  /* Нейтральные (тёплая кремовая гамма клиента) */
+  --ink: #1b1b1b;
+  --ink-2: #3a3a3a;
+  --muted: #8b8578;
+  --line: #ece5d6;
+  --line-strong: #dad0bd;
   --surface: #ffffff;
-  --surface-2: #f7f9fc;
-  --bg: #eef2f8;
+  --surface-2: #f6f1e6;
+  --bg: #fbf1db;
 
   /* Семантика */
-  --success: #12a150;
-  --success-soft: #e8f7ee;
+  --success: #45b155;
+  --success-soft: #e7f6ea;
 
-  /* Тени */
-  --sh-sm: 0 1px 3px rgba(15, 24, 48, .06);
-  --sh-md: 0 4px 24px rgba(15, 24, 48, .10);
-  --sh-lg: 0 20px 60px rgba(15, 24, 48, .22);
-  --sh-brand: 0 4px 20px rgba(31, 95, 214, .40);
-  --sh-stage: 0 16px 52px rgba(0, 0, 0, .55);
+  /* Тени (тёплые, мягкие) */
+  --sh-sm: 0 1px 3px rgba(90, 70, 30, .07);
+  --sh-md: 0 6px 22px rgba(90, 70, 30, .10);
+  --sh-lg: 0 20px 60px rgba(60, 45, 15, .20);
+  --sh-brand: 0 4px 18px rgba(20, 41, 76, .28);
+  --sh-stage: 0 14px 44px rgba(90, 70, 30, .12);
 
   /* Радиусы */
   --r-xl: 24px;
@@ -91,9 +95,9 @@ body {
   flex-wrap: wrap;
   gap: 10px 18px;
   padding: 15px 28px;
-  background: linear-gradient(180deg, #101a30 0%, var(--stage-bg) 100%);
-  border-bottom: 1px solid rgba(120, 160, 255, .12);
-  box-shadow: 0 1px 0 rgba(120, 160, 255, .06), 0 10px 30px rgba(0, 0, 0, .28);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(90, 70, 30, .03), 0 6px 22px rgba(90, 70, 30, .05);
   position: sticky;
   top: 0;
   z-index: 40;
@@ -103,7 +107,7 @@ body {
   width: 38px; height: 38px;
   display: grid; place-items: center;
   border-radius: 11px;
-  background: linear-gradient(145deg, #4a8dff 0%, var(--brand-strong) 100%);
+  background: linear-gradient(145deg, #1f56c4 0%, var(--navy) 100%);
   color: #fff; font-family: var(--font-display); font-weight: 700; font-size: 23px;
   box-shadow: var(--sh-brand), inset 0 1px 0 rgba(255, 255, 255, .30);
   position: relative;
@@ -118,14 +122,12 @@ body {
   font-family: var(--font-display);
   font-weight: 700; letter-spacing: 4.5px; font-size: 24px;
   text-transform: uppercase;
-  background: linear-gradient(180deg, #ffffff 0%, #c9d8f5 100%);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: #fff;
+  color: var(--ink);
 }
 .topbar .tag {
-  color: rgba(180, 205, 255, .62); font-size: 12px; font-weight: 600;
+  color: var(--muted); font-size: 12px; font-weight: 600;
   letter-spacing: .04em;
-  background: rgba(120, 160, 255, .10); border: 1px solid rgba(120, 160, 255, .20);
+  background: var(--surface-2); border: 1px solid var(--line);
   padding: 5px 15px; border-radius: 999px;
 }
 
@@ -145,35 +147,13 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background:
-    radial-gradient(ellipse 70% 55% at 50% 0%, #16233f 0%, transparent 60%),
-    linear-gradient(180deg, #0e1830 0%, var(--stage-bg) 55%, #080e1c 100%);
+  background: var(--stage-bg);
+  border: 1px solid var(--stage-border);
   border-radius: var(--r-xl);
   padding: 40px 32px 28px;
   position: relative;
   overflow: hidden;
-  box-shadow: var(--sh-stage), inset 0 1px 0 rgba(255, 255, 255, .05);
-}
-/* Голубое свечение-прожектор позади форм */
-#stage::before {
-  content: '';
-  position: absolute;
-  top: 24%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 82%; height: 500px;
-  background: radial-gradient(ellipse, rgba(58, 128, 255, .22) 0%, rgba(31, 95, 214, .08) 45%, transparent 72%);
-  pointer-events: none;
-}
-/* Тонкая сетка-текстура «спортивного поля» (лёгкая, без mask — дружелюбно к мобилке) */
-#stage::after {
-  content: '';
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(120, 160, 255, .028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(120, 160, 255, .028) 1px, transparent 1px);
-  background-size: 46px 46px;
-  opacity: .7;
-  pointer-events: none;
+  box-shadow: var(--sh-stage), inset 0 1px 0 #fff;
 }
 
 /* ── Холсты ─────────────────────────────────────────────── */
@@ -192,8 +172,8 @@ body {
   flex-basis: 100%;
   display: inline-flex; align-self: flex-start; width: auto;
   padding: 5px 14px; margin-bottom: 10px;
-  background: rgba(31, 95, 214, .22); color: #90b5ff;
-  border: 1px solid rgba(31, 95, 214, .38);
+  background: var(--brand-soft); color: var(--brand-strong);
+  border: 1px solid rgba(47, 111, 224, .28);
   border-radius: 999px;
   font-weight: 700; font-size: 12px; letter-spacing: .10em; text-transform: uppercase;
 }
@@ -202,17 +182,17 @@ body {
   border: 1px solid var(--stage-border);
   border-radius: var(--r-md);
   padding: 12px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, .50);
+  box-shadow: var(--sh-md);
   transition: box-shadow .25s var(--ease), transform .25s var(--ease), border-color .25s var(--ease);
 }
 .canvas-wrap:hover {
-  box-shadow: 0 20px 60px rgba(0, 0, 0, .65), 0 0 0 1px rgba(31, 95, 214, .45);
+  box-shadow: 0 16px 44px rgba(90, 70, 30, .16), 0 0 0 1px rgba(47, 111, 224, .3);
   transform: translateY(-4px);
 }
 .canvas-wrap canvas { display: block; border-radius: 6px; }
 
 .note {
-  color: rgba(255, 255, 255, .25); font-size: 12px; margin-top: 24px;
+  color: var(--muted); font-size: 12px; margin-top: 24px;
   max-width: 500px; text-align: center; line-height: 1.65;
   position: relative; z-index: 1;
 }
@@ -316,7 +296,7 @@ body {
 /* ── Палитра цвета изделия (ТЗ §2.1) ─────────────────────── */
 .color-palette { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 14px; }
 .pcolor {
-  width: 34px; height: 34px; border-radius: 50%;
+  width: 34px; height: 34px; border-radius: 8px;
   border: 2.5px solid #fff;
   box-shadow: 0 0 0 1.5px var(--line-strong), var(--sh-sm);
   cursor: pointer; padding: 0;
@@ -399,25 +379,25 @@ body {
 /* ── Блок цены (тёмная карточка = акцент) ───────────────── */
 #price-box {
   position: sticky; top: 76px;
-  background: var(--stage-bg);
-  border: 1px solid rgba(255, 255, 255, .10);
-  box-shadow: var(--sh-stage);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--sh-md);
 }
-#price-box h3 { color: rgba(255, 255, 255, .45); }
+#price-box h3 { color: var(--muted); }
 
 #price-box .pline {
   display: flex; justify-content: space-between;
-  font-size: 14px; padding: 5px 0; color: rgba(255, 255, 255, .68);
+  font-size: 14px; padding: 5px 0; color: var(--ink-2);
 }
-#price-box .pline.discount { color: #4ade80; font-weight: 700; }
+#price-box .pline.discount { color: var(--success); font-weight: 700; }
 #price-lines { margin-bottom: 6px; }
 
 #price-total {
   margin-top: 12px; padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, .12);
+  border-top: 1px solid var(--line);
   font-family: var(--font-display);
   font-size: 32px; font-weight: 700; letter-spacing: .01em;
-  text-align: right; color: #ffffff;
+  text-align: right; color: var(--ink);
 }
 #price-total strong { font-weight: 700; }
 /* Микро-удар цены при изменении суммы */
@@ -431,12 +411,14 @@ body {
 #order-btn {
   width: 100%; margin-top: 14px; padding: 14px;
   font-size: 15px; font-weight: 800; letter-spacing: .04em;
-  border-radius: 10px;
-  background: linear-gradient(145deg, #3a80ff 0%, #1f5fd6 100%);
-  box-shadow: 0 6px 24px rgba(31, 95, 214, .55), 0 0 0 1px rgba(255, 255, 255, .10);
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(20, 41, 76, .30);
 }
 #order-btn:hover {
-  box-shadow: 0 10px 36px rgba(31, 95, 214, .72), 0 0 0 1px rgba(255, 255, 255, .15);
+  background: var(--navy-strong);
+  box-shadow: 0 10px 30px rgba(20, 41, 76, .42);
 }
 
 /* ── Блок выбора цвета/модели ПОД макетом (тёмная сцена) ─── */
@@ -446,7 +428,7 @@ body {
   margin: 26px auto 0;
   position: relative; z-index: 1;
   padding-top: 22px;
-  border-top: 1px solid rgba(255, 255, 255, .08);
+  border-top: 1px solid var(--line);
 }
 .cp-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -457,16 +439,17 @@ body {
   font-size: 13px; font-weight: 600; letter-spacing: .10em;
   text-transform: uppercase; color: var(--stage-label);
 }
-.cp-title b { color: #fff; font-weight: 700; }
+.cp-title b { color: var(--ink); font-weight: 700; }
 .stage-btn {
-  padding: 8px 16px; border-radius: var(--r-sm);
-  background: rgba(120, 160, 255, .10);
-  border: 1px solid rgba(120, 160, 255, .28);
-  color: #bcd3ff; cursor: pointer;
+  padding: 8px 16px; border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  color: var(--ink); cursor: pointer;
   font-size: 13px; font-weight: 700; font-family: inherit;
+  box-shadow: var(--sh-sm);
   transition: background .15s var(--ease), border-color .15s var(--ease), transform .15s var(--ease);
 }
-.stage-btn:hover { background: rgba(120, 160, 255, .18); border-color: rgba(120, 160, 255, .5); transform: translateY(-1px); }
+.stage-btn:hover { border-color: var(--navy); transform: translateY(-1px); }
 .colorpick .color-palette { margin-bottom: 18px; }
 .cp-models-label {
   font-family: var(--font-display);
@@ -501,9 +484,9 @@ body {
 .opt-card:hover { box-shadow: var(--sh-md); }
 /* Активная (показана на макете) — подсветка рамкой + фоном (клиент 2026-07-12) */
 .opt-card.active {
-  border-color: var(--brand);
-  background: linear-gradient(135deg, #ffffff 0%, var(--brand-soft) 100%);
-  box-shadow: 0 0 0 3px var(--brand-ring), var(--sh-sm);
+  border-color: var(--success);
+  background: linear-gradient(135deg, #ffffff 0%, var(--success-soft) 100%);
+  box-shadow: 0 0 0 3px rgba(69, 177, 85, .14), var(--sh-sm);
 }
 .opt-card.open { box-shadow: var(--sh-md); }
 
@@ -512,20 +495,20 @@ body {
   gap: 12px; padding: 15px 16px; cursor: pointer; user-select: none;
 }
 .opt-head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.opt-title { font-weight: 700; font-size: 14.5px; color: var(--ink); }
+.opt-title { font-weight: 800; font-size: 15.5px; color: var(--ink); letter-spacing: -.01em; }
 .opt-sub { font-size: 12px; color: var(--muted); line-height: 1.35; }
 .opt-head-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .opt-price {
   font-family: var(--font-display);
-  font-size: 13px; font-weight: 700; color: var(--brand-strong);
+  font-size: 15px; font-weight: 700; color: var(--ink);
   white-space: nowrap;
 }
-.opt-card.active .opt-price { color: var(--brand-strong); }
+.opt-card.active .opt-price { color: var(--ink); }
 .opt-chev {
   color: var(--line-strong); font-size: 12px;
   transition: transform .22s var(--ease);
 }
-.opt-card.open .opt-chev { transform: rotate(180deg); color: var(--brand); }
+.opt-card.open .opt-chev { transform: rotate(180deg); color: var(--navy); }
 
 /* Тумблер ON/OFF (появляется только когда есть данные) */
 .opt-toggle {
@@ -658,49 +641,50 @@ body {
 /* ── Итог + CTA (тёмная липкая карточка) ─────────────────── */
 .price-box.price-box {
   position: sticky; top: 76px;
-  background: var(--stage-bg);
-  border: 1px solid rgba(255, 255, 255, .10);
-  box-shadow: var(--sh-stage);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--sh-md);
   padding: 18px 20px;
 }
 .price-lines-toggle {
   display: flex !important; align-items: center; justify-content: space-between;
   width: 100%; padding: 0 0 4px !important; margin: 0;
   background: none !important; border: none; box-shadow: none !important;
-  color: rgba(255, 255, 255, .55) !important; cursor: pointer;
+  color: var(--muted) !important; cursor: pointer;
   font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
 }
-.price-lines-toggle:hover { color: rgba(255, 255, 255, .8) !important; transform: none !important; filter: none !important; }
+.price-lines-toggle:hover { color: var(--ink) !important; transform: none !important; filter: none !important; }
 .price-lines-toggle .chev { transition: transform .2s var(--ease); }
 .price-lines-toggle.open .chev { transform: rotate(180deg); }
 .price-lines { padding: 8px 0 4px; }
 .price-lines .pline {
   display: flex; justify-content: space-between;
-  font-size: 13.5px; padding: 4px 0; color: rgba(255, 255, 255, .68);
+  font-size: 13.5px; padding: 4px 0; color: var(--ink-2);
 }
-.price-lines .pline.discount { color: #4ade80; font-weight: 700; }
+.price-lines .pline.discount { color: var(--success); font-weight: 700; }
 .price-foot {
   display: flex; align-items: baseline; justify-content: space-between;
   padding-top: 12px; margin-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, .12);
+  border-top: 1px solid var(--line);
 }
 .price-foot-label {
   font-family: var(--font-display); font-size: 13px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .08em; color: rgba(255, 255, 255, .5);
+  text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
 }
 .price-total {
   font-family: var(--font-display);
-  font-size: 30px; font-weight: 700; letter-spacing: .01em; color: #fff;
+  font-size: 30px; font-weight: 700; letter-spacing: .01em; color: var(--ink);
 }
 .price-total.bump { animation: price-bump .32s var(--ease); }
 .cta.cta {
   width: 100%; margin-top: 14px; padding: 15px;
   font-size: 15px; font-weight: 800; letter-spacing: .04em;
-  border-radius: 10px;
-  background: linear-gradient(145deg, #3a80ff 0%, #1f5fd6 100%);
-  box-shadow: 0 6px 24px rgba(31, 95, 214, .55), 0 0 0 1px rgba(255, 255, 255, .10);
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(20, 41, 76, .30);
 }
-.cta.cta:hover { box-shadow: 0 10px 36px rgba(31, 95, 214, .72), 0 0 0 1px rgba(255, 255, 255, .15); }
+.cta.cta:hover { background: var(--navy-strong); box-shadow: 0 10px 30px rgba(20, 41, 76, .42); }
 
 /* ── Тост статуса ────────────────────────────────────────── */
 .status {
@@ -789,7 +773,7 @@ body {
 }
 .order-grand {
   margin-top: 14px; padding: 16px 18px; border-radius: var(--r-md);
-  background: var(--stage-bg); color: rgba(255, 255, 255, .65);
+  background: var(--navy); color: rgba(255, 255, 255, .65);
   font-family: var(--font-display);
   font-size: 26px; font-weight: 700; text-align: right; letter-spacing: .01em;
 }
@@ -801,8 +785,8 @@ body {
   position: sticky; bottom: 0; background: #fff;
 }
 .order-foot button {
-  padding: 12px 22px; border: none; border-radius: var(--r-sm);
-  background: linear-gradient(145deg, #3a80ff 0%, var(--brand-strong) 100%);
+  padding: 12px 22px; border: none; border-radius: 999px;
+  background: var(--navy);
   color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; font-family: inherit;
   box-shadow: var(--sh-brand); transition: transform .15s var(--ease), filter .15s var(--ease);
 }
