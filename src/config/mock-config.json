@@ -62,6 +62,10 @@
     { "id": "rpl", "name": "РПЛ", "file": "assets/fonts/RPL-Regular.otf", "cyrillic": true, "default": true },
     { "id": "oswald", "name": "Oswald", "file": "assets/fonts/Oswald.ttf", "cyrillic": true },
     { "id": "russoone", "name": "Russo One", "file": "assets/fonts/RussoOne.ttf", "cyrillic": true },
+    { "id": "rubikmono", "name": "Rubik Mono", "file": "assets/fonts/RubikMonoOne.ttf", "cyrillic": true },
+    { "id": "prostoone", "name": "Prosto One", "file": "assets/fonts/ProstoOne.ttf", "cyrillic": true },
+    { "id": "play", "name": "Play", "file": "assets/fonts/Play-Bold.ttf", "cyrillic": true },
+    { "id": "stalinist", "name": "Stalinist One", "file": "assets/fonts/StalinistOne.ttf", "cyrillic": true },
     { "id": "adventor", "name": "Adventor", "file": "assets/fonts/texgyreadventor-regular.otf", "cyrillic": false },
     { "id": "botafogo", "name": "Botafogo 23/24", "file": "assets/fonts/Botafogo 2023 2024.otf", "cyrillic": false },
     { "id": "brazil2021", "name": "Brazil 2021", "file": "assets/fonts/Brazil 2021.otf", "cyrillic": false },
@@ -79,7 +83,7 @@
     { "id": "realmadrid", "name": "Real Madrid 21/22", "file": "assets/fonts/Real Madrid 2021 2022.otf", "cyrillic": false },
     { "id": "udinese", "name": "Udinese 19/20", "file": "assets/fonts/Udinese Calcio 2019 2020.ttf", "cyrillic": false }
   ],
-  "_fonts_note": "19 шрифтов. Кириллицу держат РПЛ (по умолчанию, ТЗ §2.4), Oswald и Russo One (добавлены исполнителем по batch-4/§11.2 — спортивные, с кириллицей, чтобы фамилию писать по-русски). Проверено fontTools: у 16 клубных шрифтов кириллицы нет (латиница). Fallback: при латинском шрифте + кириллическом вводе текст рисуется РПЛ + подсказка. На боевом админ добавляет .otf/.ttf через WordPress (§10.3).",
+  "_fonts_note": "23 шрифта. Кириллицу держат 7: РПЛ (по умолчанию, ТЗ §2.4), Oswald, Russo One, Rubik Mono, Prosto One, Play, Stalinist One (все спортивные/display Google Fonts с кириллицей, чтобы фамилию писать по-русски). У 16 клубных шрифтов кириллицы нет (латиница). Fallback: при латинском шрифте + кириллическом вводе текст рисуется РПЛ + подсказка. На боевом админ добавляет .otf/.ttf через WordPress (§10.3).",
 
   "sizes": {
     "child": {
