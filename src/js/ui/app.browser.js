@@ -5,7 +5,7 @@
 import { CanvasView } from './canvas.browser.js';
 import { calculatePrice } from '../core/PriceCalculator.js';
 import { buildOrder } from '../core/OrderSummary.js';
-import { createState, setPlacement, removePlacement, movePlacement, undo, canUndo } from '../core/EditHistory.js';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -27,11 +27,16 @@ export class UniformApp {
     this.gaiters = false;
     this.quantity = 1;
     this.jetron = { chest: false, back: false };
-    // Размещения живут в чистой модели истории: ключ `${view}:${zoneKey}` → {type,value,fontId,color}.
+    // Размещения на макете — производная от кэша опций: ключ `${view}:${zoneKey}` → {type,value,fontId,color}.
     this.edit = createState();
-    this.textColor = (config.textColors && config.textColors[0]) ? config.textColors[0].hex : '#ffffff';
-    this.selected = null; // { view, key } выбранной зоны
-    this.anyMode = {}; // pkey → 'text'|'image' — выбор режима для зон type:'any' (ТЗ 2026-07-10, C13)
+    // Дизайн-конструктор 2026-07-12 (2 голосовых клиента):
+    // optCache — введённые данные опции, ПЕРЕЖИВАЮТ выключение (щёлкнул OFF → данные целы).
+    // optShown — показана ли опция на макете (тумблер ON/OFF).
+    // openOpt — id раскрытой карточки (аккордеон: открыта только одна, «не хватит места»).
+    this.optCache = {}; // id → { name,number,fontId,color } | { image } | { text } | { number }
+    this.optShown = {}; // id → bool
+    this.openOpt = null; // id раскрытой опции
+    this.textColor = (config.textColors && config.textColors[1]) ? config.textColors[1].hex : '#111111'; // чёрный по умолчанию
   }
 
   get form() {
@@ -152,6 +157,7 @@ export class UniformApp {
   async start() {
     await this.loadFonts();
     this.buildPanel();
+    this.buildColorPicker();
     this.buildViews();
     await this.renderAll();
     this._installResizeRefit();
@@ -253,94 +259,268 @@ export class UniformApp {
     }
   }
 
+  // Правая панель-конструктор (дизайн клиента 2026-07-12): заголовок → список опций-карточек
+  // (аккордеон + тумблер ON/OFF + крестик) → доп.опции (размер/гетры/джетрон/кол-во) → итог + CTA.
   buildPanel() {
-    // ТЗ §2.1: сначала цвет (палитра кружочков) → затем карусель всех форм этого цвета.
-    const colors = this.config.colors || [];
-    const models = this.formsForColor(this.colorId);
-    const activeColor = colors.find((c) => c.id === this.colorId);
+    const p = this.config.prices;
     this.panelEl.innerHTML = `
-      <section>
-        <h3>Цвет и модель ${activeColor ? `<small>${escapeHtml(activeColor.name)} · ${models.length} ${this.plural(models.length, 'модель', 'модели', 'моделей')}</small>` : ''}</h3>
-        <div class="color-palette">
-          ${colors.map((c) => `<button class="pcolor ${c.id === this.colorId ? 'active' : ''}"
-             data-color="${c.id}" title="${escapeHtml(c.name)}" aria-label="${escapeHtml(c.name)}"
-             style="background:${c.hex}"></button>`).join('')}
+      <div class="panel-title">
+        <h2>Соберите форму</h2>
+        <p>Включайте нужные нанесения. Всё, что добавите, сразу видно на макете слева.</p>
+      </div>
+
+      <div id="opt-list" class="opt-list"></div>
+
+      <section id="opt-extra" class="opt-extra">
+        <h3>Комплектация</h3>
+        <div class="extra-block">
+          <span class="extra-label">Размерная категория</span>
+          <div class="seg" id="age-seg">
+            <button class="seg-btn active" data-age="adult">Взрослая · ${money(p.form.adult)}</button>
+            <button class="seg-btn" data-age="child">Детская · ${money(p.form.child)}</button>
+          </div>
         </div>
-        <div class="model-carousel">
-          ${models.map((f) => `<button class="model-card ${f.id === this.formId ? 'active' : ''}"
-             data-form="${f.id}" title="${escapeHtml(f.line)} ${escapeHtml(f.color)}">
-             <span class="model-thumb"><img src="${encodeURI(f.images.front)}" alt="${escapeHtml(f.line)}" loading="lazy"></span>
-             <span class="model-name">${escapeHtml(f.line)}</span>
-          </button>`).join('')}
+        <label class="extra-check"><input type="checkbox" id="opt-gaiters"> <span>Гетры <em>+${money(p.gaiters)}</em></span></label>
+        <label class="extra-check"><input type="checkbox" id="opt-jchest"> <span>Джетрон на груди <em>−5%</em></span></label>
+        <label class="extra-check"><input type="checkbox" id="opt-jback"> <span>Джетрон на спине <em>−5%</em></span></label>
+        <div class="extra-block qty-block">
+          <span class="extra-label">Комплектов</span>
+          <div class="qty-stepper">
+            <button type="button" id="qty-minus" aria-label="Меньше">−</button>
+            <input type="number" id="opt-qty" min="1" value="1" inputmode="numeric">
+            <button type="button" id="qty-plus" aria-label="Больше">+</button>
+          </div>
         </div>
-      </section>
-      <section>
-        <h3>Размерная категория</h3>
-        <label><input type="radio" name="age" value="adult" checked> Взрослая (${money(this.config.prices.form.adult)})</label>
-        <label><input type="radio" name="age" value="child"> Детская (${money(this.config.prices.form.child)})</label>
-      </section>
-      <section>
-        <h3>Опции</h3>
-        <label><input type="checkbox" id="opt-gaiters"> Гетры (+${money(this.config.prices.gaiters)})</label>
-        <label><input type="checkbox" id="opt-jchest"> Джетрон на груди (−5%)</label>
-        <label><input type="checkbox" id="opt-jback"> Джетрон на спине (−5%)</label>
-        <label>Комплектов: <input type="number" id="opt-qty" min="1" value="1" style="width:64px"></label>
-      </section>
-      <section id="zone-tool">
-        <h3>Зона</h3>
-        <p class="hint">Кликните пунктирную зону на макете, чтобы добавить текст или логотип.</p>
-      </section>
-      <section>
-        <h3>Действия</h3>
-        <div class="row">
-          <button id="undo-btn" class="ghost" disabled>↶ Отменить</button>
-          <button id="size-btn" class="ghost">Размеры</button>
-          <button id="download-btn" class="ghost">Скачать макет</button>
+        <div class="extra-links">
+          <button id="size-btn" class="linkbtn" type="button">Таблица размеров</button>
         </div>
       </section>
-      <section id="price-box">
-        <h3>Стоимость</h3>
-        <div id="price-lines"></div>
-        <div id="price-total"></div>
-        <button id="order-btn" style="width:100%;margin-top:12px">Оформить заказ</button>
+
+      <section id="price-box" class="price-box">
+        <button id="price-lines-toggle" class="price-lines-toggle" type="button" aria-expanded="false">
+          <span>Детализация</span><span class="chev">▾</span>
+        </button>
+        <div id="price-lines" class="price-lines" hidden></div>
+        <div class="price-foot">
+          <span class="price-foot-label">Итого</span>
+          <span id="price-total" class="price-total"></span>
+        </div>
+        <button id="order-btn" class="cta">Оформить заказ</button>
       </section>
     `;
 
-    // Клик по цвету: переключаем цвет и выбираем первую форму этого цвета (ТЗ §2.1 — «по умолчанию первая»).
-    this.panelEl.querySelectorAll('.pcolor').forEach((b) => {
+    // Размерная категория — сегмент-переключатель.
+    this.panelEl.querySelectorAll('#age-seg .seg-btn').forEach((b) => {
+      b.onclick = () => {
+        this.ageCategory = b.dataset.age;
+        this.panelEl.querySelectorAll('#age-seg .seg-btn').forEach((x) => x.classList.toggle('active', x === b));
+        this.updatePrice();
+      };
+    });
+    this.panelEl.querySelector('#opt-gaiters').onchange = (e) => { this.gaiters = e.target.checked; this.updatePrice(); };
+    this.panelEl.querySelector('#opt-jchest').onchange = (e) => { this.jetron.chest = e.target.checked; this.renderJetron(); this.updatePrice(); };
+    this.panelEl.querySelector('#opt-jback').onchange = (e) => { this.jetron.back = e.target.checked; this.renderJetron(); this.updatePrice(); };
+
+    const qty = this.panelEl.querySelector('#opt-qty');
+    const setQty = (n) => { this.quantity = Math.max(1, n || 1); qty.value = this.quantity; this.updatePrice(); };
+    qty.onchange = () => setQty(+qty.value);
+    this.panelEl.querySelector('#qty-minus').onclick = () => setQty(this.quantity - 1);
+    this.panelEl.querySelector('#qty-plus').onclick = () => setQty(this.quantity + 1);
+
+    this.panelEl.querySelector('#size-btn').onclick = () => this.showSizes();
+    this.panelEl.querySelector('#order-btn').onclick = () => this.showOrder();
+    const linesToggle = this.panelEl.querySelector('#price-lines-toggle');
+    linesToggle.onclick = () => {
+      const lines = this.panelEl.querySelector('#price-lines');
+      const open = lines.hidden;
+      lines.hidden = !open;
+      linesToggle.setAttribute('aria-expanded', String(open));
+      linesToggle.classList.toggle('open', open);
+    };
+
+    this.renderOptionCards();
+  }
+
+  // Блок выбора цвета и модели ПОД макетом на тёмной сцене (дизайн 2026-07-12).
+  buildColorPicker() {
+    const host = document.getElementById('colorpick');
+    if (!host) return;
+    const colors = this.config.colors || [];
+    const models = this.formsForColor(this.colorId);
+    const activeColor = colors.find((c) => c.id === this.colorId);
+    host.innerHTML = `
+      <div class="cp-head">
+        <div class="cp-title">Выберите цвет формы${activeColor ? ` <b>${escapeHtml(activeColor.name)}</b>` : ''}</div>
+        <button id="download-btn" class="stage-btn" type="button">Скачать макет</button>
+      </div>
+      <div class="color-palette">
+        ${colors.map((c) => `<button class="pcolor ${c.id === this.colorId ? 'active' : ''}"
+           data-color="${c.id}" title="${escapeHtml(c.name)}" aria-label="${escapeHtml(c.name)}"
+           style="background:${c.hex}"></button>`).join('')}
+      </div>
+      <div class="cp-models-label">Модель <b>${models.length} ${this.plural(models.length, 'вариант', 'варианта', 'вариантов')}</b></div>
+      <div class="model-carousel">
+        ${models.map((f) => `<button class="model-card ${f.id === this.formId ? 'active' : ''}"
+           data-form="${f.id}" title="${escapeHtml(f.line)} ${escapeHtml(f.color)}">
+           <span class="model-thumb"><img src="${encodeURI(f.images.front)}" alt="${escapeHtml(f.line)}" loading="lazy"></span>
+           <span class="model-name">${escapeHtml(f.line)}</span>
+        </button>`).join('')}
+      </div>
+    `;
+
+    host.querySelectorAll('.pcolor').forEach((b) => {
       b.onclick = async () => {
         if (b.dataset.color === this.colorId) return;
         this.colorId = b.dataset.color;
         const first = this.formsForColor(this.colorId)[0];
         if (first) this.formId = first.id;
-        this.selected = null;
-        this.buildPanel();
+        this.buildColorPicker();
         this.buildViews();
         await this.renderAll();
       };
     });
-    // Клик по модели в карусели выбранного цвета.
-    this.panelEl.querySelectorAll('.model-card').forEach((b) => {
+    host.querySelectorAll('.model-card').forEach((b) => {
       b.onclick = async () => {
         if (b.dataset.form === this.formId) return;
         this.formId = b.dataset.form;
-        this.selected = null;
-        this.buildPanel();
+        this.buildColorPicker();
         this.buildViews();
         await this.renderAll();
       };
     });
-    this.panelEl.querySelectorAll('input[name="age"]').forEach((r) => {
-      r.onchange = () => { this.ageCategory = r.value; this.updatePrice(); };
-    });
-    this.panelEl.querySelector('#opt-gaiters').onchange = (e) => { this.gaiters = e.target.checked; this.updatePrice(); };
-    this.panelEl.querySelector('#opt-jchest').onchange = (e) => { this.jetron.chest = e.target.checked; this.renderJetron(); this.updatePrice(); };
-    this.panelEl.querySelector('#opt-jback').onchange = (e) => { this.jetron.back = e.target.checked; this.renderJetron(); this.updatePrice(); };
-    this.panelEl.querySelector('#opt-qty').onchange = (e) => { this.quantity = Math.max(1, +e.target.value || 1); this.updatePrice(); };
-    this.panelEl.querySelector('#order-btn').onclick = () => this.showOrder();
-    this.panelEl.querySelector('#undo-btn').onclick = () => this.doUndo();
-    this.panelEl.querySelector('#size-btn').onclick = () => this.showSizes();
-    this.panelEl.querySelector('#download-btn').onclick = () => this.downloadImage();
+    host.querySelector('#download-btn').onclick = () => this.downloadImage();
+  }
+
+  // ── Модель опций (аккордеон + кэш + тумблер) ─────────────────────────────
+  // Опция описана в config.placementOptions; зоны и цены берутся из formZones (единый источник).
+
+  availableOptions() {
+    const zoneKeys = new Set(this.formZones.map((z) => `${z.view}:${z.key}`));
+    return (this.config.placementOptions || []).filter((opt) =>
+      this.optionPkeys(opt).every((pk) => zoneKeys.has(pk))
+    );
+  }
+
+  optionById(id) { return (this.config.placementOptions || []).find((o) => o.id === id); }
+
+  // Зоны опции: name_number → [nameZone, numberZone]; остальные → [zone].
+  optionPkeys(opt) {
+    return opt.kind === 'name_number' ? [opt.nameZone, opt.numberZone] : [opt.zone];
+  }
+
+  zoneByPkey(pkey) {
+    const key = pkey.split(':').slice(1).join(':');
+    return this.formZones.find((z) => z.key === key) || null;
+  }
+
+  // Цена опции = сумма цен её зон (номер на шортах/спине бесплатен → 0).
+  optionPrice(opt) {
+    let sum = 0;
+    for (const pk of this.optionPkeys(opt)) {
+      const z = this.zoneByPkey(pk);
+      if (z) sum += z.price || 0;
+    }
+    return sum;
+  }
+
+  // Введены ли данные (тумблер показывается только если есть что показывать).
+  optionHasData(opt) {
+    const c = this.optCache[opt.id];
+    if (!c) return false;
+    if (opt.kind === 'name_number') return !!(c.name || c.number);
+    if (opt.kind === 'upload') return !!c.image;
+    if (opt.kind === 'number') return !!c.number;
+    return !!(c.text || c.image); // text_or_upload
+  }
+
+  // Активна = есть данные И тумблер ON (иначе на макет не наносим).
+  optionActive(opt) { return this.optionHasData(opt) && this.optShown[opt.id] !== false; }
+
+  // Нанести данные опции на канвас + в модель размещений.
+  applyOption(opt) {
+    const c = this.optCache[opt.id] || {};
+    const draw = (pkey, entry) => {
+      const zone = this.zoneByPkey(pkey);
+      if (!zone) return;
+      const view = this.views.get(zone.view);
+      this.edit = setPlacement(this.edit, pkey, entry);
+      if (!view) return;
+      if (entry.type === 'text') view.placeText(zone, entry.value, this.resolveFont(entry.fontId, entry.value), entry.color);
+      else if (entry.type === 'image') view.placeImage(zone, entry.value);
+    };
+    if (opt.kind === 'name_number') {
+      const fontId = c.fontId || this.defaultFontId();
+      const color = c.color || this.textColor;
+      if (c.name) draw(opt.nameZone, { type: 'text', value: c.name, fontId, color });
+      else this.removePk(opt.nameZone);
+      if (c.number) draw(opt.numberZone, { type: 'text', value: c.number, fontId, color });
+      else this.removePk(opt.numberZone);
+    } else if (opt.kind === 'upload') {
+      if (c.image) draw(opt.zone, { type: 'image', value: c.image });
+    } else if (opt.kind === 'number') {
+      if (c.number) draw(opt.zone, { type: 'text', value: c.number, fontId: this.defaultFontId(), color: this.textColor });
+    } else { // text_or_upload
+      if (c.image) draw(opt.zone, { type: 'image', value: c.image });
+      else if (c.text) draw(opt.zone, { type: 'text', value: c.text, fontId: c.fontId || this.defaultFontId(), color: c.color || this.textColor });
+    }
+  }
+
+  removePk(pkey) {
+    if (!(pkey in this.placements)) return;
+    this.edit = removePlacement(this.edit, pkey);
+    const zone = this.zoneByPkey(pkey);
+    const view = zone && this.views.get(zone.view);
+    if (view) view.removeFromZone(zone.key);
+  }
+
+  // Убрать опцию с макета, НЕ трогая кэш (клиент: «щёлкает и смотрит»).
+  hideOption(opt) {
+    for (const pk of this.optionPkeys(opt)) this.removePk(pk);
+  }
+
+  // Тумблер ON/OFF — прячет/возвращает без повторной загрузки.
+  toggleOption(opt) {
+    if (!this.optionHasData(opt)) return;
+    const on = this.optShown[opt.id] !== false;
+    this.optShown[opt.id] = !on;
+    if (this.optShown[opt.id]) this.applyOption(opt);
+    else this.hideOption(opt);
+    this.renderJetron();
+    this.renderOptionCards();
+    this.updatePrice();
+  }
+
+  // Аккордеон: открыть карточку, закрыв предыдущую.
+  openOption(id) {
+    this.openOpt = this.openOpt === id ? null : id;
+    this.renderOptionCards();
+    if (this.openOpt) {
+      const card = this.panelEl.querySelector(`.opt-card[data-opt="${id}"]`);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  // Крестик: реально очищает кэш → кнопка загрузки снова становится «плюсом».
+  deleteOption(opt) {
+    this.hideOption(opt);
+    delete this.optCache[opt.id];
+    delete this.optShown[opt.id];
+    this.renderJetron();
+    this.renderOptionCards();
+    this.updatePrice();
+  }
+
+  // Обновить кэш опции и синхронизировать макет (авто-ON при первом вводе данных).
+  setOptData(opt, patch) {
+    this.optCache[opt.id] = Object.assign({}, this.optCache[opt.id], patch);
+    if (this.optionHasData(opt)) {
+      if (this.optShown[opt.id] === undefined) this.optShown[opt.id] = true;
+      if (this.optShown[opt.id]) this.applyOption(opt);
+    } else {
+      this.hideOption(opt);
+    }
+    this.renderJetron();
+    this.updatePrice();
   }
 
   // Map размещений → сериализуемый массив для buildOrder (контракт корзины/U1).
@@ -464,8 +644,9 @@ export class UniformApp {
 
   // Синхронизировать контролы левой панели с состоянием, изменённым внутри модалки заказа.
   syncPanelControls() {
-    const age = this.panelEl.querySelector(`input[name="age"][value="${this.ageCategory}"]`);
-    if (age) age.checked = true;
+    this.panelEl.querySelectorAll('#age-seg .seg-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.age === this.ageCategory);
+    });
     const g = this.panelEl.querySelector('#opt-gaiters');
     if (g) g.checked = this.gaiters;
   }
@@ -559,7 +740,7 @@ export class UniformApp {
       }
     }
     this.renderJetron();
-    this.renderZoneTool();
+    this.renderOptionCards();
     this.updatePrice();
   }
 
@@ -587,194 +768,199 @@ export class UniformApp {
     }
   }
 
+  // Клик по зоне на макете открывает соответствующую карточку опции (аккордеон).
   selectZone(view, key) {
-    this.selected = { view, key };
-    this.renderZoneTool();
-  }
-
-  doUndo() {
-    if (!canUndo(this.edit)) return;
-    this.edit = undo(this.edit);
-    this.selected = null;
-    this.renderAll();
-  }
-
-  // Зоны-кандидаты для переноса нанесения: того же типа, ещё свободные, кроме текущей.
-  moveTargets(zone, currentPkey) {
-    return this.formZones
-      .filter((z) => z.type === zone.type)
-      .map((z) => ({ z, pkey: `${z.view}:${z.key}` }))
-      .filter(({ pkey }) => pkey !== currentPkey && !(pkey in this.placements));
-  }
-
-  renderZoneTool() {
-    const box = this.panelEl.querySelector('#zone-tool');
-    const sel = this.selected;
-    const zone = sel ? this.zonesFor(sel.view).find((z) => z.key === sel.key) : null;
-    if (!zone) {
-      box.innerHTML = `<h3>Зона</h3><p class="hint">Кликните пунктирную зону на макете, чтобы добавить текст или логотип.</p>`;
-      return;
+    const pkey = `${view}:${key}`;
+    const opt = this.availableOptions().find((o) => this.optionPkeys(o).includes(pkey));
+    if (opt) {
+      this.openOpt = opt.id;
+      this.renderOptionCards();
+      const card = this.panelEl.querySelector(`.opt-card[data-opt="${opt.id}"]`);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    const priceLabel = zone.price ? `+${money(zone.price)}` : (zone.included ? 'входит в комплект' : 'бесплатно');
+  }
+
+  // ── Карточки опций (аккордеон + тумблер ON/OFF + крестик удаления) ────────
+  renderOptionCards() {
+    const list = this.panelEl.querySelector('#opt-list');
+    if (!list) return;
+    const opts = this.availableOptions();
+    list.innerHTML = opts.map((opt) => this.optionCardHtml(opt)).join('');
+    opts.forEach((opt) => this.wireOptionCard(opt));
+  }
+
+  optionCardHtml(opt) {
+    const active = this.optionActive(opt);
+    const hasData = this.optionHasData(opt);
+    const open = this.openOpt === opt.id;
+    const price = this.optionPrice(opt);
+    const priceLabel = price > 0 ? `+${money(price)}` : 'бесплатно';
+    // Тумблер показываем только когда есть данные (клиент: без данных опция не активна).
+    const toggle = hasData
+      ? `<button class="opt-toggle ${active ? 'on' : ''}" data-act="toggle" aria-label="Показать на макете" aria-pressed="${active}"><span class="knob"></span></button>`
+      : '';
+    return `
+      <div class="opt-card ${active ? 'active' : ''} ${open ? 'open' : ''}" data-opt="${opt.id}">
+        <div class="opt-head" data-act="head" role="button" tabindex="0">
+          <div class="opt-head-text">
+            <span class="opt-title">${escapeHtml(opt.title)}</span>
+            ${opt.subtitle ? `<span class="opt-sub">${escapeHtml(opt.subtitle)}</span>` : ''}
+          </div>
+          <div class="opt-head-right">
+            ${toggle}
+            <span class="opt-price">${priceLabel}</span>
+            <span class="opt-chev">▾</span>
+          </div>
+        </div>
+        ${open ? `<div class="opt-body">${this.optionBodyHtml(opt)}</div>` : ''}
+      </div>`;
+  }
+
+  optionBodyHtml(opt) {
+    const c = this.optCache[opt.id] || {};
+    const uploadBtn = (has, label) => `
+      <label class="opt-upload ${has ? 'has' : ''}">
+        <input type="file" accept="image/*" data-field="image" hidden>
+        <span class="opt-upload-icon">${has ? '✓' : '+'}</span>
+        <span class="opt-upload-text">${has ? 'Файл загружен' : label}</span>
+        ${has ? '<span class="opt-del" data-act="del" role="button" aria-label="Удалить" title="Удалить">×</span>' : ''}
+      </label>
+      <p class="opt-note" data-role="note" hidden></p>`;
+
+    if (opt.kind === 'name_number') {
+      return `
+        <div class="opt-fields">
+          <input class="opt-in" type="text" data-field="name" placeholder="Фамилия" value="${escapeHtml(c.name || '')}">
+          <input class="opt-in opt-in-sm" type="text" data-field="number" placeholder="№" inputmode="numeric" value="${escapeHtml(c.number || '')}">
+        </div>
+        ${this.fontColorHtml(c)}`;
+    }
+    if (opt.kind === 'upload') {
+      return uploadBtn(!!c.image, 'Загрузить логотип');
+    }
+    if (opt.kind === 'number') {
+      return `<input class="opt-in" type="text" data-field="number" placeholder="${escapeHtml(opt.placeholder || 'Номер')}" inputmode="numeric" value="${escapeHtml(c.number || '')}">`;
+    }
+    // text_or_upload — текст ИЛИ логотип.
+    return `
+      <input class="opt-in" type="text" data-field="text" placeholder="${escapeHtml(opt.placeholder || 'Текст')}" value="${escapeHtml(c.text || '')}" ${c.image ? 'disabled' : ''}>
+      <div class="opt-or">или</div>
+      ${uploadBtn(!!c.image, 'Загрузить логотип')}
+      ${c.image ? '' : this.fontColorHtml(c)}`;
+  }
+
+  // Свёрнутый блок «Шрифт и цвет» для текстовых опций.
+  fontColorHtml(c) {
     const fonts = this.config.fonts || [];
     const colors = this.config.textColors || [];
-    const view = this.views.get(sel.view);
-    const pkey = `${sel.view}:${zone.key}`;
-    const existing = this.placements[pkey];
-    if (existing && existing.color) this.textColor = existing.color;
-
-    const moveBlock = existing
-      ? (() => {
-          const targets = this.moveTargets(zone, pkey);
-          if (!targets.length) return '';
-          return `<label>Перенести в
-            <select id="z-move">
-              <option value="">— выберите зону —</option>
-              ${targets.map(({ z, pkey: tk }) => `<option value="${tk}">${VIEW_LABEL[z.view] || z.view}: ${z.label}</option>`).join('')}
-            </select>
-          </label>`;
-        })()
-      : '';
-
-    // Зона type:'any' (ТЗ 2026-07-10, C13) — человек сам решает: текст ИЛИ логотип.
-    // Режим берём из уже нанесённого → из его выбора переключателем → по умолчанию текст.
-    const isAny = zone.type === 'any';
-    const mode = isAny ? ((existing && existing.type) || this.anyMode[pkey] || 'text') : zone.type;
-    const toggleBlock = isAny
-      ? `<div class="seg" id="z-mode">
-          <button class="seg-btn ${mode === 'text' ? 'active' : ''}" data-mode="text">Текст</button>
-          <button class="seg-btn ${mode === 'image' ? 'active' : ''}" data-mode="image">Логотип</button>
-        </div>`
-      : '';
-
-    if (mode === 'text') {
-      const colorSwatches = colors.map((c) => `<button class="color-sw ${c.hex === this.textColor ? 'active' : ''}"
-        data-color="${c.hex}" title="${c.name}" style="background:${c.hex}"></button>`).join('');
-      box.innerHTML = `
-        <h3>${zone.label} <small>${priceLabel}</small></h3>
-        ${toggleBlock}
-        <input type="text" id="z-text" placeholder="Текст" value="${existing && existing.type === 'text' ? escapeHtml(existing.value) : ''}">
-        <label>Шрифт
-          <select id="z-font">
-            ${fonts.map((f) => `<option value="${f.id}" ${existing && existing.fontId === f.id ? 'selected' : ''}>${f.name}${f.cyrillic ? ' (кириллица)' : ''}</option>`).join('')}
-          </select>
-        </label>
-        <p class="hint font-hint" id="z-font-note" hidden></p>
-        <p class="hint font-hint">Не нашли свой шрифт? Свяжитесь с нами.</p>
-        <label>Цвет шрифта</label>
-        <div class="swatches color-row">${colorSwatches}</div>
-        ${moveBlock}
-        <div class="row">
-          <button id="z-apply">${existing ? 'Обновить' : 'Добавить'}</button>
-          <button id="z-remove" class="ghost">Убрать</button>
-        </div>`;
-      // Подсказка про кириллический fallback (ТЗ §10.3): показываем, только если
-      // выбран латинский шрифт и в поле есть русские буквы.
-      const updateFontNote = () => {
-        const note = box.querySelector('#z-font-note');
-        const text = box.querySelector('#z-text').value;
-        const f = this.fontById(box.querySelector('#z-font').value);
-        if (f && !f.cyrillic && this.hasCyrillic(text)) {
-          note.textContent = `Шрифт «${f.name}» без кириллицы. Русские буквы покажем шрифтом РПЛ.`;
-          note.hidden = false;
-        } else {
-          note.hidden = true;
-        }
-      };
-      const apply = () => {
-        const text = box.querySelector('#z-text').value.trim();
-        const fontId = box.querySelector('#z-font').value;
-        if (!text) return;
-        // Храним выбранный шрифт, рисуем эффективным (с учётом fallback).
-        this.edit = setPlacement(this.edit, pkey, { type: 'text', value: text, fontId, color: this.textColor });
-        view.placeText(zone, text, this.resolveFont(fontId, text), this.textColor);
-        this.renderJetron();
-        this.updatePrice();
-        updateFontNote();
-      };
-      box.querySelectorAll('.color-sw').forEach((b) => {
-        b.onclick = () => {
-          this.textColor = b.dataset.color;
-          box.querySelectorAll('.color-sw').forEach((x) => x.classList.remove('active'));
-          b.classList.add('active');
-          if (this.placements[pkey]) apply(); // живой предпросмотр для уже нанесённого текста
-        };
-      });
-      box.querySelector('#z-apply').onclick = apply;
-      box.querySelector('#z-text').onkeydown = (e) => { if (e.key === 'Enter') apply(); };
-      box.querySelector('#z-text').oninput = updateFontNote;
-      box.querySelector('#z-font').onchange = () => {
-        updateFontNote();
-        if (this.placements[pkey]) apply(); // живой предпросмотр смены шрифта
-      };
-      updateFontNote();
-    } else {
-      box.innerHTML = `
-        <h3>${zone.label} <small>${priceLabel}</small></h3>
-        ${toggleBlock}
-        <input type="file" id="z-file" accept="image/*">
-        <p class="hint" id="z-file-note" hidden></p>
-        <p class="hint">До ${this.uploadCfg().maxUploadMB} МБ. Тяжёлые фото сжимаем для веба автоматически.</p>
-        ${moveBlock}
-        <div class="row"><button id="z-remove" class="ghost">Убрать</button></div>`;
-      box.querySelector('#z-file').onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const note = box.querySelector('#z-file-note');
-        const input = e.target;
-        const res = await this.prepareImage(file);
-        if (res.error) {
-          note.textContent = res.error;
-          note.hidden = false;
-          input.value = ''; // сбрасываем, чтобы можно было выбрать тот же файл заново
-          return;
-        }
-        note.hidden = true;
-        this.edit = setPlacement(this.edit, pkey, { type: 'image', value: res.url });
-        view.placeImage(zone, res.url);
-        this.renderJetron();
-        this.updatePrice();
-      };
-    }
-
-    // Переключатель текст/логотип для 'any'-зоны: запоминаем выбор и перерисовываем инструмент.
-    const modeSeg = box.querySelector('#z-mode');
-    if (modeSeg) {
-      modeSeg.querySelectorAll('.seg-btn').forEach((b) => {
-        b.onclick = () => {
-          this.anyMode[pkey] = b.dataset.mode;
-          this.renderZoneTool();
-        };
-      });
-    }
-
-    const moveSel = box.querySelector('#z-move');
-    if (moveSel) {
-      moveSel.onchange = () => {
-        const target = moveSel.value;
-        if (!target) return;
-        this.edit = movePlacement(this.edit, pkey, target);
-        const [tv, ...trest] = target.split(':');
-        this.selected = { view: tv, key: trest.join(':') };
-        this.renderAll();
-      };
-    }
-    box.querySelector('#z-remove').onclick = () => {
-      this.edit = removePlacement(this.edit, pkey);
-      view.removeFromZone(zone.key);
-      this.renderJetron();
-      this.updatePrice();
-    };
+    const curColor = c.color || this.textColor;
+    return `
+      <details class="opt-font" ${c.fontId || c.color ? 'open' : ''}>
+        <summary>Шрифт и цвет</summary>
+        <select class="opt-font-sel" data-field="fontId">
+          ${fonts.map((f) => `<option value="${f.id}" ${(c.fontId || this.defaultFontId()) === f.id ? 'selected' : ''}>${escapeHtml(f.name)}${f.cyrillic ? '' : ' (лат.)'}</option>`).join('')}
+        </select>
+        <div class="swatches color-row">
+          ${colors.map((col) => `<button class="color-sw ${col.hex === curColor ? 'active' : ''}" data-color="${col.hex}" title="${escapeHtml(col.name)}" style="background:${col.hex}"></button>`).join('')}
+        </div>
+      </details>`;
   }
 
-  // Собираем занятые зоны по всем видам (перёд+спина+плечо) → цена за весь комплект.
+  wireOptionCard(opt) {
+    const card = this.panelEl.querySelector(`.opt-card[data-opt="${opt.id}"]`);
+    if (!card) return;
+
+    const head = card.querySelector('[data-act="head"]');
+    head.onclick = (e) => {
+      if (e.target.closest('[data-act="toggle"]')) return;
+      this.openOption(opt.id);
+    };
+    head.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openOption(opt.id); } };
+
+    const toggle = card.querySelector('[data-act="toggle"]');
+    if (toggle) toggle.onclick = (e) => { e.stopPropagation(); this.toggleOption(opt); };
+
+    const body = card.querySelector('.opt-body');
+    if (!body) return;
+
+    // Текстовые поля: обновляем кэш без полной перерисовки (не теряем фокус),
+    // только подсвечиваем активность карточки на месте.
+    body.querySelectorAll('input[type="text"]').forEach((inp) => {
+      inp.oninput = () => {
+        this.setOptData(opt, { [inp.dataset.field]: inp.value.trim() });
+        card.classList.toggle('active', this.optionActive(opt));
+        this.refreshToggle(card, opt);
+      };
+    });
+
+    // Шрифт.
+    const fontSel = body.querySelector('.opt-font-sel');
+    if (fontSel) fontSel.onchange = () => { this.setOptData(opt, { fontId: fontSel.value }); };
+
+    // Цвет шрифта.
+    body.querySelectorAll('.color-sw').forEach((b) => {
+      b.onclick = () => {
+        body.querySelectorAll('.color-sw').forEach((x) => x.classList.toggle('active', x === b));
+        this.setOptData(opt, { color: b.dataset.color });
+      };
+    });
+
+    // Загрузка файла.
+    const file = body.querySelector('input[type="file"]');
+    if (file) file.onchange = async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const note = body.querySelector('[data-role="note"]');
+      const res = await this.prepareImage(f);
+      if (res.error) {
+        if (note) { note.textContent = res.error; note.hidden = false; }
+        e.target.value = '';
+        return;
+      }
+      this.setOptData(opt, { image: res.url });
+      this.renderOptionCards();
+    };
+
+    // Крестик удаления (внутри upload-кнопки).
+    const del = body.querySelector('[data-act="del"]');
+    if (del) del.onclick = (e) => { e.preventDefault(); e.stopPropagation(); this.deleteOption(opt); };
+  }
+
+  // Обновить состояние тумблера в шапке карточки без полной перерисовки списка.
+  refreshToggle(card, opt) {
+    const right = card.querySelector('.opt-head-right');
+    if (!right) return;
+    const hasData = this.optionHasData(opt);
+    let toggle = right.querySelector('[data-act="toggle"]');
+    if (hasData && !toggle) {
+      toggle = document.createElement('button');
+      toggle.className = 'opt-toggle on';
+      toggle.dataset.act = 'toggle';
+      toggle.setAttribute('aria-label', 'Показать на макете');
+      toggle.innerHTML = '<span class="knob"></span>';
+      toggle.onclick = (e) => { e.stopPropagation(); this.toggleOption(opt); };
+      right.insertBefore(toggle, right.firstChild);
+    } else if (!hasData && toggle) {
+      toggle.remove();
+    } else if (toggle) {
+      const active = this.optionActive(opt);
+      toggle.classList.toggle('on', active);
+      toggle.setAttribute('aria-pressed', String(active));
+    }
+  }
+
+  // Занятые зоны = зоны активных опций → цена за весь комплект (единый источник — formZones).
   usedZones() {
-    const byKey = new Map(this.formZones.map((z) => [z.key, z]));
     const out = [];
-    for (const composite of Object.keys(this.placements)) {
-      const key = composite.split(':').slice(1).join(':');
-      const z = byKey.get(key);
-      if (z) out.push({ key, priceGroup: z.priceGroup || z.key, price: z.price || 0 });
+    const seen = new Set();
+    for (const opt of this.availableOptions()) {
+      if (!this.optionActive(opt)) continue;
+      for (const pk of this.optionPkeys(opt)) {
+        const z = this.zoneByPkey(pk);
+        if (!z || seen.has(z.key)) continue;
+        seen.add(z.key);
+        out.push({ key: z.key, priceGroup: z.priceGroup || z.key, price: z.price || 0 });
+      }
     }
     return out;
   }
@@ -795,14 +981,17 @@ export class UniformApp {
     ].filter(([, v]) => v > 0);
     const linesEl = this.panelEl.querySelector('#price-lines');
     const totalEl = this.panelEl.querySelector('#price-total');
-    linesEl.innerHTML = lines.map(([k, v]) => `<div class="pline"><span>${k}</span><span>${money(v)}</span></div>`).join('');
-    if (r.discountPct > 0) {
-      linesEl.innerHTML += `<div class="pline discount"><span>Скидка Джетрон</span><span>−${Math.round(r.discountPct * 100)}%</span></div>`;
+    if (!totalEl) return;
+    if (linesEl) {
+      linesEl.innerHTML = lines.map(([k, v]) => `<div class="pline"><span>${k}</span><span>${money(v)}</span></div>`).join('');
+      if (r.discountPct > 0) {
+        linesEl.innerHTML += `<div class="pline discount"><span>Скидка Джетрон</span><span>−${Math.round(r.discountPct * 100)}%</span></div>`;
+      }
+      if (this.quantity > 1) {
+        linesEl.innerHTML += `<div class="pline"><span>За комплект × ${this.quantity}</span><span>${money(r.total)}</span></div>`;
+      }
     }
-    const perKit = money(r.total);
-    totalEl.innerHTML = this.quantity > 1
-      ? `<strong>${perKit}</strong> × ${this.quantity} = <strong>${money(r.total * this.quantity)}</strong>`
-      : `<strong>${perKit}</strong>`;
+    totalEl.textContent = money(r.total * this.quantity);
 
     // Микро-взаимодействие: лёгкий «удар» суммы при её изменении.
     const grand = r.total * this.quantity;
@@ -812,8 +1001,5 @@ export class UniformApp {
       totalEl.classList.add('bump');
     }
     this._lastGrand = grand;
-
-    const undoBtn = this.panelEl.querySelector('#undo-btn');
-    if (undoBtn) undoBtn.disabled = !canUndo(this.edit);
   }
 }

@@ -141,6 +141,16 @@
   },
   "_zoneSets_note": "Наборы зон под конкретную геометрию фото. singleFront — для линеек New/Space/Winner, где перёд снят отдельным одиночным фото изделия (без спины рядом): передние зоны пересчитаны под центрированное фото одного комплекта. Зоны back/shoulder скопированы из zoneTemplate (спина пока на общем placeholder-мокапе). Точные координаты в см придут с U3.",
 
+  "placementOptions": [
+    { "id": "name_number", "title": "Фамилия и номер на спине", "subtitle": "Номер на шортах включён в стоимость", "kind": "name_number", "nameZone": "back:name", "numberZone": "back:back_number", "font": true },
+    { "id": "chest_logo_small", "title": "Логотип на груди слева", "subtitle": "Логотип на шортах включён в стоимость", "kind": "upload", "zone": "front:chest_logo_small" },
+    { "id": "chest_logo_large", "title": "Логотип на груди большой", "kind": "text_or_upload", "zone": "front:chest_logo_large", "placeholder": "Напишите название клуба или спонсора" },
+    { "id": "chest_number", "title": "Номер на груди", "kind": "number", "zone": "front:chest_number", "placeholder": "Номер" },
+    { "id": "back_logo", "title": "Логотип на спине под номером", "kind": "text_or_upload", "zone": "back:back_logo", "placeholder": "Напишите название клуба или спонсора" },
+    { "id": "shoulder_logo", "title": "Логотип на плече", "kind": "upload", "zone": "shoulder:shoulder_logo" }
+  ],
+  "_placementOptions_note": "Карточки нанесений для новой панели-конструктора (дизайн клиента 2026-07-12): вместо клика по зоне на макете — список опций с тумблером ON/OFF, аккордеон (открыта одна), кэш при OFF, крестик для удаления. Порядок и тексты подтверждены макетом. Цены берутся из zoneTemplate/zoneSets по зонам (единый источник). kind: name_number (2 поля + шрифт/цвет), upload (файл), number (номер), text_or_upload (текст ИЛИ файл).",
+
   "forms": [
     { "id": "champion-white", "line": "Champion", "colorId": "white", "color": "Белый", "colorHex": "#f2f4f7", "images": { "front": "assets/mockups/Champion белый фон.png", "back": "assets/mockups/Champion белый фон.png", "shoulder": null } },
     { "id": "legend-white", "line": "Legend", "colorId": "white", "color": "Белый", "colorHex": "#f2f4f7", "images": { "front": "assets/mockups/Legend белая.jpg", "back": "assets/mockups/Legend белая.jpg", "shoulder": null } },
