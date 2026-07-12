@@ -146,12 +146,7 @@ export class UniformApp {
   // Виды к показу: перёд и спина всегда, плечо — если у модели есть зона плеча (ТЗ §9.3, C10).
   // Плечо показывается отдельной картинкой сбоку, а не на теле формы, поэтому у него нет фон-мокапа.
   viewList() {
-    const views = [
-      { id: 'front', label: 'Перед' },
-      { id: 'back', label: 'Спина' }
-    ];
-    if (this.formZones.some((z) => z.view === 'shoulder')) views.push({ id: 'shoulder', label: 'Плечо' });
-    return views;
+    return [{ id: 'front', label: 'Перед' }];
   }
 
   async start() {
@@ -241,14 +236,17 @@ export class UniformApp {
     for (const v of list) {
       const col = document.createElement('div');
       col.className = 'canvas-col';
-      const label = document.createElement('div');
-      label.className = 'canvas-label';
-      label.textContent = v.label;
       const wrap = document.createElement('div');
       wrap.className = 'canvas-wrap';
       const canvasEl = document.createElement('canvas');
       wrap.appendChild(canvasEl);
-      col.appendChild(label);
+      // Одиночную картинку не подписываем — она и так одна (клиент 2026-07-12).
+      if (list.length > 1) {
+        const label = document.createElement('div');
+        label.className = 'canvas-label';
+        label.textContent = v.label;
+        col.appendChild(label);
+      }
       col.appendChild(wrap);
       this.viewsEl.appendChild(col);
 
@@ -363,7 +361,6 @@ export class UniformApp {
         ${models.map((f) => `<button class="model-card ${f.id === this.formId ? 'active' : ''}"
            data-form="${f.id}" title="${escapeHtml(f.line)} ${escapeHtml(f.color)}">
            <span class="model-thumb"><img src="${encodeURI(f.images.front)}" alt="${escapeHtml(f.line)}" loading="lazy"></span>
-           <span class="model-name">${escapeHtml(f.line)}</span>
         </button>`).join('')}
       </div>
     `;
@@ -849,17 +846,32 @@ export class UniformApp {
       ${c.image ? '' : this.fontColorHtml(c)}`;
   }
 
+  // Образец для превью шрифта: текст рисуется САМИМ шрифтом, чтобы человек листал
+  // и сразу видел, как будет выглядеть (клиент 2026-07-12). Латинские шрифты кириллицу
+  // не держат — им даём латинский образец, иначе были бы пустые квадраты.
+  fontSampleText(f, c) {
+    const num = (c.number || '10').slice(0, 3);
+    if (f.cyrillic) return `${c.name || 'Фамилия'} ${num}`;
+    const name = (c.name && !this.hasCyrillic(c.name)) ? c.name : 'PLAYER';
+    return `${name} ${num}`;
+  }
+
   // Свёрнутый блок «Шрифт и цвет» для текстовых опций.
   fontColorHtml(c) {
     const fonts = this.config.fonts || [];
     const colors = this.config.textColors || [];
     const curColor = c.color || this.textColor;
+    const curFont = c.fontId || this.defaultFontId();
     return `
       <details class="opt-font" ${c.fontId || c.color ? 'open' : ''}>
         <summary>Шрифт и цвет</summary>
-        <select class="opt-font-sel" data-field="fontId">
-          ${fonts.map((f) => `<option value="${f.id}" ${(c.fontId || this.defaultFontId()) === f.id ? 'selected' : ''}>${escapeHtml(f.name)}${f.cyrillic ? '' : ' (лат.)'}</option>`).join('')}
-        </select>
+        <div class="font-list" role="listbox" aria-label="Шрифт">
+          ${fonts.map((f) => `<button type="button" class="font-opt ${f.id === curFont ? 'active' : ''}"
+             data-font="${f.id}" role="option" aria-selected="${f.id === curFont}" title="${escapeHtml(f.name)}">
+             <span class="font-opt-sample" style="font-family:'${f.id}', sans-serif">${escapeHtml(this.fontSampleText(f, c))}</span>
+             <span class="font-opt-name">${escapeHtml(f.name)}${f.cyrillic ? '' : ' · лат.'}</span>
+          </button>`).join('')}
+        </div>
         <div class="swatches color-row">
           ${colors.map((col) => `<button class="color-sw ${col.hex === curColor ? 'active' : ''}" data-color="${col.hex}" title="${escapeHtml(col.name)}" style="background:${col.hex}"></button>`).join('')}
         </div>
@@ -893,9 +905,17 @@ export class UniformApp {
       };
     });
 
-    // Шрифт.
-    const fontSel = body.querySelector('.opt-font-sel');
-    if (fontSel) fontSel.onchange = () => { this.setOptData(opt, { fontId: fontSel.value }); };
+    // Шрифт: список превью, каждый образец нарисован своим шрифтом.
+    body.querySelectorAll('.font-opt').forEach((b) => {
+      b.onclick = () => {
+        body.querySelectorAll('.font-opt').forEach((x) => {
+          const on = x === b;
+          x.classList.toggle('active', on);
+          x.setAttribute('aria-selected', String(on));
+        });
+        this.setOptData(opt, { fontId: b.dataset.font });
+      };
+    });
 
     // Цвет шрифта.
     body.querySelectorAll('.color-sw').forEach((b) => {

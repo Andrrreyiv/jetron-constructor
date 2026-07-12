@@ -316,30 +316,24 @@ body {
 .model-carousel::-webkit-scrollbar { height: 7px; }
 .model-carousel::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; }
 .model-carousel::-webkit-scrollbar-track { background: transparent; }
+/* Превью-модели: чистые картинки без рамок/подписей (клиент 2026-07-12) —
+   видно только само изделие, активная выделяется мягким кольцом. */
 .model-card {
   flex: 0 0 auto; width: 88px;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 8px 6px; border: 1.5px solid var(--line-strong);
-  border-radius: var(--r-md); background: var(--surface-2);
+  display: block; padding: 0; border: 0; background: none;
   cursor: pointer; scroll-snap-align: start;
-  transition: border-color .18s var(--ease), box-shadow .18s var(--ease), transform .18s var(--ease), background .18s var(--ease);
+  transition: box-shadow .18s var(--ease), transform .18s var(--ease);
 }
-.model-card:hover { transform: translateY(-2px); border-color: var(--brand); box-shadow: var(--sh-md); }
-.model-card.active {
-  border-color: var(--brand); background: var(--brand-soft);
-  box-shadow: 0 0 0 2px var(--brand-ring), var(--sh-sm);
-}
+.model-card:hover { transform: translateY(-2px); }
 .model-thumb {
   width: 100%; aspect-ratio: 3 / 4; border-radius: var(--r-sm);
-  overflow: hidden; background: #eef2f8;
+  overflow: hidden; background: transparent;
   display: grid; place-items: center;
+  transition: box-shadow .18s var(--ease);
 }
+.model-card:hover .model-thumb { box-shadow: 0 0 0 2px var(--brand-ring); }
+.model-card.active .model-thumb { box-shadow: 0 0 0 2px var(--brand); }
 .model-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.model-name {
-  font-size: 12px; font-weight: 700; color: var(--ink-2);
-  letter-spacing: .01em; white-space: nowrap;
-}
-.model-card.active .model-name { color: var(--brand-strong); }
 
 /* Совместимость: старые текст-цвет свотчи в инструменте зоны */
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -586,12 +580,36 @@ body {
 }
 .opt-font summary::-webkit-details-marker { display: none; }
 .opt-font summary::before { content: '⚙'; opacity: .6; }
-.opt-font-sel {
-  width: 100%; padding: 9px 12px; margin: 8px 0 2px;
-  border: 1.5px solid var(--line-strong); border-radius: var(--r-sm);
-  font-size: 13.5px; font-family: inherit; color: var(--ink); background: var(--surface-2);
+/* Список превью шрифтов: образец нарисован самим шрифтом, список прокручивается —
+   человек листает и сразу видит начертание (клиент 2026-07-12). */
+.font-list {
+  margin: 8px 0 2px; max-height: 232px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 2px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent;
 }
-.opt-font-sel:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+.font-list::-webkit-scrollbar { width: 7px; }
+.font-list::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; }
+.font-opt {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 9px 12px; text-align: left; cursor: pointer;
+  border: 1.5px solid var(--line-strong); border-radius: var(--r-sm);
+  background: var(--surface-2); color: var(--ink);
+  transition: border-color .16s var(--ease), box-shadow .16s var(--ease), background .16s var(--ease);
+}
+.font-opt:hover { border-color: var(--brand); }
+.font-opt.active {
+  border-color: var(--brand); background: var(--brand-soft);
+  box-shadow: 0 0 0 2px var(--brand-ring);
+}
+.font-opt-sample {
+  font-size: 21px; line-height: 1.15; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1;
+}
+.font-opt-name {
+  flex: 0 0 auto; font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
+}
+.font-opt.active .font-opt-name { color: var(--brand-strong); }
 
 /* ── Доп.комплектация ────────────────────────────────────── */
 .extra-block { margin: 4px 0 12px; }
