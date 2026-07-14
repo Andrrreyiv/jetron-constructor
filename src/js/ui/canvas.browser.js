@@ -143,6 +143,27 @@ export class CanvasView {
     return obj;
   }
 
+  // Логотип бренда «JETRON.RU» картинкой (ТЗ §5): вписывается в бокс, не выделяется/не двигается.
+  // imgEl — предзагруженный HTMLImageElement (грузится один раз в App.loadBranding).
+  placeStaticImage(box, imgEl) {
+    const r = this._rect(box);
+    const img = new fabric.FabricImage(imgEl, {
+      originX: 'center', originY: 'center',
+      selectable: false, evented: false
+    });
+    const scale = Math.min(r.width / img.width, r.height / img.height);
+    img.set({
+      left: r.left + r.width / 2,
+      top: r.top + r.height / 2,
+      scaleX: scale, scaleY: scale,
+      clipPath: new fabric.Rect({ left: r.left, top: r.top, width: r.width, height: r.height, absolutePositioned: true })
+    });
+    this.staticObjects.push(img);
+    this.canvas.add(img);
+    this.canvas.requestRenderAll();
+    return img;
+  }
+
   clearStatic() {
     for (const o of this.staticObjects) this.canvas.remove(o);
     this.staticObjects = [];

@@ -151,6 +151,7 @@ export class UniformApp {
 
   async start() {
     await this.loadFonts();
+    await this.loadBranding();
     this.buildPanel();
     this.buildColorPicker();
     this.buildViews();
@@ -210,6 +211,25 @@ export class UniformApp {
       } catch {
         // шрифт не критичен для стенда — падаем на sans-serif
       }
+    }
+  }
+
+  // Логотип бренда «JETRON.RU» грузим один раз в HTMLImageElement, чтобы renderJetron
+  // ставил его синхронно на грудь и спину. Нет файла → renderJetron падает на текст.
+  async loadBranding() {
+    const src = this.config.branding && this.config.branding.logo;
+    if (!src) return;
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = encodeURI(src);
+      });
+      this.brandingImg = img;
+    } catch {
+      // логотип не загрузился — не критично, renderJetron использует текстовый фолбэк
     }
   }
 
@@ -279,8 +299,8 @@ export class UniformApp {
           </div>
         </div>
         <label class="extra-check"><input type="checkbox" id="opt-gaiters"> <span>Гетры <em>+${money(p.gaiters)}</em></span></label>
-        <label class="extra-check"><input type="checkbox" id="opt-jchest"> <span>Джетрон на груди <em>−5%</em></span></label>
-        <label class="extra-check"><input type="checkbox" id="opt-jback"> <span>Джетрон на спине <em>−5%</em></span></label>
+        <label class="extra-check"><input type="checkbox" id="opt-jchest"> <span>Jetron на груди <em>−5%</em></span></label>
+        <label class="extra-check"><input type="checkbox" id="opt-jback"> <span>Jetron.ru на спине <em>−5%</em></span></label>
         <div class="extra-block qty-block">
           <span class="extra-label">Комплектов</span>
           <div class="qty-stepper">
@@ -741,26 +761,30 @@ export class UniformApp {
     this.updatePrice();
   }
 
-  // Брендинг Джетрон (ТЗ §5, подтверждено клиентом 2026-07-10): «JETRON» на груди
-  // и «JETRONSPORT.RU» под номером на спине — как на реальных макетах клиента.
-  // Рисуется только визуально; скидка −5%/−5% считается в calculatePrice независимо от отрисовки.
+  // Брендинг Джетрон (ТЗ §5, логотип подтверждён клиентом 2026-07-14): картинка «JETRON.RU»
+  // на груди и такая же под номером на спине — файл jetron-logo.png (config.branding.logo).
+  // Нет картинки → текстовый фолбэк. Рисуется только визуально; скидка −5%/−5% считается
+  // в calculatePrice независимо от отрисовки.
   renderJetron() {
     const front = this.views.get('front');
     const back = this.views.get('back');
     if (front) front.clearStatic();
     if (back) back.clearStatic();
+    const logo = this.brandingImg;
 
     if (this.jetron.chest && front) {
       const zone = this.zonesFor('front').find((z) => z.key === 'chest_logo_large');
       if (zone && !this.placements['front:chest_logo_large']) {
-        front.placeStaticText(zone.box, 'JETRON', '#111111');
+        if (logo) front.placeStaticImage(zone.box, logo);
+        else front.placeStaticText(zone.box, 'JETRON.RU', '#111111');
       }
     }
     if (this.jetron.back && back) {
       // «Под номером на спине» — там же, где логотип под номером; пропускаем, если место занято (§5).
       const anchor = this.zonesFor('back').find((z) => z.key === 'back_logo');
       if (anchor && !this.placements['back:back_logo']) {
-        back.placeStaticText(anchor.box, 'JETRONSPORT.RU', '#111111');
+        if (logo) back.placeStaticImage(anchor.box, logo);
+        else back.placeStaticText(anchor.box, 'JETRON.RU', '#111111');
       }
     }
   }

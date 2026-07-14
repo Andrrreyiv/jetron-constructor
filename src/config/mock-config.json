@@ -25,6 +25,8 @@
 
   "canvas": { "width": 900, "height": 1200, "displayWidth": 450 },
 
+  "branding": { "logo": "assets/jetron-logo.png" },
+
   "upload": { "maxUploadMB": 15, "compressOverMB": 1.5, "maxDimension": 1600, "quality": 0.85 },
   "_upload_note": "Лимит и сжатие загрузки (ТЗ §4): файл больше maxUploadMB отклоняется; фото тяжелее compressOverMB вписывается в maxDimension px и кодируется в web-формат (webp, иначе jpeg). Проверку качества картинки не делаем (ТЗ §4).",
 
