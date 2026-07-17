@@ -244,6 +244,12 @@ export class UniformApp {
     if (typeof window !== 'undefined' && window.innerWidth <= 560) {
       return Math.max(150, Math.min(520, Math.round(avail - 6)));
     }
+    // Один композитный холст (перёд+спина+гетры на одной картинке) — показываем КРУПНО, почти
+    // во всю ширину сцены, а не куцым 300px. Клиент 2026-07-17 (Safari): «картинка маленькая».
+    // Два раздельных вида (front≠back) остаются по 300px в ряд — там 300 оправдан.
+    if (n === 1) {
+      return Math.max(300, Math.min(avail - 26, 500));
+    }
     const deskDW = n >= 3 ? 210 : 300;
     const rowNeed = n * (deskDW + chrome) + (n - 1) * gap;
     if (avail >= rowNeed) return deskDW; // десктоп: поведение не меняется
