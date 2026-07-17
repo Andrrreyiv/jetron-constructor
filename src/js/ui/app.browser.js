@@ -24,6 +24,7 @@ export class UniformApp {
     this.formId = config.forms[0].id;
     this.colorId = config.forms[0].colorId; // выбор идёт от цвета (ТЗ §2.1): цвет → карусель форм
     this.ageCategory = 'adult';
+    this.size = ''; // конкретный размер (клиент 2026-07-15: «размеры не могу выбрать»)
     this.gaiters = false;
     this.quantity = 1;
     this.jetron = { chest: false, back: false };
@@ -36,6 +37,7 @@ export class UniformApp {
     this.optCache = {}; // id → { name,number,fontId,color } | { image } | { text } | { number }
     this.optShown = {}; // id → bool
     this.openOpt = null; // id раскрытой опции
+    this.extraOpen = false; // «Комплектация» свёрнута (клиент 2026-07-15: «итого ушло вниз, подтяни выше»)
     this.textColor = (config.textColors && config.textColors[1]) ? config.textColors[1].hex : '#111111'; // чёрный по умолчанию
   }
 
@@ -143,10 +145,34 @@ export class UniformApp {
     return this.formZones.filter((z) => z.view === view);
   }
 
-  // Виды к показу: перёд и спина всегда, плечо — если у модели есть зона плеча (ТЗ §9.3, C10).
-  // Плечо показывается отдельной картинкой сбоку, а не на теле формы, поэтому у него нет фон-мокапа.
+  // Виды к показу зависят от типа мокапа модели:
+  //  • Композитный мокап (одна картинка = перёд+спина+гетры рядом, front===back) → ОДИН холст,
+  //    на нём рисуются ВСЕ зоны (переда, спины, плеча) — иначе фамилия/номер спины не видны (клиент:
+  //    «Всё, что добавите, сразу видно на макете слева»).
+  //  • Раздельные картинки переда и спины (front!==back) → ДВА холста, каждый со своими зонами.
   viewList() {
-    return [{ id: 'front', label: 'Перед' }];
+    const im = this.form.images || {};
+    if (im.front && im.back && im.front !== im.back) {
+      return [{ id: 'front', label: 'Перёд' }, { id: 'back', label: 'Спина' }];
+    }
+    return [{ id: 'front', label: 'Макет' }];
+  }
+
+  // Композитный мокап: перёд и спина — одна и та же картинка (все зоны на одном холсте).
+  _isComposite() {
+    const im = this.form.images || {};
+    return !!(im.front && im.back && im.front === im.back);
+  }
+
+  // Единственный (главный) холст — для композитного мокапа и как fallback.
+  soleView() {
+    return this.views.get('front') || this.views.values().next().value || null;
+  }
+
+  // Холст, на который наносится зона: свой вид, а если его нет (композит/плечо) — главный холст.
+  // Так «всё, что добавили» всегда попадает на видимый макет.
+  targetView(zone) {
+    return this.views.get(zone.view) || this.soleView();
   }
 
   async start() {
@@ -157,6 +183,44 @@ export class UniformApp {
     this.buildViews();
     await this.renderAll();
     this._installResizeRefit();
+    this._installExitButton();
+  }
+
+  // Крестик выхода из конструктора (клиент 2026-07-17: «из самого конструктора нет выхода,
+  // добавьте крестик»). Конструктор — полноэкранный виджет (на телефоне во всю ширину внутри
+  // iframe на странице товара), уйти из него некуда. Крестик возвращает в каталог.
+  _installExitButton() {
+    if (this._exitInstalled || typeof document === 'undefined') return;
+    this._exitInstalled = true;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'constructor-exit';
+    btn.setAttribute('aria-label', 'Выйти из конструктора');
+    btn.textContent = '×';
+    Object.assign(btn.style, {
+      position: 'fixed', top: '10px', right: '10px', zIndex: '2147483647',
+      width: '40px', height: '40px', lineHeight: '38px', padding: '0',
+      borderRadius: '50%', border: 'none', cursor: 'pointer',
+      background: 'rgba(17,17,17,0.72)', color: '#fff',
+      fontSize: '26px', fontWeight: '400', textAlign: 'center',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.25)'
+    });
+    btn.onclick = () => this._exitConstructor();
+    document.body.appendChild(btn);
+  }
+
+  // Уводит пользователя из конструктора в каталог. Конструктор встроен в страницу товара
+  // тем же доменом (same-origin), поэтому правим верхнее окно; при кросс-доменном/автономном
+  // варианте — падаем на навигацию текущего окна.
+  _exitConstructor() {
+    const target = '/shop/';
+    try {
+      if (window.top && window.top !== window.self) {
+        window.top.location.href = target;
+        return;
+      }
+    } catch { /* кросс-домен: до верхнего окна не дотянуться, уводим текущее */ }
+    window.location.href = target;
   }
 
   // Доступная ширина под ряд холстов = ширина сцены минус её внутренние отступы.
@@ -174,13 +238,22 @@ export class UniformApp {
   _displayWidth(n) {
     const gap = 20, chrome = 26; // gap между колонками + паддинг/бордер .canvas-wrap
     const avail = this._availWidth();
+    // Телефон (узкий экран ≤560): всегда один холст во всю ширину. Клиент 2026-07-16 —
+    // «во весь экран без полей». Раньше при одном виде срабатывала десктопная ветка (300+26
+    // влезало в avail) и холст застревал на 300px — теперь на телефоне сразу full-width.
+    if (typeof window !== 'undefined' && window.innerWidth <= 560) {
+      return Math.max(150, Math.min(520, Math.round(avail - 6)));
+    }
     const deskDW = n >= 3 ? 210 : 300;
     const rowNeed = n * (deskDW + chrome) + (n - 1) * gap;
     if (avail >= rowNeed) return deskDW; // десктоп: поведение не меняется
     if (n >= 2 && avail >= 2 * (240 + chrome) + gap) { // планшет: 2 в ряд
       return Math.max(150, Math.min(300, Math.floor((avail - gap) / 2) - chrome));
     }
-    return Math.max(150, Math.min(440, Math.round(avail - chrome))); // телефон: один на всю ширину
+    // Телефон: один холст на всю ширину. Клиент 2026-07-16 — «во весь экран без полей».
+    // На мобиле обёртка .canvas-wrap без паддинга/бордера (см. stand.css @560), поэтому вычитаем
+    // не 26 (десктопный chrome), а ~6 — холст растягивается почти до краёв экрана.
+    return Math.max(150, Math.min(520, Math.round(avail - 6)));
   }
 
   // Перестроить холсты при смене ширины экрана / повороте телефона (с дебаунсом).
@@ -195,7 +268,11 @@ export class UniformApp {
         const dw = this._displayWidth(this.viewList().length);
         if (Math.abs(dw - (this._lastDisplayWidth || 0)) < 8) return; // мелкие дрожания игнорируем
         this.buildViews();
-        this.renderAll();
+        // keepCards: не пере-рендерим карточки опций при ресайзе. Иначе появление
+        // полосы прокрутки (открыли «Шрифт и цвет» → страница выросла → скроллбар сузил
+        // окно на ~15px → resize) стирало DOM карточки и мгновенно закрывало выпадашку
+        // шрифта. Клиент 2026-07-16: «не могу выбрать шрифт, открывается и сразу закрывается».
+        this.renderAll({ keepCards: true });
       }, 180);
     }, { passive: true });
   }
@@ -239,15 +316,6 @@ export class UniformApp {
     this.views.clear();
     this.viewsEl.innerHTML = '';
 
-    // Название линейки слева наверху макета (ТЗ 2026-07-10, C12): человек видит,
-    // какую линейку выбрал (Стар/Виннер/…), чтобы потом найти форму в каталоге.
-    if (this.form.line) {
-      const badge = document.createElement('div');
-      badge.className = 'line-badge';
-      badge.textContent = this.form.line;
-      this.viewsEl.appendChild(badge);
-    }
-
     const list = this.viewList();
     const base = this.config.canvas || { width: 900, height: 1200, displayWidth: 450 };
     const displayWidth = this._displayWidth(list.length);
@@ -272,7 +340,7 @@ export class UniformApp {
 
       const view = new CanvasView(canvasEl, { ...base, displayWidth });
       view.onChange = () => this.updatePrice();
-      view.onZoneClick((key) => this.selectZone(v.id, key));
+      view.onZoneClick((key) => this.selectZone(key));
       this.views.set(v.id, view);
     }
   }
@@ -290,27 +358,31 @@ export class UniformApp {
       <div id="opt-list" class="opt-list"></div>
 
       <section id="opt-extra" class="opt-extra">
-        <h3>Комплектация</h3>
-        <div class="extra-block">
-          <span class="extra-label">Размерная категория</span>
-          <div class="seg" id="age-seg">
-            <button class="seg-btn active" data-age="adult">Взрослая · ${money(p.form.adult)}</button>
-            <button class="seg-btn" data-age="child">Детская · ${money(p.form.child)}</button>
+        <button id="extra-toggle" class="extra-toggle" type="button" aria-expanded="${this.extraOpen ? 'true' : 'false'}">
+          <span>Комплектация</span><span class="chev">▾</span>
+        </button>
+        <div id="extra-body" class="extra-body" ${this.extraOpen ? '' : 'hidden'}>
+          <div class="extra-block">
+            <span class="extra-label">Размерная категория</span>
+            <div class="seg" id="age-seg">
+              <button class="seg-btn active" data-age="adult">Взрослая · ${money(p.form.adult)}</button>
+              <button class="seg-btn" data-age="child">Детская · ${money(p.form.child)}</button>
+            </div>
           </div>
-        </div>
-        <label class="extra-check"><input type="checkbox" id="opt-gaiters"> <span>Гетры <em>+${money(p.gaiters)}</em></span></label>
-        <label class="extra-check"><input type="checkbox" id="opt-jchest"> <span>Jetron на груди <em>−5%</em></span></label>
-        <label class="extra-check"><input type="checkbox" id="opt-jback"> <span>Jetron.ru на спине <em>−5%</em></span></label>
-        <div class="extra-block qty-block">
-          <span class="extra-label">Комплектов</span>
-          <div class="qty-stepper">
-            <button type="button" id="qty-minus" aria-label="Меньше">−</button>
-            <input type="number" id="opt-qty" min="1" value="1" inputmode="numeric">
-            <button type="button" id="qty-plus" aria-label="Больше">+</button>
+          <label class="extra-check"><input type="checkbox" id="opt-gaiters"> <span>Гетры <em>+${money(p.gaiters)}</em></span></label>
+          <label class="extra-check"><input type="checkbox" id="opt-jchest"> <span>Jetron на груди <em>−5%</em></span></label>
+          <label class="extra-check"><input type="checkbox" id="opt-jback"> <span>Jetron.ru на спине <em>−5%</em></span></label>
+          <div class="extra-block qty-block">
+            <span class="extra-label">Комплектов</span>
+            <div class="qty-stepper">
+              <button type="button" id="qty-minus" aria-label="Меньше">−</button>
+              <input type="number" id="opt-qty" min="1" value="1" inputmode="numeric">
+              <button type="button" id="qty-plus" aria-label="Больше">+</button>
+            </div>
           </div>
-        </div>
-        <div class="extra-links">
-          <button id="size-btn" class="linkbtn" type="button">Таблица размеров</button>
+          <div class="extra-links">
+            <button id="size-btn" class="linkbtn" type="button">Таблица размеров</button>
+          </div>
         </div>
       </section>
 
@@ -326,6 +398,15 @@ export class UniformApp {
         <button id="order-btn" class="cta">Оформить заказ</button>
       </section>
     `;
+
+    // «Комплектация» — сворачиваемый блок (клиент 2026-07-15), чтобы «Итого» было выше.
+    const extraToggle = this.panelEl.querySelector('#extra-toggle');
+    const extraBody = this.panelEl.querySelector('#extra-body');
+    extraToggle.onclick = () => {
+      this.extraOpen = !this.extraOpen;
+      extraBody.hidden = !this.extraOpen;
+      extraToggle.setAttribute('aria-expanded', this.extraOpen ? 'true' : 'false');
+    };
 
     // Размерная категория — сегмент-переключатель.
     this.panelEl.querySelectorAll('#age-seg .seg-btn').forEach((b) => {
@@ -459,7 +540,7 @@ export class UniformApp {
     const draw = (pkey, entry) => {
       const zone = this.zoneByPkey(pkey);
       if (!zone) return;
-      const view = this.views.get(zone.view);
+      const view = this.targetView(zone);
       this.edit = setPlacement(this.edit, pkey, entry);
       if (!view) return;
       if (entry.type === 'text') view.placeText(zone, entry.value, this.resolveFont(entry.fontId, entry.value), entry.color);
@@ -486,7 +567,7 @@ export class UniformApp {
     if (!(pkey in this.placements)) return;
     this.edit = removePlacement(this.edit, pkey);
     const zone = this.zoneByPkey(pkey);
-    const view = zone && this.views.get(zone.view);
+    const view = zone && this.targetView(zone);
     if (view) view.removeFromZone(zone.key);
   }
 
@@ -527,12 +608,15 @@ export class UniformApp {
     this.updatePrice();
   }
 
-  // Обновить кэш опции и синхронизировать макет (авто-ON при первом вводе данных).
+  // Обновить кэш опции и синхронизировать макет.
+  // Клиент 2026-07-16: любой ВВОД/ПРАВКА данных авто-включает тумблер ON — даже если раньше
+  // его выключили вручную («после его отключения дальнейшее изменение происходило только вручную»).
+  // Пустое поле (стёрли всё) — прячем с макета, состояние тумблера не трогаем.
   setOptData(opt, patch) {
     this.optCache[opt.id] = Object.assign({}, this.optCache[opt.id], patch);
     if (this.optionHasData(opt)) {
-      if (this.optShown[opt.id] === undefined) this.optShown[opt.id] = true;
-      if (this.optShown[opt.id]) this.applyOption(opt);
+      this.optShown[opt.id] = true; // авто-ON при любом вводе данных
+      this.applyOption(opt);
     } else {
       this.hideOption(opt);
     }
@@ -550,6 +634,70 @@ export class UniformApp {
     return out;
   }
 
+  // Модалки внутри iframe: position:fixed якорится ко ВСЕЙ высоте iframe, а не к видимой
+  // области родительской страницы. На встроенном сайте (конструктор в iframe на странице
+  // WooCommerce) окно уезжает за экран — клиент 2026-07-16: «таблица размеров сползает вниз».
+  // Если мы в iframe того же origin — позиционируем оверлей абсолютно в текущую видимую
+  // полосу iframe и держим её при прокрутке. Cross-origin/standalone — мягко остаёмся на fixed.
+  _mountOverlay(overlay) {
+    document.body.appendChild(overlay);
+    try {
+      if (window.self === window.top) return; // не встроено — обычный fixed из CSS
+      const fe = window.frameElement;         // null или бросит при cross-origin
+      if (!fe) return;
+      const pv = window.parent;
+      const card = overlay.querySelector('.order-card');
+      // Высота липкой/фиксированной шапки родителя В ДАННЫЙ МОМЕНТ. Тема сайта прячет шапку
+      // при прокрутке вниз и выезжает ей навстречу при прокрутке вверх — считаем динамически на
+      // каждый скролл (клиент 2026-07-17: «верх таблицы заползает под шапку», «из корзины нет выхода»).
+      const parentHeaderBottom = () => {
+        try {
+          const pd = pv.document;
+          let b = 0;
+          pd.querySelectorAll('header, #masthead, #wpadminbar, .sticky, [class*="header" i], [class*="sticky" i], [role="banner"]').forEach((el) => {
+            const cs = pv.getComputedStyle(el);
+            if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+            const rr = el.getBoundingClientRect();
+            // только то, что реально закрывает верх экрана прямо сейчас
+            if (rr.top <= 2 && rr.height > 8 && rr.height < 250 && rr.width > (pv.innerWidth || 0) * 0.5) {
+              b = Math.max(b, rr.bottom);
+            }
+          });
+          return b;
+        } catch { return 0; }
+      };
+      const reposition = () => {
+        const r = fe.getBoundingClientRect();
+        const vh = pv.innerHeight || document.documentElement.clientHeight;
+        const hdr = parentHeaderBottom();
+        const top = Math.max(0, hdr - r.top);                 // старт ниже шапки родителя
+        const bottom = Math.min(fe.clientHeight, vh - r.top); // низ видимой полосы iframe
+        const h = Math.max(0, bottom - top);
+        if (h <= 0) return; // iframe полностью за экраном — не трогаем
+        overlay.style.position = 'absolute';
+        overlay.style.top = top + 'px';
+        overlay.style.left = '0';
+        overlay.style.right = '0';
+        overlay.style.bottom = 'auto';
+        overlay.style.height = h + 'px';
+        overlay.style.overflow = 'hidden';   // модалка не вылезает за видимую полосу
+        overlay.style.alignItems = 'center';
+        // карточка скроллится ВНУТРИ полосы → липкие шапка (с крестиком) и подвал всегда видны
+        if (card) card.style.maxHeight = h + 'px';
+      };
+      reposition();
+      const onMove = () => reposition();
+      pv.addEventListener('scroll', onMove, { passive: true });
+      pv.addEventListener('resize', onMove, { passive: true });
+      const origRemove = overlay.remove.bind(overlay);
+      overlay.remove = () => {
+        pv.removeEventListener('scroll', onMove);
+        pv.removeEventListener('resize', onMove);
+        origRemove();
+      };
+    } catch { /* cross-origin — остаёмся на fixed, деградация мягкая */ }
+  }
+
   // Оформление заказа (ТЗ §6): выбор размера (детское/взрослое) → таблица размеров →
   // предложение гетр → итог → «В корзину» (на боевом уходит в WooCommerce + на почту grc2@bk.ru).
   showOrder() {
@@ -560,18 +708,27 @@ export class UniformApp {
     card.setAttribute('role', 'dialog');
     card.setAttribute('aria-label', 'Оформление заказа');
     overlay.appendChild(card);
-    document.body.appendChild(overlay);
+    this._mountOverlay(overlay);
 
     const close = () => overlay.remove();
     overlay.onclick = (e) => { if (e.target === overlay) close(); };
 
+    // Размер выбирается кликом по строке (клиент 2026-07-15: «размеры не могу выбрать»).
     const sizeTable = (cat) => {
       const grid = this.config.sizes?.[cat];
       if (!grid) return '';
-      return `<table class="order-items">
-        <thead><tr>${grid.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
-        <tbody>${grid.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join('')}</tr>`).join('')}</tbody>
-      </table>`;
+      return `<table class="order-items size-select">
+        <thead><tr><th aria-label="Выбор"></th>${grid.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
+        <tbody>${grid.rows.map((row) => {
+          const sz = String(row[0]);
+          const on = this.size === sz;
+          return `<tr class="size-row${on ? ' sel' : ''}" data-size="${escapeHtml(sz)}">
+            <td class="pick"><input type="radio" name="ord-size" value="${escapeHtml(sz)}" ${on ? 'checked' : ''}></td>
+            ${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join('')}
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+      <p class="size-hint">${this.size ? `Выбран размер: <b>${escapeHtml(this.size)}</b>` : 'Выберите размер из таблицы выше'}</p>`;
     };
 
     const render = () => {
@@ -620,6 +777,7 @@ export class UniformApp {
           </table>
 
           <div class="order-totals">
+            <div class="pline"><span>Размер</span><span>${this.size ? escapeHtml(this.size) : '—'}</span></div>
             <div class="pline"><span>Форма</span><span>${money(order.price.formPrice)}</span></div>
             ${order.price.placementTotal ? `<div class="pline"><span>Нанесение</span><span>${money(order.price.placementTotal)}</span></div>` : ''}
             ${order.price.gaitersPrice ? `<div class="pline"><span>Гетры</span><span>${money(order.price.gaitersPrice)}</span></div>` : ''}
@@ -638,8 +796,16 @@ export class UniformApp {
       card.querySelectorAll('input[name="ord-age"]').forEach((r) => {
         r.onchange = () => {
           this.ageCategory = r.value;
+          this.size = ''; // размерные ряды детской/взрослой различаются — сбрасываем выбор
           this.syncPanelControls();
           this.updatePrice();
+          render();
+        };
+      });
+      // Выбор конкретного размера — клик по строке или радиокнопке.
+      card.querySelectorAll('.size-row').forEach((tr) => {
+        tr.onclick = () => {
+          this.size = tr.dataset.size;
           render();
         };
       });
@@ -649,10 +815,49 @@ export class UniformApp {
         this.updatePrice();
         render();
       };
-      card.querySelector('#order-confirm').onclick = () => {
-        // Стенд Phase 0: реальной отправки нет. На боевом → корзина WooCommerce (U1) + письмо на grc2@bk.ru (§6).
+      card.querySelector('#order-confirm').onclick = async () => {
         const foot = card.querySelector('.order-foot');
-        foot.innerHTML = `<p class="hint" style="margin:0">Заказ собран: макет, файлы и надписи готовы к передаче. На боевом сайте уходит в корзину WooCommerce (U1) и на почту grc2@bk.ru.</p>`;
+        const btn = card.querySelector('#order-confirm');
+        if (!this.size) {
+          // Клиент 2026-07-15: размер обязателен, но раньше его нельзя было выбрать.
+          const hint = card.querySelector('.size-hint');
+          if (hint) {
+            hint.classList.add('need');
+            hint.innerHTML = 'Пожалуйста, выберите размер из таблицы';
+            hint.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          return;
+        }
+        const woo = this.config.woo || await this._wooConfig();
+        if (!woo || !woo.productId) {
+          // Standalone/preview без WooCommerce: показываем что заказ собран.
+          foot.innerHTML = `<p class="hint" style="margin:0">Заказ собран: макет, файлы и надписи готовы к передаче.</p>`;
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = 'Добавляем…';
+        try {
+          const png = await this.mockupDataURL('image/jpeg', 0.85);
+          const spec = this._specText(this.lastOrder);
+          const base = String(woo.siteUrl || '').replace(/\/$/, '');
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = `${base}/?add-to-cart=${encodeURIComponent(woo.productId)}`;
+          form.target = '_top';
+          form.style.display = 'none';
+          const add = (n, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; form.appendChild(i); };
+          add('quantity', String(this.lastOrder.quantity || 1));
+          add('jetron_spec', spec);
+          add('jetron_size', this.size);
+          add('jetron_total', String(this.lastOrder.price.grandTotal));
+          if (png) add('jetron_png', png);
+          document.body.appendChild(form);
+          form.submit();
+        } catch (e) {
+          btn.disabled = false;
+          btn.textContent = 'В корзину';
+          foot.insertAdjacentHTML('beforeend', `<p class="hint" style="color:#c0392b;margin:6px 0 0">Не удалось добавить в корзину: ${escapeHtml(e.message)}. Попробуйте ещё раз.</p>`);
+        }
       };
     };
 
@@ -691,14 +896,14 @@ export class UniformApp {
           <p class="hint">Замеряйте по росту/обхвату груди. При сомнении между размерами берите больший.</p>
         </div>
       </div>`;
-    document.body.appendChild(overlay);
+    this._mountOverlay(overlay);
     const close = () => overlay.remove();
     overlay.querySelectorAll('.order-close').forEach((b) => { b.onclick = close; });
     overlay.onclick = (e) => { if (e.target === overlay) close(); };
   }
 
-  // Скачать макет: собираем все виды (перёд/спина/плечо) в один PNG без служебных рамок.
-  async downloadImage() {
+  // Собрать все виды (перёд/спина/плечо) в один canvas без служебных рамок.
+  async _composeMockupCanvas() {
     const loadImg = (url) => new Promise((res, rej) => {
       const im = new Image();
       im.onload = () => res(im);
@@ -709,11 +914,12 @@ export class UniformApp {
     for (const [name, view] of this.views) {
       imgs.push({ name, img: await loadImg(view.toDataURL()) });
     }
-    if (!imgs.length) return;
+    if (!imgs.length) return null;
 
     const gap = 24;
     const pad = 24;
-    const labelH = 34;
+    // Композит — один холст, подпись не нужна (клиент 2026-07-12); при двух видах подписываем.
+    const labelH = imgs.length > 1 ? 34 : 0;
     const maxH = Math.max(...imgs.map((e) => e.img.height));
     const totalW = imgs.reduce((s, e) => s + e.img.width, 0) + gap * (imgs.length - 1) + pad * 2;
     const totalH = maxH + labelH + pad * 2;
@@ -730,34 +936,96 @@ export class UniformApp {
 
     let x = pad;
     for (const e of imgs) {
-      ctx.fillText(VIEW_LABEL[e.name] || e.name, x + e.img.width / 2, pad + 24);
+      if (labelH) ctx.fillText(VIEW_LABEL[e.name] || e.name, x + e.img.width / 2, pad + 24);
       ctx.drawImage(e.img, x, pad + labelH);
       x += e.img.width + gap;
     }
+    return c;
+  }
 
+  // Скачать макет одним PNG.
+  async downloadImage() {
+    const c = await this._composeMockupCanvas();
+    if (!c) return;
     const a = document.createElement('a');
     a.download = `jetron-${this.formId}.png`;
     a.href = c.toDataURL('image/png');
     a.click();
   }
 
-  async renderAll() {
+  // Макет как data-URL для передачи в корзину WooCommerce (JPEG компактнее, фон уже белый).
+  async mockupDataURL(type = 'image/jpeg', quality = 0.85) {
+    const c = await this._composeMockupCanvas();
+    return c ? c.toDataURL(type, quality) : '';
+  }
+
+  // Человекочитаемая спецификация заказа для менеджера (прикладывается к позиции корзины/заказа).
+  _specText(o) {
+    if (!o) return '';
+    const money = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' \u20bd';
+    const age = o.ageCategory === 'child' ? 'Детская' : 'Взрослая';
+    const L = [];
+    L.push(`Модель: ${o.formName} (цвет: ${o.color})`);
+    L.push(`Размерная категория: ${age}`);
+    if (this.size) L.push(`Размер: ${this.size}`);
+    L.push(`Комплектов: ${o.quantity}`);
+    if (o.items && o.items.length) {
+      L.push('Нанесения:');
+      for (const it of o.items) {
+        const val = it.type === 'text' ? `«${it.text}»` : 'логотип/изображение';
+        L.push(`  - ${it.label}: ${val}`);
+      }
+    } else {
+      L.push('Нанесения: нет');
+    }
+    L.push(`Гетры: ${o.gaiters ? 'да' : 'нет'}`);
+    L.push(`Логотип Jetron на груди: ${o.jetron.chest ? 'да (-5%)' : 'нет'}; Jetron.ru на спине: ${o.jetron.back ? 'да (-5%)' : 'нет'}`);
+    const p = o.price;
+    const parts = [`форма ${money(p.formPrice)}`];
+    if (p.placementTotal) parts.push(`нанесение ${money(p.placementTotal)}`);
+    if (p.gaitersPrice) parts.push(`гетры ${money(p.gaitersPrice)}`);
+    if (p.discountPct) parts.push(`скидка -${Math.round(p.discountPct * 100)}%`);
+    L.push(`Расчёт конструктора: ${parts.join(', ')}; за комплект ${money(p.perKit)}; ИТОГО ${money(p.grandTotal)}`);
+    return L.join('\n');
+  }
+
+  // Конфиг WooCommerce отдаётся статикой woo.json (пишется mu-плагином) — минуя антибот.
+  async _wooConfig() {
+    if (this._woo !== undefined) return this._woo;
+    try {
+      const r = await fetch('woo.json', { cache: 'no-store' });
+      this._woo = r.ok ? await r.json() : null;
+    } catch {
+      this._woo = null;
+    }
+    return this._woo;
+  }
+
+  async renderAll({ keepCards = false } = {}) {
+    const composite = this._isComposite();
+    // Показываем рамку только у зон, для которых есть доступная опция нанесения.
+    // Так на макете нет «пустых» рамок под ещё не реализованные зоны (фамилия/номер — см. docs).
+    const optPkeys = new Set();
+    for (const o of this.availableOptions()) for (const pk of this.optionPkeys(o)) optPkeys.add(pk);
+    const usable = (z) => optPkeys.has(`${z.view}:${z.key}`);
     for (const [viewName, view] of this.views) {
       const img = this.form.images[viewName];
       // Плечо (и любой вид без мокапа) — нейтральный холст: лого показывается отдельной картинкой (ТЗ §9.3).
       if (img) await view.setBackground(encodeURI(img));
       else view.setNeutral();
-      view.renderZones(this.zonesFor(viewName));
-      // восстановить размещения этого вида из состояния
-      for (const zone of this.zonesFor(viewName)) {
-        const p = this.placements[`${viewName}:${zone.key}`];
+      // Композит: единственный холст владеет ВСЕМИ зонами; иначе — только зонами своего вида.
+      const zones = (composite ? this.formZones : this.zonesFor(viewName)).filter(usable);
+      view.renderZones(zones);
+      // восстановить размещения из состояния (ключ размещения — всегда `${zone.view}:${zone.key}`)
+      for (const zone of zones) {
+        const p = this.placements[`${zone.view}:${zone.key}`];
         if (!p) continue;
         if (p.type === 'text') view.placeText(zone, p.value, this.resolveFont(p.fontId, p.value), p.color);
         else if (p.type === 'image') await view.placeImage(zone, p.value);
       }
     }
     this.renderJetron();
-    this.renderOptionCards();
+    if (!keepCards) this.renderOptionCards();
     this.updatePrice();
   }
 
@@ -766,32 +1034,32 @@ export class UniformApp {
   // Нет картинки → текстовый фолбэк. Рисуется только визуально; скидка −5%/−5% считается
   // в calculatePrice независимо от отрисовки.
   renderJetron() {
-    const front = this.views.get('front');
-    const back = this.views.get('back');
-    if (front) front.clearStatic();
-    if (back) back.clearStatic();
+    // На композите оба логотипа ложатся на единственный холст; на раздельных видах — каждый на свой.
+    for (const v of this.views.values()) v.clearStatic();
     const logo = this.brandingImg;
 
-    if (this.jetron.chest && front) {
-      const zone = this.zonesFor('front').find((z) => z.key === 'chest_logo_large');
-      if (zone && !this.placements['front:chest_logo_large']) {
-        if (logo) front.placeStaticImage(zone.box, logo);
-        else front.placeStaticText(zone.box, 'JETRON.RU', '#111111');
-      }
+    const chestZone = this.formZones.find((z) => z.key === 'chest_logo_large');
+    const chestView = chestZone && this.targetView(chestZone);
+    if (this.jetron.chest && chestView && chestZone && !this.placements['front:chest_logo_large']) {
+      if (logo) chestView.placeStaticImage(chestZone.box, logo);
+      else chestView.placeStaticText(chestZone.box, 'JETRON.RU', '#111111');
     }
-    if (this.jetron.back && back) {
-      // «Под номером на спине» — там же, где логотип под номером; пропускаем, если место занято (§5).
-      const anchor = this.zonesFor('back').find((z) => z.key === 'back_logo');
-      if (anchor && !this.placements['back:back_logo']) {
-        if (logo) back.placeStaticImage(anchor.box, logo);
-        else back.placeStaticText(anchor.box, 'JETRON.RU', '#111111');
-      }
+
+    // «Под номером на спине» — там же, где логотип под номером; пропускаем, если место занято (§5).
+    const backZone = this.formZones.find((z) => z.key === 'back_logo');
+    const backView = backZone && this.targetView(backZone);
+    if (this.jetron.back && backView && backZone && !this.placements['back:back_logo']) {
+      if (logo) backView.placeStaticImage(backZone.box, logo);
+      else backView.placeStaticText(backZone.box, 'JETRON.RU', '#111111');
     }
   }
 
   // Клик по зоне на макете открывает соответствующую карточку опции (аккордеон).
-  selectZone(view, key) {
-    const pkey = `${view}:${key}`;
+  // Ключи зон уникальны между видами, поэтому вид определяем по самой зоне (работает и на композите).
+  selectZone(key) {
+    const zone = this.formZones.find((z) => z.key === key);
+    if (!zone) return;
+    const pkey = `${zone.view}:${zone.key}`;
     const opt = this.availableOptions().find((o) => this.optionPkeys(o).includes(pkey));
     if (opt) {
       this.openOpt = opt.id;
@@ -886,12 +1154,16 @@ export class UniformApp {
     const colors = this.config.textColors || [];
     const curColor = c.color || this.textColor;
     const curFont = c.fontId || this.defaultFontId();
+    // Клиент 2026-07-16 «не могу выбрать шрифт»: латинские шрифты не держат кириллицу,
+    // при русском тексте отрисовка молча падала на РПЛ (кнопка «выбиралась», превью не менялось).
+    // Блокируем такие шрифты с понятной подсказкой — видно, почему выбрать нельзя.
+    const userCyr = this.hasCyrillic([c.name, c.number, c.text].filter(Boolean).join(' '));
     return `
       <details class="opt-font" ${c.fontId || c.color ? 'open' : ''}>
         <summary>Шрифт и цвет</summary>
         <div class="font-list" role="listbox" aria-label="Шрифт">
-          ${fonts.map((f) => `<button type="button" class="font-opt ${f.id === curFont ? 'active' : ''}"
-             data-font="${f.id}" role="option" aria-selected="${f.id === curFont}" title="${escapeHtml(f.name)}">
+          ${fonts.map((f) => `<button type="button" class="font-opt ${f.id === curFont ? 'active' : ''}${userCyr && !f.cyrillic ? ' locked' : ''}"
+             data-font="${f.id}" role="option" aria-selected="${f.id === curFont}" aria-disabled="${userCyr && !f.cyrillic}" title="${userCyr && !f.cyrillic ? 'Шрифт без кириллицы — выберите шрифт с русскими буквами' : escapeHtml(f.name)}">
              <span class="font-opt-sample" style="font-family:'${f.id}', sans-serif">${escapeHtml(this.fontSampleText(f, c))}</span>
              <span class="font-opt-name">${escapeHtml(f.name)}${f.cyrillic ? '' : ' · лат.'}</span>
           </button>`).join('')}
@@ -900,6 +1172,20 @@ export class UniformApp {
           ${colors.map((col) => `<button class="color-sw ${col.hex === curColor ? 'active' : ''}" data-color="${col.hex}" title="${escapeHtml(col.name)}" style="background:${col.hex}"></button>`).join('')}
         </div>
       </details>`;
+  }
+
+  // Пересчитать блокировку латинских шрифтов при вводе русского текста (без пере-рендера
+  // карточки, чтобы не терять фокус в поле). Клиент 2026-07-16 «не могу выбрать шрифт».
+  updateFontLocks(card, opt) {
+    const c = this.optCache[opt.id] || {};
+    const cyr = this.hasCyrillic([c.name, c.number, c.text].filter(Boolean).join(' '));
+    card.querySelectorAll('.font-opt').forEach((b) => {
+      const f = this.fontById(b.dataset.font);
+      const locked = cyr && f && !f.cyrillic;
+      b.classList.toggle('locked', locked);
+      b.setAttribute('aria-disabled', String(locked));
+      b.title = locked ? 'Шрифт без кириллицы — выберите шрифт с русскими буквами' : (f ? f.name : '');
+    });
   }
 
   wireOptionCard(opt) {
@@ -926,12 +1212,14 @@ export class UniformApp {
         this.setOptData(opt, { [inp.dataset.field]: inp.value.trim() });
         card.classList.toggle('active', this.optionActive(opt));
         this.refreshToggle(card, opt);
+        this.updateFontLocks(card, opt); // русский текст → запереть латинские шрифты
       };
     });
 
     // Шрифт: список превью, каждый образец нарисован своим шрифтом.
     body.querySelectorAll('.font-opt').forEach((b) => {
       b.onclick = () => {
+        if (b.classList.contains('locked')) return; // латинский шрифт при русском тексте — нельзя
         body.querySelectorAll('.font-opt').forEach((x) => {
           const on = x === b;
           x.classList.toggle('active', on);

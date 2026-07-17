@@ -16,6 +16,16 @@ async function boot() {
       return;
     }
 
+    // Палитра цвета текста управляется из админки (colors.json пишет mu-плагин jetron-colors.php),
+    // минуя антибот/WAF. Читается после валидации, чтобы битый файл не заблокировал запуск.
+    try {
+      const cr = await fetch('colors.json', { cache: 'no-store' });
+      if (cr.ok) {
+        const adm = await cr.json();
+        if (Array.isArray(adm.textColors) && adm.textColors.length) config.textColors = adm.textColors;
+      }
+    } catch { /* остаёмся на палитре из mock-config.json */ }
+
     const app = new UniformApp({
       config,
       viewsEl: document.getElementById('views'),
