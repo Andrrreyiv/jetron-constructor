@@ -12,7 +12,10 @@ export class CanvasView {
       width: displayWidth,
       height: displayHeight,
       preserveObjectStacking: true,
-      selection: true
+      selection: true,
+      // Клиент 2026-07-16: на телефоне страница не скроллилась — Fabric перехватывал тач на холсте.
+      // allowTouchScrolling пропускает вертикальный свайп странице (скролл работает поверх картинки).
+      allowTouchScrolling: true
     });
     this.zoneOverlays = new Map(); // key -> fabric.Rect (пунктирная рамка зоны)
     this.userObjects = new Map();  // key -> объект, помещённый покупателем
@@ -92,6 +95,9 @@ export class CanvasView {
       textAlign: 'center',
       clipPath: this._clipFor(zone)
     });
+    // Клиент: не давать менять размер полей на макете — убираем ручки масштаба/поворота,
+    // элемент остаётся выделяемым и удаляемым, но не тянется по размеру.
+    obj.set({ lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false });
     obj.zoneKey = zone.key;
     this.userObjects.set(zone.key, obj);
     this.canvas.add(obj);
@@ -113,6 +119,8 @@ export class CanvasView {
       scaleX: scale, scaleY: scale,
       clipPath: this._clipFor(zone)
     });
+    // Клиент: не давать менять размер логотипа/картинки на макете — фиксируем масштаб и поворот.
+    img.set({ lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false });
     img.zoneKey = zone.key;
     this.userObjects.set(zone.key, img);
     this.canvas.add(img);

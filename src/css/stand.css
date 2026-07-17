@@ -610,8 +610,34 @@ body {
   text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
 }
 .font-opt.active .font-opt-name { color: var(--brand-strong); }
+/* Клиент 2026-07-16: латинский шрифт при русском тексте недоступен — приглушаем и запрещаем. */
+.font-opt.locked { opacity: .4; cursor: not-allowed; filter: grayscale(1); }
+.font-opt.locked:hover { border-color: var(--line-strong); }
 
 /* ── Доп.комплектация ────────────────────────────────────── */
+/* Клиент 2026-07-17: весь раздел «Комплектация» шрифтом Calibri. */
+.opt-extra, .opt-extra * { font-family: Calibri, 'Segoe UI', Candara, 'Trebuchet MS', sans-serif; }
+/* Сворачиваемый заголовок «Комплектация» (клиент 2026-07-15: подтянуть «Итого» выше). */
+.extra-toggle {
+  display: flex !important; align-items: center; justify-content: space-between;
+  width: 100%; padding: 12px 0 !important; margin: 0;
+  background: none !important; border: none; box-shadow: none !important;
+  color: var(--ink) !important; cursor: pointer;
+  font-family: Calibri, 'Segoe UI', Candara, 'Trebuchet MS', sans-serif; font-size: 15px; font-weight: 700;
+}
+.extra-toggle:hover { color: var(--brand-strong) !important; transform: none !important; filter: none !important; }
+.extra-toggle .chev { color: var(--muted); transition: transform .2s var(--ease); }
+.extra-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.extra-body[hidden] { display: none; }
+.extra-body { padding-top: 2px; }
+/* Выбор конкретного размера кликом по строке (клиент 2026-07-15: «размеры не могу выбрать»). */
+.size-select tbody tr { cursor: pointer; }
+.size-select tbody tr:hover { background: var(--brand-soft); }
+.size-select tr.sel { background: var(--brand-soft); }
+.size-select tr.sel td { color: var(--brand-strong); font-weight: 700; }
+.size-select td.pick, .size-select thead th:first-child { width: 34px; text-align: center; padding-right: 0; }
+.size-hint { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.size-hint.need { color: #c0392b; font-weight: 700; }
 .extra-block { margin: 4px 0 12px; }
 .extra-label {
   display: block; font-size: 12px; font-weight: 700; color: var(--muted);
@@ -798,12 +824,16 @@ body {
 .order-grand b { color: #ffffff; }
 
 .order-foot {
-  display: flex; gap: 10px; justify-content: flex-end;
+  display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end;
   padding: 16px 24px; border-top: 1px solid var(--line);
   position: sticky; bottom: 0; background: #fff;
 }
 .order-foot button {
-  padding: 12px 22px; border: none; border-radius: 999px;
+  /* Клиент 2026-07-15: на планшете «В корзину» наезжала на «Продолжить редактирование».
+     wrap на контейнере не даёт перекрытия; кнопки жмутся по контенту, а текст
+     внутри кнопки не переносится (nowrap) — «Продолжить редактирование» одной строкой. */
+  flex: 1 1 auto; min-width: max-content; text-align: center; white-space: nowrap;
+  padding: 12px 20px; border: none; border-radius: 999px;
   background: var(--navy);
   color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; font-family: inherit;
   box-shadow: var(--sh-brand); transition: transform .15s var(--ease), filter .15s var(--ease);
@@ -863,11 +893,16 @@ input[type="radio"], input[type="checkbox"] {
   .row button:not(.swatch):not(.color-sw):not(.seg-btn) { flex: 1 1 auto; min-height: 46px; }
 }
 @media (max-width: 560px) {
+  /* Клиент 2026-07-16: превью и весь фильтр — во весь экран без полей, максимально расширены. */
   #app {
-    padding-left: max(12px, env(safe-area-inset-left));
-    padding-right: max(12px, env(safe-area-inset-right));
+    padding-left: max(4px, env(safe-area-inset-left));
+    padding-right: max(4px, env(safe-area-inset-right));
   }
-  #stage { padding: 22px 10px 18px; }
+  #stage { padding: 18px 4px 16px; }
+  /* Холст-обёртка без карточной рамки — картинка тянется до краёв (chrome≈6 в _displayWidth) */
+  .canvas-wrap { padding: 0; border: 0; border-radius: 10px; background: transparent; box-shadow: none; }
+  .canvas-wrap:hover { transform: none; box-shadow: none; }
+  .views { gap: 12px; }
   .panel > section { padding: 16px; }
   .topbar { padding: 12px 16px; }
   .topbar .logo { font-size: 21px; letter-spacing: 3.5px; }
@@ -886,7 +921,10 @@ input[type="radio"], input[type="checkbox"] {
     animation: sheet-up .26s var(--ease);
   }
   .order-foot { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
-  .order-foot button { flex: 1; min-height: 48px; }
+  /* Клиент 2026-07-16 (мобайл): не давать тексту «Продолжить редактирование»
+     переноситься на 2 строки — min-width:max-content держит nowrap, а flex-wrap
+     контейнера роняет кнопки в столбик на всю ширину, когда обе не влезают в ряд. */
+  .order-foot button { flex: 1 1 auto; min-width: max-content; min-height: 48px; white-space: nowrap; }
 }
 @keyframes sheet-up {
   from { opacity: 0; transform: translateY(28px); }
