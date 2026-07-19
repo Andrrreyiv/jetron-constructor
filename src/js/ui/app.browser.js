@@ -6,6 +6,7 @@ import { CanvasView } from './canvas.browser.js';
 import { calculatePrice } from '../core/PriceCalculator.js';
 import { buildOrder } from '../core/OrderSummary.js';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js';
+import { applyZoneOverrides } from '../core/ZoneOverrides.js';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -51,7 +52,15 @@ export class UniformApp {
     const named = this.form.zoneSet && this.config.zoneSets
       ? this.config.zoneSets[this.form.zoneSet]
       : null;
-    return this.form.zones || named || this.config.zoneTemplate || [];
+    const base = this.form.zones || named || this.config.zoneTemplate || [];
+    // Переопределения координат из редактора зон (zones.json) поверх базовых зон формы.
+    return applyZoneOverrides(base, this.formId, this.config.zoneOverrides);
+  }
+
+  // Per-form кадрирование фона (crops.json): доля мокапа, которую оставляем (режем серые поля).
+  // null → показываем изображение целиком. Пишет редактор зон (Phase 2), читает setBackground.
+  get formCrop() {
+    return (this.config.bgCrops && this.config.bgCrops[this.formId]) || null;
   }
 
   // Все формы выбранного цвета — это и есть «карусель» из ТЗ §2.1.
@@ -246,9 +255,11 @@ export class UniformApp {
     }
     // Один композитный холст (перёд+спина+гетры на одной картинке) — показываем КРУПНО, почти
     // во всю ширину сцены, а не куцым 300px. Клиент 2026-07-17 (Safari): «картинка маленькая».
+    // Клиент 2026-07-18: «форма максимально крупно» — потолок поднят 500→600 (исходник мокапа
+    // 900px, при 600 CSS всё ещё даунскейл, значит резко). avail-26 не даёт вылезти за сцену.
     // Два раздельных вида (front≠back) остаются по 300px в ряд — там 300 оправдан.
     if (n === 1) {
-      return Math.max(300, Math.min(avail - 26, 500));
+      return Math.max(300, Math.min(avail - 26, 600));
     }
     const deskDW = n >= 3 ? 210 : 300;
     const rowNeed = n * (deskDW + chrome) + (n - 1) * gap;
@@ -1017,7 +1028,7 @@ export class UniformApp {
     for (const [viewName, view] of this.views) {
       const img = this.form.images[viewName];
       // Плечо (и любой вид без мокапа) — нейтральный холст: лого показывается отдельной картинкой (ТЗ §9.3).
-      if (img) await view.setBackground(encodeURI(img));
+      if (img) await view.setBackground(encodeURI(img), this.formCrop);
       else view.setNeutral();
       // Композит: единственный холст владеет ВСЕМИ зонами; иначе — только зонами своего вида.
       const zones = (composite ? this.formZones : this.zonesFor(viewName)).filter(usable);
@@ -1033,6 +1044,9 @@ export class UniformApp {
     this.renderJetron();
     if (!keepCards) this.renderOptionCards();
     this.updatePrice();
+    // Хук для редактора зон (?zones=edit): после каждой перерисовки заново
+    // делает пунктирные рамки перетаскиваемыми. В обычном режиме не установлен.
+    if (this._afterRender) this._afterRender();
   }
 
   // Брендинг Джетрон (ТЗ §5, логотип подтверждён клиентом 2026-07-14): картинка «JETRON.RU»

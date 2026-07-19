@@ -3,6 +3,7 @@
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
 import { zoneToRect, fitFontSize } from '../core/ZoneManager.js';
+import { cropToImageRect } from '../core/ZoneOverrides.js';
 
 export class CanvasView {
   constructor(canvasEl, canvasCfg) {
@@ -32,10 +33,21 @@ export class CanvasView {
     return zoneToRect(box, { width: this.canvas.getWidth(), height: this.canvas.getHeight() });
   }
 
-  async setBackground(url) {
+  // crop — per-form кадрирование фона (доля исходника, которую оставляем), режет серые поля мокапа.
+  // null/полный кадр → показываем изображение целиком, как раньше.
+  async setBackground(url, crop = null) {
     const img = await fabric.FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
     img.set({ selectable: false, evented: false });
-    img.scaleToWidth(this.canvas.getWidth());
+    const rect = cropToImageRect(crop, img.width, img.height);
+    if (rect) {
+      // Fabric показывает подобласть источника через cropX/cropY + width/height (в пикселях источника).
+      img.set({ cropX: rect.cropX, cropY: rect.cropY, width: rect.cropWidth, height: rect.cropHeight });
+    }
+    // scaleToWidth в этом билде Fabric v6 берёт натуральную ширину элемента, игнорируя обрезанную
+    // width, поэтому кадрированный фон масштабировался неверно (влезала вся картинка). Считаем
+    // масштаб явно от текущей (уже кадрированной) width — видимая область точно вписывается в холст.
+    const scale = this.canvas.getWidth() / img.width;
+    img.set({ scaleX: scale, scaleY: scale });
     this.canvas.backgroundImage = img;
     this.canvas.requestRenderAll();
   }
@@ -97,7 +109,11 @@ export class CanvasView {
     });
     // Клиент: не давать менять размер полей на макете — убираем ручки масштаба/поворота,
     // элемент остаётся выделяемым и удаляемым, но не тянется по размеру.
-    obj.set({ lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false });
+    // hasBorders:false — убираем бирюзовую рамку выделения Fabric. Клиент 2026-07-17 (Safari):
+    // «появилась вторая рамка» — поверх пунктирной рамки зоны Fabric рисовал свою рамку выделения,
+    // получалось две рамки. Удаление элемента идёт через × в панели (removeFromZone по ключу),
+    // а не через выделение на холсте, поэтому рамка выделения не нужна и только путает.
+    obj.set({ lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false, hasBorders: false });
     obj.zoneKey = zone.key;
     this.userObjects.set(zone.key, obj);
     this.canvas.add(obj);
@@ -120,7 +136,8 @@ export class CanvasView {
       clipPath: this._clipFor(zone)
     });
     // Клиент: не давать менять размер логотипа/картинки на макете — фиксируем масштаб и поворот.
-    img.set({ lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false });
+    // hasBorders:false — та же бирюзовая рамка выделения Fabric, что и у текста (см. placeText). Убираем.
+    img.set({ lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false, hasBorders: false });
     img.zoneKey = zone.key;
     this.userObjects.set(zone.key, img);
     this.canvas.add(img);
