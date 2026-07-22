@@ -14,6 +14,16 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
 ));
 const VIEW_LABEL = { front: 'Перед', back: 'Спина', shoulder: 'Плечо' };
 
+// Иконка «волшебная палочка» для кнопки «Удалить фон» (по эскизу клиента: чёрная палочка + жёлтые искры).
+// Инлайн-SVG вместо картинки: масштабируется, без лишнего запроса, легко перекрасить.
+const WAND_SVG = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+  <line x1="3.4" y1="20.6" x2="14" y2="10" stroke="#111" stroke-width="3.4" stroke-linecap="round"/>
+  <line x1="12.4" y1="11.6" x2="15" y2="9" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>
+  <path d="M17 2.5l.86 2.14 2.14.86-2.14.86L17 8.5l-.86-2.14L14 5.5l2.14-.86z" fill="#F5C518"/>
+  <path d="M20.8 8.6l.56 1.4 1.4.56-1.4.56-.56 1.4-.56-1.4-1.4-.56 1.4-.56z" fill="#F5C518"/>
+  <path d="M11.4 3.4l.5 1.24 1.24.5-1.24.5-.5 1.24-.5-1.24-1.24-.5 1.24-.5z" fill="#F5C518"/>
+</svg>`;
+
 export class UniformApp {
   constructor({ config, viewsEl, panelEl }) {
     this.config = config;
@@ -1128,12 +1138,18 @@ export class UniformApp {
   optionBodyHtml(opt) {
     const c = this.optCache[opt.id] || {};
     const uploadBtn = (has, label) => `
-      <label class="opt-upload ${has ? 'has' : ''}">
-        <input type="file" accept="image/*" data-field="image" hidden>
-        <span class="opt-upload-icon">${has ? '✓' : '+'}</span>
-        <span class="opt-upload-text">${has ? 'Файл загружен' : label}</span>
-        ${has ? '<span class="opt-del" data-act="del" role="button" aria-label="Удалить" title="Удалить">×</span>' : ''}
-      </label>
+      <div class="opt-upload-row">
+        <label class="opt-upload ${has ? 'has' : ''}">
+          <input type="file" accept="image/*" data-field="image" hidden>
+          <span class="opt-upload-icon">${has ? '✓' : '+'}</span>
+          <span class="opt-upload-text">${has ? 'Файл загружен' : label}</span>
+          ${has ? '<span class="opt-del" data-act="del" role="button" aria-label="Удалить" title="Удалить">×</span>' : ''}
+        </label>
+        <button type="button" class="opt-rmbg ${has ? '' : 'is-idle'}" data-act="rmbg" title="Убрать однотонный фон логотипа">
+          <span class="opt-rmbg-icon" aria-hidden="true">${WAND_SVG}</span>
+          <span class="opt-rmbg-text">Удалить фон</span>
+        </button>
+      </div>
       <p class="opt-note" data-role="note" hidden></p>`;
 
     if (opt.kind === 'name_number') {
@@ -1276,6 +1292,81 @@ export class UniformApp {
     // Крестик удаления (внутри upload-кнопки).
     const del = body.querySelector('[data-act="del"]');
     if (del) del.onclick = (e) => { e.preventDefault(); e.stopPropagation(); this.deleteOption(opt); };
+
+    // «Удалить фон» — убирает однотонную подложку логотипа (частый случай: лого на белом квадрате).
+    const rmbg = body.querySelector('[data-act="rmbg"]');
+    if (rmbg) rmbg.onclick = async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const note = body.querySelector('[data-role="note"]');
+      const c = this.optCache[opt.id] || {};
+      if (!c.image) {
+        if (note) { note.textContent = 'Сначала загрузите логотип, затем уберём фон.'; note.hidden = false; }
+        return;
+      }
+      if (rmbg.classList.contains('busy')) return;
+      rmbg.classList.add('busy');
+      const prev = rmbg.querySelector('.opt-rmbg-text').textContent;
+      rmbg.querySelector('.opt-rmbg-text').textContent = 'Убираем…';
+      try {
+        const out = await this.removeBackground(c.image);
+        this.setOptData(opt, { image: out });
+        this.renderOptionCards();
+      } catch (err) {
+        if (note) { note.textContent = 'Не получилось убрать фон у этого изображения.'; note.hidden = false; }
+        rmbg.classList.remove('busy');
+        rmbg.querySelector('.opt-rmbg-text').textContent = prev;
+      }
+    };
+  }
+
+  // Убирает однотонный фон логотипа: заливка от краёв по похожему цвету → прозрачность (PNG с альфой).
+  // Лёгкий, без внешних библиотек и сервера — работает офлайн и на телефоне. Рассчитан на лого
+  // на сплошной подложке (белый/цветной квадрат); сложные фото-фоны не трогает точечно.
+  removeBackground(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const w = img.naturalWidth, h = img.naturalHeight;
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          const ctx = cv.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const imgData = ctx.getImageData(0, 0, w, h);
+          const px = imgData.data;
+          // Опорный цвет фона = среднее по четырём углам.
+          const corners = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]];
+          let br = 0, bg = 0, bb = 0;
+          for (const [x, y] of corners) { const i = (y * w + x) * 4; br += px[i]; bg += px[i + 1]; bb += px[i + 2]; }
+          br /= 4; bg /= 4; bb /= 4;
+          const tol = 42;               // допуск по цвету
+          const tol2 = tol * tol * 3;
+          const visited = new Uint8Array(w * h);
+          const stack = [];
+          const tryPush = (x, y) => {
+            if (x < 0 || y < 0 || x >= w || y >= h) return;
+            const p = y * w + x;
+            if (visited[p]) return;
+            visited[p] = 1;
+            const i = p * 4;
+            const dr = px[i] - br, dg = px[i + 1] - bg, db = px[i + 2] - bb;
+            if (dr * dr + dg * dg + db * db <= tol2) { px[i + 3] = 0; stack.push(p); }
+          };
+          for (let x = 0; x < w; x++) { tryPush(x, 0); tryPush(x, h - 1); }
+          for (let y = 0; y < h; y++) { tryPush(0, y); tryPush(w - 1, y); }
+          while (stack.length) {
+            const p = stack.pop();
+            const x = p % w, y = (p - x) / w;
+            tryPush(x - 1, y); tryPush(x + 1, y); tryPush(x, y - 1); tryPush(x, y + 1);
+          }
+          ctx.putImageData(imgData, 0, 0);
+          resolve(cv.toDataURL('image/png'));
+        } catch (err) { reject(err); }
+      };
+      img.onerror = () => reject(new Error('image load failed'));
+      img.src = src;
+    });
   }
 
   // Обновить состояние тумблера в шапке карточки без полной перерисовки списка.

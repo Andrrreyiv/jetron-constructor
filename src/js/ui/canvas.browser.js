@@ -48,6 +48,15 @@ export class CanvasView {
     // масштаб явно от текущей (уже кадрированной) width — видимая область точно вписывается в холст.
     const scale = this.canvas.getWidth() / img.width;
     img.set({ scaleX: scale, scaleY: scale });
+    // Клиент 2026-07-22: у мокапов разная пропорция (Champion 3:4, Venom ~11:10 и др.), а высота холста
+    // была жёстко 3:4. У широких макетов картинка после вписывания по ширине оказывалась ниже холста —
+    // снизу оставалась пустая серая полоса под гетрами. Подгоняем высоту холста ровно под вписанную
+    // картинку: серого поля не остаётся, и дробные координаты общего zoneTemplate ложатся на всю
+    // картинку одинаково для любой пропорции (раньше на широких формах зоны были сжаты кверху).
+    const fittedHeight = img.height * scale;
+    if (Math.abs(this.canvas.getHeight() - fittedHeight) > 0.5) {
+      this.canvas.setDimensions({ height: fittedHeight });
+    }
     this.canvas.backgroundImage = img;
     this.canvas.requestRenderAll();
   }

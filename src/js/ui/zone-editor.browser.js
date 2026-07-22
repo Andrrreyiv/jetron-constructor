@@ -5,6 +5,7 @@
 //
 // Браузерный слой (Fabric + DOM), вне node:test. Чистая математика границ — в core/ZoneOverrides.js.
 import { clampBox } from '../core/ZoneOverrides.js';
+import { fitFontSize } from '../core/ZoneManager.js';
 
 // Служебные origin-константы Fabric: фон рендерится от левого-верхнего угла (0,0).
 
@@ -115,6 +116,10 @@ class ZoneEditor {
       const canvas = view.canvas;
       if (!this.armedCanvases.has(canvas)) {
         canvas.on('object:modified', (e) => this.onModified(canvas, e.target));
+        // Клиент: содержимое зоны (номер/надпись/лого) должно ехать и тянуться ВЖИВУЮ вместе с рамкой,
+        // пока админ её двигает/масштабирует. moving+scaling тянут контент на каждом кадре, а не только на отпускании.
+        canvas.on('object:moving', (e) => this._syncContent(canvas, e.target));
+        canvas.on('object:scaling', (e) => this._syncContent(canvas, e.target));
         this.armedCanvases.add(canvas);
       }
       for (const overlay of view.zoneOverlays.values()) {
@@ -150,7 +155,42 @@ class ZoneEditor {
     const fid = this.app.formId;
     if (!this.session[fid]) this.session[fid] = {};
     this.session[fid][target.zoneKey] = box;
+    // Финальная синхронизация содержимого с уже запечённой рамкой (scaleX/Y = 1, width/height актуальны).
+    this._syncContent(canvas, target);
     this.setStatus(`Изменена зона: ${target.zoneKey}`);
+  }
+
+  // Ищет CanvasView по его Fabric-холсту (onModified/moving/scaling дают только canvas).
+  _viewFor(canvas) {
+    for (const view of this.app.views.values()) {
+      if (view.canvas === canvas) return view;
+    }
+    return null;
+  }
+
+  // Двигает/масштабирует объект покупателя (номер, надпись, лого) вслед за рамкой зоны.
+  // Текст перешрифтовывается под новый бокс (fitFontSize), картинка вписывается по меньшей стороне.
+  _syncContent(canvas, overlay) {
+    if (!overlay || !overlay.zoneKey) return;
+    const view = this._viewFor(canvas);
+    if (!view) return;
+    const obj = view.userObjects.get(overlay.zoneKey);
+    if (!obj) return;
+    // Эффективный бокс в пикселях холста: во время scaling у рамки scaleX/Y ≠ 1.
+    const left = overlay.left;
+    const top = overlay.top;
+    const width = overlay.width * (overlay.scaleX || 1);
+    const height = overlay.height * (overlay.scaleY || 1);
+    obj.set({ left: left + width / 2, top: top + height / 2 });
+    if (obj.clipPath) obj.clipPath.set({ left, top, width, height });
+    if (obj.text !== undefined) {
+      obj.set({ fontSize: fitFontSize({ text: obj.text, rect: { width, height } }) });
+    } else {
+      const scale = Math.min(width / obj.width, height / obj.height);
+      obj.set({ scaleX: scale, scaleY: scale });
+    }
+    obj.setCoords();
+    canvas.requestRenderAll();
   }
 
   // Отменяет несохранённые правки текущей формы (зоны + кадр фона) и перерисовывает от сохранённого состояния.
