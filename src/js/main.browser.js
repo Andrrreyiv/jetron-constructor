@@ -7,7 +7,7 @@ import { initZoneEditor } from './ui/zone-editor.browser.js';
 async function boot() {
   const statusEl = document.getElementById('status');
   try {
-    const res = await fetch('src/config/mock-config.json');
+    const res = await fetch('src/config/mock-config.json', { cache: 'no-store' });
     if (!res.ok) throw new Error(`Конфиг не загрузился (HTTP ${res.status})`);
     const config = await res.json();
 
