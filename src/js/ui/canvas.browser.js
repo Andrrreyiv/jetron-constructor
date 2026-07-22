@@ -61,6 +61,37 @@ export class CanvasView {
     this.canvas.requestRenderAll();
   }
 
+  // Средняя яркость (0..255) фона-мокапа под боксом-зоной (доли 0..1 холста). Нужна, чтобы выбрать
+  // цвет бренд-монограммы под ткань: тёмная ткань → белый знак, светлая → чёрный. null, если фона нет.
+  bgLuminanceAt(box) {
+    const bg = this.canvas.backgroundImage;
+    if (!bg) return null;
+    const el = bg.getElement ? bg.getElement() : bg._element;
+    if (!el || !el.width) return null;
+    const cropX = bg.cropX || 0, cropY = bg.cropY || 0;
+    const w = bg.width, h = bg.height; // видимая (кадрированная) область источника
+    const sx = Math.round(cropX + box.x * w);
+    const sy = Math.round(cropY + box.y * h);
+    const sw = Math.max(1, Math.round(box.w * w));
+    const sh = Math.max(1, Math.round(box.h * h));
+    const S = 8; // даунсэмпл региона в 8x8 — усредняем цвет ткани
+    const off = document.createElement('canvas');
+    off.width = S; off.height = S;
+    const ctx = off.getContext('2d', { willReadFrequently: true });
+    try {
+      ctx.drawImage(el, sx, sy, sw, sh, 0, 0, S, S);
+      const data = ctx.getImageData(0, 0, S, S).data;
+      let sum = 0, n = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        n++;
+      }
+      return n ? sum / n : null;
+    } catch {
+      return null; // taint/CORS — не критично, вызывающий возьмёт цвет по умолчанию
+    }
+  }
+
   // Нейтральный холст без мокапа тела — для вида «плечо» (ТЗ §9.3: лого отдельной картинкой сбоку).
   setNeutral(color = '#eef1f5') {
     this.canvas.backgroundImage = null;

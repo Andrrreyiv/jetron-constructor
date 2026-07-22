@@ -318,12 +318,13 @@ export class UniformApp {
     }
   }
 
-  // Логотип бренда «JETRON.RU» грузим один раз в HTMLImageElement, чтобы renderJetron
-  // ставил его синхронно на грудь и спину. Нет файла → renderJetron падает на текст.
+  // Монограмму бренда «JS» грузим один раз в HTMLImageElement, чтобы renderJetron ставил её
+  // синхронно на грудь и шорты. Две версии: чёрная (на светлой ткани) и белая (на тёмной) —
+  // renderJetron выбирает по яркости ткани под зоной. Нет файла → текстовый фолбэк «JS».
   async loadBranding() {
-    const src = this.config.branding && this.config.branding.logo;
-    if (!src) return;
-    try {
+    const b = this.config.branding || {};
+    const load = async (src) => {
+      if (!src) return null;
       const img = new Image();
       img.crossOrigin = 'anonymous';
       await new Promise((resolve, reject) => {
@@ -331,10 +332,10 @@ export class UniformApp {
         img.onerror = reject;
         img.src = encodeURI(src);
       });
-      this.brandingImg = img;
-    } catch {
-      // логотип не загрузился — не критично, renderJetron использует текстовый фолбэк
-    }
+      return img;
+    };
+    try { this.brandingImg = await load(b.logo); } catch { /* нет знака — фолбэк на текст */ }
+    try { this.brandingImgWhite = await load(b.logoInverse); } catch { /* нет белой версии — возьмём чёрную */ }
   }
 
   buildViews() {
@@ -397,8 +398,6 @@ export class UniformApp {
             </div>
           </div>
           <label class="extra-check"><input type="checkbox" id="opt-gaiters"> <span>Гетры <em>+${money(p.gaiters)}</em></span></label>
-          <label class="extra-check"><input type="checkbox" id="opt-jchest"> <span>Jetron на груди <em>−5%</em></span></label>
-          <label class="extra-check"><input type="checkbox" id="opt-jback"> <span>Jetron.ru на спине <em>−5%</em></span></label>
           <div class="extra-block qty-block">
             <span class="extra-label">Комплектов</span>
             <div class="qty-stepper">
@@ -444,8 +443,6 @@ export class UniformApp {
       };
     });
     this.panelEl.querySelector('#opt-gaiters').onchange = (e) => { this.gaiters = e.target.checked; this.updatePrice(); };
-    this.panelEl.querySelector('#opt-jchest').onchange = (e) => { this.jetron.chest = e.target.checked; this.renderJetron(); this.updatePrice(); };
-    this.panelEl.querySelector('#opt-jback').onchange = (e) => { this.jetron.back = e.target.checked; this.renderJetron(); this.updatePrice(); };
 
     const qty = this.panelEl.querySelector('#opt-qty');
     const setQty = (n) => { this.quantity = Math.max(1, n || 1); qty.value = this.quantity; this.updatePrice(); };
@@ -1006,7 +1003,7 @@ export class UniformApp {
       L.push('Нанесения: нет');
     }
     L.push(`Гетры: ${o.gaiters ? 'да' : 'нет'}`);
-    L.push(`Логотип Jetron на груди: ${o.jetron.chest ? 'да (-5%)' : 'нет'}; Jetron.ru на спине: ${o.jetron.back ? 'да (-5%)' : 'нет'}`);
+    L.push('Логотип Jetron: грудь + шорты (стандартно)');
     const p = o.price;
     const parts = [`форма ${money(p.formPrice)}`];
     if (p.placementTotal) parts.push(`нанесение ${money(p.placementTotal)}`);
@@ -1052,6 +1049,7 @@ export class UniformApp {
       }
     }
     this.renderJetron();
+    this._renderLineBadge();
     if (!keepCards) this.renderOptionCards();
     this.updatePrice();
     // Хук для редактора зон (?zones=edit): после каждой перерисовки заново
@@ -1064,24 +1062,82 @@ export class UniformApp {
   // Нет картинки → текстовый фолбэк. Рисуется только визуально; скидка −5%/−5% считается
   // в calculatePrice независимо от отрисовки.
   renderJetron() {
-    // На композите оба логотипа ложатся на единственный холст; на раздельных видах — каждый на свой.
+    // Штатный фирменный знак Jetron (клиент 2026-07-22): монограмма «JS» ВСЕГДА на груди справа
+    // и на шортах слева — это часть бренда, не опция и не скидка. На спине логотипа нет.
     for (const v of this.views.values()) v.clearStatic();
-    const logo = this.brandingImg;
 
-    const chestZone = this.formZones.find((z) => z.key === 'chest_logo_large');
-    const chestView = chestZone && this.targetView(chestZone);
-    if (this.jetron.chest && chestView && chestZone && !this.placements['front:chest_logo_large']) {
-      if (logo) chestView.placeStaticImage(chestZone.box, logo);
-      else chestView.placeStaticText(chestZone.box, 'JETRON.RU', '#111111');
-    }
+    this._placeBrand('chest_logo_large', 'front:chest_logo_large'); // грудь справа
+    this._placeBrand('shorts_number', null);                        // шорты слева
+  }
 
-    // «Под номером на спине» — там же, где логотип под номером; пропускаем, если место занято (§5).
-    const backZone = this.formZones.find((z) => z.key === 'back_logo');
-    const backView = backZone && this.targetView(backZone);
-    if (this.jetron.back && backView && backZone && !this.placements['back:back_logo']) {
-      if (logo) backView.placeStaticImage(backZone.box, logo);
-      else backView.placeStaticText(backZone.box, 'JETRON.RU', '#111111');
+  // Ставит бренд-монограмму в увеличенный бокс, отцентрованный по зоне-якорю. Цвет знака выбираем
+  // по яркости ткани под зоной: тёмная ткань → белая монограмма, светлая → чёрная (иначе «JS» на
+  // чёрных шортах сливается). occupiedKey — если пользователь уже нанёс сюда своё, бренд не рисуем.
+  _placeBrand(zoneKey, occupiedKey) {
+    const zone = this.formZones.find((z) => z.key === zoneKey);
+    const view = zone && this.targetView(zone);
+    if (!zone || !view) return;
+    if (occupiedKey && this.placements[occupiedKey]) return;
+    const box = this._brandBox(zone.box);
+    const lum = view.bgLuminanceAt(box);
+    const dark = lum != null && lum < 128;
+    const logo = dark ? (this.brandingImgWhite || this.brandingImg) : this.brandingImg;
+    if (logo) view.placeStaticImage(box, logo);
+    else view.placeStaticText(box, 'JS', dark ? '#ffffff' : '#111111');
+  }
+
+  // Крупный бокс под монограмму: центрируем на зоне-якоре, задаём фиксированный размер больше
+  // мелкой лого-зоны. Аспект монограммы (~2.5:1) вписывается placeStaticImage по ширине.
+  _brandBox(b) {
+    const w = 0.135, h = 0.05;
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    return { x: cx - w / 2, y: cy - h / 2, w, h };
+  }
+
+  // URL каталога с фильтром по линейке формы (клиент 2026-07-22: клик по плашке линейки
+  // ведёт в каталог, отфильтрованный по этой линейке). Слаги в config.catalog.lineSlugs;
+  // если линейки там нет — берём название в нижнем регистре.
+  _lineCatalogUrl() {
+    const c = this.config.catalog || {};
+    const line = (this.form && this.form.line) || '';
+    const slug = (c.lineSlugs && c.lineSlugs[line]) || line.toLowerCase();
+    return (c.base || '/shop/') + slug + (c.suffix || '');
+  }
+
+  // Плашка линейки слева вверху над макетом (клиент 2026-07-22): показывает название линейки
+  // текущей формы (Champion, Legend, …) — информативно, и по клику ведёт в каталог с фильтром
+  // по этой линейке. Позиционируем абсолютно в левом верхнем углу #stage.
+  _renderLineBadge() {
+    if (typeof document === 'undefined') return;
+    const stage = this.viewsEl && this.viewsEl.parentElement;
+    const line = this.form && this.form.line;
+    if (!stage) return;
+    let badge = stage.querySelector('.line-badge');
+    if (!line) { if (badge) badge.remove(); return; }
+    if (!badge) {
+      badge = document.createElement('button');
+      badge.type = 'button';
+      badge.className = 'line-badge';
+      Object.assign(badge.style, {
+        position: 'absolute', top: '12px', left: '16px', zIndex: '3', cursor: 'pointer'
+      });
+      badge.onclick = () => this._goToLineCatalog();
+      stage.appendChild(badge);
     }
+    badge.textContent = `${line} \u2192`;
+  }
+
+  // Переход в каталог по линейке. Как и выход из конструктора: правим верхнее окно, если
+  // встроены в страницу товара same-origin; иначе — текущее окно.
+  _goToLineCatalog() {
+    const target = this._lineCatalogUrl();
+    try {
+      if (window.top && window.top !== window.self) {
+        window.top.location.href = target;
+        return;
+      }
+    } catch { /* кросс-домен: уводим текущее окно */ }
+    window.location.href = target;
   }
 
   // Клик по зоне на макете открывает соответствующую карточку опции (аккордеон).

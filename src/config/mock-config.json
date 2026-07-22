@@ -30,8 +30,24 @@
     "displayWidth": 450
   },
   "branding": {
-    "logo": "assets/jetron-logo.png"
+    "logo": "assets/jetron-monogram.png",
+    "logoInverse": "assets/jetron-monogram-white.png"
   },
+  "catalog": {
+    "base": "/product-category/",
+    "suffix": "/",
+    "lineSlugs": {
+      "Champion": "champion",
+      "Legend": "legend",
+      "New": "new",
+      "Rich": "rich",
+      "Space": "space",
+      "Star": "star",
+      "Venom": "venom",
+      "Winner": "winner"
+    }
+  },
+  "_catalog_note": "Плашка линейки слева вверху над макетом (клиент 2026-07-22): показывает название линейки и по клику ведёт в каталог с фильтром по этой линейке. base+slug+suffix → адрес категории WooCommerce. Слаги — ПРЕДПОЛОЖЕНИЕ по названию линейки, клиент должен подтвердить реальные URL категорий на jetronsport.ru. Нет линейки в lineSlugs → slug = название в нижнем регистре.",
   "upload": {
     "maxUploadMB": 15,
     "compressOverMB": 1.5,
@@ -579,7 +595,7 @@
         "included": true,
         "box": {
           "x": 0.31,
-          "y": 0.58,
+          "y": 0.77,
           "w": 0.08,
           "h": 0.07
         }
@@ -593,7 +609,7 @@
         "included": true,
         "box": {
           "x": 0.41,
-          "y": 0.58,
+          "y": 0.77,
           "w": 0.08,
           "h": 0.07
         }
