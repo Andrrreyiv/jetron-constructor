@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clampBox, applyZoneOverrides, validateOverrides, cropToImageRect, validateCrops } from '../src/js/core/ZoneOverrides.js';
+import { clampBox, applyZoneOverrides, validateOverrides, cropToImageRect, validateCrops, resolveBrandBox, brandBoxFromObject } from '../src/js/core/ZoneOverrides.js';
 
 // Редактор зон в админке пишет per-form переопределения box в zones.json.
 // Ядро — чистые функции: зажим box в границы холста и слияние переопределений с зонами формы.
@@ -30,6 +30,32 @@ test('validateOverrides принимает корректную структур
   assert.equal(validateOverrides('строка').ok, false);
   assert.equal(validateOverrides({ f: 'нестрока' }).ok, false);
   assert.equal(validateOverrides({ f: { k: { x: 0.1, y: 0.1 } } }).ok, false, 'нет w/h → невалидно');
+});
+
+// Бренд-монограмма Jetron (клиент 2026-07-22): её должно быть видно всегда и админ двигает её сам,
+// позиция сохраняется в zones.json под собственным ключом (chest_brand/shorts_brand).
+// Без сохранённой позиции — бокс по умолчанию, центрированный на зоне-якоре.
+test('resolveBrandBox: без override центрирует бокс по умолчанию на зоне-якоре', () => {
+  const anchor = { x: 0.6, y: 0.2, w: 0.1, h: 0.06 };
+  const box = resolveBrandBox({}, 'champion', 'chest_brand', anchor, { w: 0.09, h: 0.033 });
+  // центр якоря = (0.65, 0.23); бокс w×h вокруг центра
+  assert.deepEqual(box, { x: 0.65 - 0.045, y: 0.23 - 0.0165, w: 0.09, h: 0.033 });
+});
+
+test('resolveBrandBox: сохранённая позиция под ключом бренда побеждает бокс по умолчанию', () => {
+  const overrides = { champion: { chest_brand: { x: 0.4, y: 0.55, w: 0.12, h: 0.05 } } };
+  const anchor = { x: 0.6, y: 0.2, w: 0.1, h: 0.06 };
+  const box = resolveBrandBox(overrides, 'champion', 'chest_brand', anchor);
+  assert.deepEqual(box, { x: 0.4, y: 0.55, w: 0.12, h: 0.05 });
+});
+
+// Админ перетащил/масштабировал логотип на холсте (Fabric-объект с центром-origin) — переводим
+// его положение/масштаб в долевой бокс холста для сохранения. Обратно resolveBrandBox+placeStaticImage
+// воспроизводят его точно (аспект знака сохранён), поэтому храним фактический bounding-box картинки.
+test('brandBoxFromObject: положение/масштаб картинки (центр-origin) → долевой top-left бокс холста', () => {
+  const obj = { left: 300, top: 200, width: 200, height: 80, scaleX: 0.5, scaleY: 0.5 };
+  const box = brandBoxFromObject(obj, 600, 400);
+  assert.deepEqual(box, { x: 0.4167, y: 0.45, w: 0.1667, h: 0.1 });
 });
 
 // Phase 2: кадрирование фона. Админ задаёт per-form crop (доля изображения, которую оставляем),

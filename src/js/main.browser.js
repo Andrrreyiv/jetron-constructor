@@ -3,8 +3,8 @@ import { validateConfig } from './core/ConfigLoader.js';
 import { validateOverrides, validateCrops } from './core/ZoneOverrides.js';
 // Версионируем импорты изменённых модулей, чтобы обычная перезагрузка (не только Cmd+Shift+R)
 // подтягивала свежий файл: ESM кешируется по URL, а ?v на index.html не бустит вложенные импорты.
-import { UniformApp } from './ui/app.browser.js?v=20260722c';
-import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260722c';
+import { UniformApp } from './ui/app.browser.js?v=20260722e';
+import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260722e';
 
 async function boot() {
   const statusEl = document.getElementById('status');
@@ -60,7 +60,7 @@ async function boot() {
     });
     await app.start();
     window.__jetronApp = app; // отладочный доступ для стенда/автотестов
-    initZoneEditor(app); // админ-режим правки зон (?zones=edit); для покупателя — no-op
+    window.__jetronEditor = initZoneEditor(app); // админ-режим правки зон (?zones=edit); для покупателя — null
     statusEl.hidden = true;
   } catch (err) {
     statusEl.textContent = `Ошибка запуска стенда: ${err.message}`;

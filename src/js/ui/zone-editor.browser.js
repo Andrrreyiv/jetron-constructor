@@ -4,8 +4,8 @@
 // только для залогиненного администратора). Покупатель этот режим не видит.
 //
 // Браузерный слой (Fabric + DOM), вне node:test. Чистая математика границ — в core/ZoneOverrides.js.
-import { clampBox } from '../core/ZoneOverrides.js';
-import { fitFontSize } from '../core/ZoneManager.js';
+import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260722e';
+import { fitTextToRect } from '../core/ZoneManager.js?v=20260722e';
 
 // Служебные origin-константы Fabric: фон рендерится от левого-верхнего угла (0,0).
 
@@ -131,12 +131,25 @@ class ZoneEditor {
         });
         if (overlay.setControlsVisibility) overlay.setControlsVisibility({ mtr: false });
       }
+      // Бренд-монограммы Jetron (клиент 2026-07-22): делаем сам логотип перетаскиваемым/масштабируемым
+      // прямо на холсте. lockUniScaling держит аспект знака. Оранжевые ручки — отличать от зон.
+      for (const img of (view.brandObjects ? view.brandObjects.values() : [])) {
+        img.set({
+          selectable: true, evented: true, hasControls: true, hasBorders: true,
+          lockRotation: true, lockUniScaling: true,
+          cornerColor: '#e07a1f', cornerStrokeColor: '#ffffff',
+          transparentCorners: false, cornerSize: 12, hoverCursor: 'move'
+        });
+        if (img.setControlsVisibility) img.setControlsVisibility({ mtr: false });
+        img.setCoords();
+      }
       canvas.requestRenderAll();
     }
   }
 
   // Пользователь перетащил/растянул рамку → пересчитываем box в долях холста.
   onModified(canvas, target) {
+    if (target && target.brandKey) { this._onBrandModified(canvas, target); return; }
     if (!target || !target.zoneKey) return;
     // Запекаем масштаб в размеры, чтобы следующие правки считались от чистых width/height.
     target.set({
@@ -160,6 +173,17 @@ class ZoneEditor {
     this.setStatus(`Изменена зона: ${target.zoneKey}`);
   }
 
+  // Админ передвинул/масштабировал бренд-монограмму → сохраняем её фактический бокс под ключом
+  // бренда (chest_brand/shorts_brand) в ту же карту переопределений, что и зоны. resolveBrandBox
+  // на стороне покупателя воспроизведёт эту позицию.
+  _onBrandModified(canvas, img) {
+    const box = brandBoxFromObject(img, canvas.getWidth(), canvas.getHeight());
+    const fid = this.app.formId;
+    if (!this.session[fid]) this.session[fid] = {};
+    this.session[fid][img.brandKey] = box;
+    this.setStatus(`Изменён логотип: ${img.brandKey}`);
+  }
+
   // Ищет CanvasView по его Fabric-холсту (onModified/moving/scaling дают только canvas).
   _viewFor(canvas) {
     for (const view of this.app.views.values()) {
@@ -169,7 +193,7 @@ class ZoneEditor {
   }
 
   // Двигает/масштабирует объект покупателя (номер, надпись, лого) вслед за рамкой зоны.
-  // Текст перешрифтовывается под новый бокс (fitFontSize), картинка вписывается по меньшей стороне.
+  // Текст перешрифтовывается под новый бокс (fitTextToRect, замер по глифам), картинка вписывается по меньшей стороне.
   _syncContent(canvas, overlay) {
     if (!overlay || !overlay.zoneKey) return;
     const view = this._viewFor(canvas);
@@ -184,7 +208,7 @@ class ZoneEditor {
     obj.set({ left: left + width / 2, top: top + height / 2 });
     if (obj.clipPath) obj.clipPath.set({ left, top, width, height });
     if (obj.text !== undefined) {
-      obj.set({ fontSize: fitFontSize({ text: obj.text, rect: { width, height } }) });
+      fitTextToRect(obj, { width, height });
     } else {
       const scale = Math.min(width / obj.width, height / obj.height);
       obj.set({ scaleX: scale, scaleY: scale });

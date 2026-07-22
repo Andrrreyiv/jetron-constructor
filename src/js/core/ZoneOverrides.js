@@ -52,6 +52,32 @@ export function validateCrops(obj) {
   return { ok: true };
 }
 
+// Бренд-монограмма Jetron (ТЗ §5). Клиент 2026-07-22: логотип должен быть виден всегда и админ
+// двигает его сам — позиция хранится в zones.json под собственным ключом (chest_brand/shorts_brand),
+// отдельно от покупательских зон. Сохранённая позиция побеждает; иначе — бокс по умолчанию,
+// центрированный на зоне-якоре (грудь/шорты). overrides — та же карта { formId: { key: box } }.
+export function resolveBrandBox(overrides, formId, brandKey, anchorBox, size = { w: 0.09, h: 0.033 }) {
+  const saved = overrides && overrides[formId] && overrides[formId][brandKey];
+  if (saved) return { x: saved.x, y: saved.y, w: saved.w, h: saved.h };
+  const cx = anchorBox.x + anchorBox.w / 2;
+  const cy = anchorBox.y + anchorBox.h / 2;
+  return { x: cx - size.w / 2, y: cy - size.h / 2, w: size.w, h: size.h };
+}
+
+// Обратный перевод: из Fabric-объекта бренда (originX/Y = center, масштаб scaleX/Y) в долевой
+// bounding-box холста (top-left + размеры) для сохранения. Храним фактический размер картинки на
+// экране — её аспект, поэтому resolveBrandBox+placeStaticImage воспроизводят её один-в-один.
+export function brandBoxFromObject(obj, W, H) {
+  const dispW = obj.width * (obj.scaleX || 1);
+  const dispH = obj.height * (obj.scaleY || 1);
+  return clampBox({
+    x: (obj.left - dispW / 2) / W,
+    y: (obj.top - dispH / 2) / H,
+    w: dispW / W,
+    h: dispH / H
+  });
+}
+
 // Phase 2: перевод долевого crop фона в пиксельный прямоугольник источника для Fabric (cropX/Y + width/height).
 // crop: { x,y,w,h } — доля исходного изображения, которую оставляем. Полный кадр или отсутствие → null
 // (значит «кадрировать не нужно», рендерим изображение целиком как раньше).

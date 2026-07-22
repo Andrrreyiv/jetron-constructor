@@ -10,6 +10,25 @@ export function fitFontSize({ text, rect, charWidthRatio = 0.75 }) {
   return Math.min(byHeight, byWidth);
 }
 
+// Точная подгонка текста под рамку по фактическим размерам глифов Fabric.
+// fitFontSize даёт лишь грубую оценку по средней ширине символа (charWidthRatio):
+// для цифр она завышала ширину, из-за чего между последним символом и краем рамки
+// оставался большой фиксированный зазор (клиент 2026-07-22: «от цифры до правого
+// поля огромное расстояние и оно всегда зафиксировано»). Здесь измеряем реальную
+// ширину/высоту строки при опорном кегле и масштабируем так, чтобы текст вплотную
+// заполнил рамку по ограничивающей стороне — без пустого отступа.
+// obj — текстовый объект Fabric (fabric.IText); мутирует его fontSize, возвращает кегль.
+export function fitTextToRect(obj, rect, { ref = 100 } = {}) {
+  obj.set({ fontSize: ref });
+  if (typeof obj.initDimensions === 'function') obj.initDimensions();
+  const w = obj.width || 1;
+  const h = obj.height || ref;
+  const size = Math.max(1, ref * Math.min(rect.width / w, rect.height / h));
+  obj.set({ fontSize: size });
+  if (typeof obj.initDimensions === 'function') obj.initDimensions();
+  return size;
+}
+
 export function zoneToRect(box, canvas) {
   return {
     left: box.x * canvas.width,

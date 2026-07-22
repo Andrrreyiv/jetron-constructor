@@ -2,8 +2,8 @@
 // Только браузерный слой (DOM + canvas) — не покрывается node:test, поэтому суффикс .browser.js.
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
-import { zoneToRect, fitFontSize } from '../core/ZoneManager.js';
-import { cropToImageRect } from '../core/ZoneOverrides.js';
+import { zoneToRect, fitFontSize, fitTextToRect } from '../core/ZoneManager.js?v=20260722e';
+import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260722e';
 
 export class CanvasView {
   constructor(canvasEl, canvasCfg) {
@@ -136,17 +136,19 @@ export class CanvasView {
   placeText(zone, text, fontFamily, color) {
     this.removeFromZone(zone.key);
     const r = this._rect(zone.box);
-    const fontSize = fitFontSize({ text, rect: r });
     const obj = new fabric.IText(text, {
       left: r.left + r.width / 2,
       top: r.top + r.height / 2,
       originX: 'center', originY: 'center',
       fontFamily: fontFamily || 'sans-serif',
-      fontSize,
+      fontSize: fitFontSize({ text, rect: r }),
       fill: color || '#ffffff',
       textAlign: 'center',
       clipPath: this._clipFor(zone)
     });
+    // Точная подгонка по фактической ширине глифов выбранного шрифта: убирает зазор
+    // между текстом и краем рамки (клиент 2026-07-22). fitFontSize выше — стартовая оценка.
+    fitTextToRect(obj, r);
     // Клиент: не давать менять размер полей на макете — убираем ручки масштаба/поворота,
     // элемент остаётся выделяемым и удаляемым, но не тянется по размеру.
     // hasBorders:false — убираем бирюзовую рамку выделения Fabric. Клиент 2026-07-17 (Safari):
@@ -210,7 +212,7 @@ export class CanvasView {
 
   // Логотип бренда «JETRON.RU» картинкой (ТЗ §5): вписывается в бокс, не выделяется/не двигается.
   // imgEl — предзагруженный HTMLImageElement (грузится один раз в App.loadBranding).
-  placeStaticImage(box, imgEl) {
+  placeStaticImage(box, imgEl, { clip = true } = {}) {
     const r = this._rect(box);
     const img = new fabric.FabricImage(imgEl, {
       originX: 'center', originY: 'center',
@@ -221,7 +223,11 @@ export class CanvasView {
       left: r.left + r.width / 2,
       top: r.top + r.height / 2,
       scaleX: scale, scaleY: scale,
-      clipPath: new fabric.Rect({ left: r.left, top: r.top, width: r.width, height: r.height, absolutePositioned: true })
+      // clip:false — для бренд-монограммы, которую в редакторе двигают за пределы исходного бокса
+      // (фиксированный clipPath обрезал бы сдвинутый знак). Знак и так вписан в бокс точно.
+      clipPath: clip
+        ? new fabric.Rect({ left: r.left, top: r.top, width: r.width, height: r.height, absolutePositioned: true })
+        : undefined
     });
     this.staticObjects.push(img);
     this.canvas.add(img);
@@ -232,6 +238,7 @@ export class CanvasView {
   clearStatic() {
     for (const o of this.staticObjects) this.canvas.remove(o);
     this.staticObjects = [];
+    if (this.brandObjects) this.brandObjects.clear(); // бренд-монограммы редактора зон — те же объекты
     this.canvas.requestRenderAll();
   }
 

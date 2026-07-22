@@ -2,11 +2,11 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js';
+import { CanvasView } from './canvas.browser.js?v=20260722e';
 import { calculatePrice } from '../core/PriceCalculator.js';
 import { buildOrder } from '../core/OrderSummary.js';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js';
-import { applyZoneOverrides } from '../core/ZoneOverrides.js';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260722e';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -1064,36 +1064,34 @@ export class UniformApp {
   renderJetron() {
     // Штатный фирменный знак Jetron (клиент 2026-07-22): монограмма «JS» ВСЕГДА на груди справа
     // и на шортах слева — это часть бренда, не опция и не скидка. На спине логотипа нет.
+    // Клиент 2026-07-22: знак больше не прячется, когда покупатель наносит текст на грудь, и его
+    // можно сдвинуть в редакторе зон (позиция сохраняется под ключом chest_brand/shorts_brand).
     for (const v of this.views.values()) v.clearStatic();
 
-    this._placeBrand('chest_logo_large', 'front:chest_logo_large'); // грудь справа
-    this._placeBrand('shorts_number', null);                        // шорты слева
+    this._placeBrand('chest_logo_large', 'chest_brand'); // грудь справа
+    this._placeBrand('shorts_number', 'shorts_brand');   // шорты слева
   }
 
-  // Ставит бренд-монограмму в увеличенный бокс, отцентрованный по зоне-якорю. Цвет знака выбираем
-  // по яркости ткани под зоной: тёмная ткань → белая монограмма, светлая → чёрная (иначе «JS» на
-  // чёрных шортах сливается). occupiedKey — если пользователь уже нанёс сюда своё, бренд не рисуем.
-  _placeBrand(zoneKey, occupiedKey) {
-    const zone = this.formZones.find((z) => z.key === zoneKey);
+  // Ставит бренд-монограмму. Бокс: сохранённая админом позиция (zoneOverrides[form][brandKey]) либо
+  // по умолчанию центрирован на зоне-якоре. Цвет знака выбираем по яркости ткани под зоной: тёмная
+  // ткань → белая монограмма, светлая → чёрная (иначе «JS» на чёрных шортах сливается). Картинку
+  // помечаем brandKey и регистрируем в view.brandObjects — редактор зон делает её перетаскиваемой.
+  _placeBrand(anchorKey, brandKey) {
+    const zone = this.formZones.find((z) => z.key === anchorKey);
     const view = zone && this.targetView(zone);
     if (!zone || !view) return;
-    if (occupiedKey && this.placements[occupiedKey]) return;
-    const box = this._brandBox(zone.box);
+    const box = resolveBrandBox(this.config.zoneOverrides, this.formId, brandKey, zone.box);
     const lum = view.bgLuminanceAt(box);
     const dark = lum != null && lum < 128;
     const logo = dark ? (this.brandingImgWhite || this.brandingImg) : this.brandingImg;
-    if (logo) view.placeStaticImage(box, logo);
-    else view.placeStaticText(box, 'JS', dark ? '#ffffff' : '#111111');
-  }
-
-  // Крупный бокс под монограмму: центрируем на зоне-якоре, задаём фиксированный размер больше
-  // мелкой лого-зоны. Аспект монограммы (~2.5:1) вписывается placeStaticImage по ширине.
-  _brandBox(b) {
-    // Клиент 2026-07-22: монограмма была «вообще огромная» и на груди, и на шортах — уменьшили бокс.
-    // Аспект знака (~2.5:1) вписывается placeStaticImage по ширине, так что размер задаёт w.
-    const w = 0.09, h = 0.033;
-    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-    return { x: cx - w / 2, y: cy - h / 2, w, h };
+    // clip:false — бренд подгоняется в бокс точно, а в редакторе его двигают за пределы исходного
+    // бокса; фиксированный clipPath обрезал бы сдвинутый знак. Покупателю знак неподвижен (evented:false).
+    const obj = logo
+      ? view.placeStaticImage(box, logo, { clip: false })
+      : view.placeStaticText(box, 'JS', dark ? '#ffffff' : '#111111');
+    obj.brandKey = brandKey;
+    if (!view.brandObjects) view.brandObjects = new Map();
+    view.brandObjects.set(brandKey, obj);
   }
 
   // URL каталога с фильтром по линейке формы (клиент 2026-07-22: клик по плашке линейки
