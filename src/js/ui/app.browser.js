@@ -1089,7 +1089,9 @@ export class UniformApp {
   // Крупный бокс под монограмму: центрируем на зоне-якоре, задаём фиксированный размер больше
   // мелкой лого-зоны. Аспект монограммы (~2.5:1) вписывается placeStaticImage по ширине.
   _brandBox(b) {
-    const w = 0.135, h = 0.05;
+    // Клиент 2026-07-22: монограмма была «вообще огромная» и на груди, и на шортах — уменьшили бокс.
+    // Аспект знака (~2.5:1) вписывается placeStaticImage по ширине, так что размер задаёт w.
+    const w = 0.09, h = 0.033;
     const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
     return { x: cx - w / 2, y: cy - h / 2, w, h };
   }
@@ -1109,21 +1111,24 @@ export class UniformApp {
   // по этой линейке. Позиционируем абсолютно в левом верхнем углу #stage.
   _renderLineBadge() {
     if (typeof document === 'undefined') return;
-    const stage = this.viewsEl && this.viewsEl.parentElement;
+    // Плашка — часть потока внутри #views (flex-basis:100% в CSS делает её отдельной строкой
+    // над холстами, align-self:flex-start прижимает влево). Раньше JS форсил position:absolute
+    // и вешал на #stage — плашка «улетала» над полем (клиент 2026-07-22). Теперь кладём первым
+    // ребёнком #views и не трогаем позиционирование — раскладку держит CSS.
+    const host = this.viewsEl;
     const line = this.form && this.form.line;
-    if (!stage) return;
-    let badge = stage.querySelector('.line-badge');
+    if (!host) return;
+    let badge = host.querySelector('.line-badge');
     if (!line) { if (badge) badge.remove(); return; }
     if (!badge) {
       badge = document.createElement('button');
       badge.type = 'button';
       badge.className = 'line-badge';
-      Object.assign(badge.style, {
-        position: 'absolute', top: '12px', left: '16px', zIndex: '3', cursor: 'pointer'
-      });
+      badge.style.cursor = 'pointer';
       badge.onclick = () => this._goToLineCatalog();
-      stage.appendChild(badge);
     }
+    // Всегда держим плашку первой в потоке (renderAll мог перерисовать холсты после неё).
+    if (host.firstChild !== badge) host.insertBefore(badge, host.firstChild);
     badge.textContent = `${line} \u2192`;
   }
 

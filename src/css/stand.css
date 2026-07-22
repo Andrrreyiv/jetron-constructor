@@ -553,7 +553,9 @@ body {
 .opt-upload-row {
   display: flex; align-items: stretch; gap: 10px; margin-top: 10px; flex-wrap: wrap;
 }
-.opt-upload-row .opt-upload { margin-top: 0; flex: 1 1 140px; min-width: 0; }
+/* Обе кнопки ряда — равной ширины и с одинаковой рамкой (клиент 2026-07-22: «сделать одинаковыми»). */
+.opt-upload-row .opt-upload,
+.opt-upload-row .opt-rmbg { margin-top: 0; flex: 1 1 140px; min-width: 0; }
 .opt-upload {
   display: flex; align-items: center; gap: 11px;
   margin-top: 10px; padding: 12px 14px;
@@ -573,7 +575,8 @@ body {
 }
 .opt-rmbg:hover { border-color: var(--brand); background: #fff; }
 .opt-rmbg-icon { display: grid; place-items: center; flex-shrink: 0; }
-.opt-rmbg.is-idle { opacity: .6; }
+/* Рамка не бледнеет в покое — обе кнопки выглядят одинаково (клиент 2026-07-22). */
+.opt-rmbg.is-idle { opacity: 1; }
 .opt-rmbg.busy { pointer-events: none; opacity: .7; }
 .opt-upload-icon {
   display: grid; place-items: center; flex-shrink: 0;
@@ -645,10 +648,10 @@ body {
   width: 100%; padding: 12px 0 !important; margin: 0;
   background: none !important; border: none; box-shadow: none !important;
   color: var(--ink) !important; cursor: pointer;
-  font-family: Calibri, 'Segoe UI', Candara, 'Trebuchet MS', sans-serif; font-size: 15.5px; font-weight: 800;
+  font-size: 15.5px; font-weight: 800; letter-spacing: -.01em;
 }
 .extra-toggle:hover { color: var(--brand-strong) !important; transform: none !important; filter: none !important; }
-.extra-toggle .chev { color: var(--muted); transition: transform .2s var(--ease); }
+.extra-toggle .chev { color: var(--line-strong); font-size: 12px; transition: transform .2s var(--ease); }
 .extra-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
 .extra-body[hidden] { display: none; }
 .extra-body { padding-top: 2px; }
@@ -717,10 +720,10 @@ body {
   width: 100%; padding: 0 0 4px !important; margin: 0;
   background: none !important; border: none; box-shadow: none !important;
   color: var(--ink) !important; cursor: pointer;
-  font-size: 15.5px; font-weight: 800;
+  font-size: 15.5px; font-weight: 800; letter-spacing: -.01em;
 }
 .price-lines-toggle:hover { color: var(--ink) !important; transform: none !important; filter: none !important; }
-.price-lines-toggle .chev { transition: transform .2s var(--ease); }
+.price-lines-toggle .chev { color: var(--line-strong); font-size: 12px; transition: transform .2s var(--ease); }
 .price-lines-toggle.open .chev { transform: rotate(180deg); }
 .price-lines { padding: 8px 0 4px; }
 .price-lines .pline {
