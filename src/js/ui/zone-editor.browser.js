@@ -4,8 +4,8 @@
 // только для залогиненного администратора). Покупатель этот режим не видит.
 //
 // Браузерный слой (Fabric + DOM), вне node:test. Чистая математика границ — в core/ZoneOverrides.js.
-import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260722e';
-import { fitTextToRect } from '../core/ZoneManager.js?v=20260722e';
+import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260723a';
+import { fitTextToRect, isNumberZone, NUMBER_MAX_STRETCH } from '../core/ZoneManager.js?v=20260723a';
 
 // Служебные origin-константы Fabric: фон рендерится от левого-верхнего угла (0,0).
 
@@ -208,7 +208,7 @@ class ZoneEditor {
     obj.set({ left: left + width / 2, top: top + height / 2 });
     if (obj.clipPath) obj.clipPath.set({ left, top, width, height });
     if (obj.text !== undefined) {
-      fitTextToRect(obj, { width, height });
+      fitTextToRect(obj, { width, height }, { maxStretch: isNumberZone(overlay.zoneKey) ? NUMBER_MAX_STRETCH : 1 });
     } else {
       const scale = Math.min(width / obj.width, height / obj.height);
       obj.set({ scaleX: scale, scaleY: scale });

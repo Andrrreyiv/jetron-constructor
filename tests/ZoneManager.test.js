@@ -9,7 +9,13 @@ function fakeText(wPer100, hPer100) {
     fontSize: 0,
     width: 0,
     height: 0,
-    set(p) { if (p.fontSize !== undefined) this.fontSize = p.fontSize; },
+    scaleX: 1,
+    scaleY: 1,
+    set(p) {
+      if (p.fontSize !== undefined) this.fontSize = p.fontSize;
+      if (p.scaleX !== undefined) this.scaleX = p.scaleX;
+      if (p.scaleY !== undefined) this.scaleY = p.scaleY;
+    },
     initDimensions() {
       this.width = wPer100 * this.fontSize / 100;
       this.height = hPer100 * this.fontSize / 100;
@@ -55,4 +61,25 @@ test('fitTextToRect: цифры заполняют высоту рамки бе�
   assert.ok(Math.abs(size - 100 * 143 / 113) < 1e-9);
   assert.ok(Math.abs(obj.height - 143) < 1e-6); // высота заполнена целиком
   assert.ok(obj.width <= 156 + 1e-6);
+});
+
+// Клиент 2026-07-23: номер должен прилипать к рамке край-в-край. Узкий номерной шрифт по бокам
+// не достаёт (пропорции цифры). maxStretch добивает узкую сторону до рамки, но не более лимита,
+// чтобы не искажать цифру сильно. Заполненную сторону не трогаем.
+test('fitTextToRect: maxStretch добивает узкую сторону до рамки с лимитом', () => {
+  const obj = fakeText(87, 113); // «23» ~ 87x113 при кегле 100 (узкая-высокая)
+  fitTextToRect(obj, { width: 156, height: 143 }, { maxStretch: 1.15 });
+  // высота заполнена равномерной подгонкой → scaleY не растягивается
+  assert.ok(Math.abs(obj.scaleY - 1) < 1e-9);
+  // ширина не добивала → растягиваем, но упираемся в лимит 1.15
+  assert.ok(Math.abs(obj.scaleX - 1.15) < 1e-9);
+  // после стретча ширина текста не вылезает за рамку
+  assert.ok(obj.width * obj.scaleX <= 156 + 1e-6);
+});
+
+test('fitTextToRect: без maxStretch масштаб по осям не трогается (для фамилии/текста)', () => {
+  const obj = fakeText(87, 113);
+  fitTextToRect(obj, { width: 156, height: 143 });
+  assert.equal(obj.scaleX, 1);
+  assert.equal(obj.scaleY, 1);
 });

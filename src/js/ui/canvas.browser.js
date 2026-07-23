@@ -2,8 +2,8 @@
 // Только браузерный слой (DOM + canvas) — не покрывается node:test, поэтому суффикс .browser.js.
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
-import { zoneToRect, fitFontSize, fitTextToRect } from '../core/ZoneManager.js?v=20260722e';
-import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260722e';
+import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, NUMBER_MAX_STRETCH } from '../core/ZoneManager.js?v=20260723a';
+import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260723a';
 
 export class CanvasView {
   constructor(canvasEl, canvasCfg) {
@@ -148,7 +148,9 @@ export class CanvasView {
     });
     // Точная подгонка по фактической ширине глифов выбранного шрифта: убирает зазор
     // между текстом и краем рамки (клиент 2026-07-22). fitFontSize выше — стартовая оценка.
-    fitTextToRect(obj, r);
+    // Номерные зоны (клиент 2026-07-23): цифра должна прилипать к рамке край-в-край — добиваем
+    // узкую сторону стретчем до ~15%, чтобы не оставался боковой зазор (номерные шрифты узкие).
+    fitTextToRect(obj, r, { maxStretch: isNumberZone(zone.key) ? NUMBER_MAX_STRETCH : 1 });
     // Клиент: не давать менять размер полей на макете — убираем ручки масштаба/поворота,
     // элемент остаётся выделяемым и удаляемым, но не тянется по размеру.
     // hasBorders:false — убираем бирюзовую рамку выделения Fabric. Клиент 2026-07-17 (Safari):
@@ -233,6 +235,29 @@ export class CanvasView {
     this.canvas.add(img);
     this.canvas.requestRenderAll();
     return img;
+  }
+
+  // Дубль номера на шортах (клиент 2026-07-23): номер со спины отображается на шортах над
+  // полосками Jetron, ВСЕГДА белым (белых шорт нет). Контент зеркалит покупательский номер,
+  // позицию админ двигает в редакторе (как бренд) — поэтому clip:false и регистрация в brandObjects.
+  // Подгонка с номерным стретчем, чтобы дубль совпадал по посадке с основным номером.
+  placeStaticNumber(box, text, color, fontFamily) {
+    const r = this._rect(box);
+    const obj = new fabric.IText(String(text), {
+      left: r.left + r.width / 2,
+      top: r.top + r.height / 2,
+      originX: 'center', originY: 'center',
+      fontFamily: fontFamily || 'sans-serif',
+      fontSize: fitFontSize({ text: String(text), rect: r }),
+      fill: color || '#ffffff',
+      textAlign: 'center',
+      selectable: false, evented: false
+    });
+    fitTextToRect(obj, r, { maxStretch: NUMBER_MAX_STRETCH });
+    this.staticObjects.push(obj);
+    this.canvas.add(obj);
+    this.canvas.requestRenderAll();
+    return obj;
   }
 
   clearStatic() {

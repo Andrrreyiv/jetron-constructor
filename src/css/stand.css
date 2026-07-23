@@ -168,14 +168,32 @@ body {
   font-weight: 600; font-size: 13px; color: var(--stage-label);
   text-transform: uppercase; letter-spacing: .16em;
 }
+/* Плашка линейки (клиент 2026-07-23): компактная кнопка по размеру текста, а не широкая полоса.
+   Внешний .line-badge — прозрачная строка на всю ширину (flex-basis:100% держит перенос: холсты
+   уходят под плашку); pointer-events:none, чтобы кликабелен был только сам pill, а не вся строка. */
 .line-badge {
   flex-basis: 100%;
-  display: inline-flex; align-self: flex-start; width: auto;
-  padding: 5px 14px; margin-bottom: 10px;
-  background: var(--brand-soft); color: var(--brand-strong);
-  border: 1px solid rgba(47, 111, 224, .28);
-  border-radius: 999px;
-  font-weight: 700; font-size: 12px; letter-spacing: .10em; text-transform: uppercase;
+  display: flex; justify-content: flex-start;
+  margin-bottom: 10px; padding: 0;
+  background: none; border: none;
+  pointer-events: none;
+}
+.line-badge-pill {
+  pointer-events: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  background: var(--stage-card); color: #111;
+  border: 1px solid var(--stage-border);
+  border-radius: 10px;
+  font-weight: 700; font-size: 13px; letter-spacing: .06em; text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+  cursor: pointer;
+  transition: border-color .2s var(--ease), transform .2s var(--ease), box-shadow .2s var(--ease);
+}
+.line-badge-pill:hover {
+  border-color: var(--navy);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .12);
 }
 .canvas-wrap {
   background: var(--stage-card);

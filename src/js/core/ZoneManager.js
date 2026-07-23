@@ -18,7 +18,7 @@ export function fitFontSize({ text, rect, charWidthRatio = 0.75 }) {
 // ширину/высоту строки при опорном кегле и масштабируем так, чтобы текст вплотную
 // заполнил рамку по ограничивающей стороне — без пустого отступа.
 // obj — текстовый объект Fabric (fabric.IText); мутирует его fontSize, возвращает кегль.
-export function fitTextToRect(obj, rect, { ref = 100 } = {}) {
+export function fitTextToRect(obj, rect, { ref = 100, maxStretch = 1 } = {}) {
   obj.set({ fontSize: ref });
   if (typeof obj.initDimensions === 'function') obj.initDimensions();
   const w = obj.width || 1;
@@ -26,8 +26,25 @@ export function fitTextToRect(obj, rect, { ref = 100 } = {}) {
   const size = Math.max(1, ref * Math.min(rect.width / w, rect.height / h));
   obj.set({ fontSize: size });
   if (typeof obj.initDimensions === 'function') obj.initDimensions();
+  // Клиент 2026-07-23: номер должен прилипать к рамке край-в-край. Равномерная подгонка выше
+  // заполняет лишь узкую сторону рамки — у высокого-узкого номерного шрифта по бокам остаётся
+  // зазор. maxStretch>1 добивает недостающую сторону масштабом до края рамки, но не более лимита
+  // (≈1.15), чтобы цифра не искажалась заметно. Заполненную сторону не трогаем (её ratio ≈ 1).
+  if (maxStretch > 1) {
+    const tw = obj.width || 1;
+    const th = obj.height || 1;
+    obj.set({
+      scaleX: Math.min(rect.width / tw, maxStretch),
+      scaleY: Math.min(rect.height / th, maxStretch)
+    });
+  }
   return size;
 }
+
+// Номерные зоны (back_number/chest_number/shorts_number): для них номер прилипает к рамке
+// край-в-край через стретч с лимитом (клиент 2026-07-23). Прочий текст (фамилия/надписи) — нет.
+export const NUMBER_MAX_STRETCH = 1.15;
+export function isNumberZone(key) { return /(^|_)number$/.test(String(key || '')); }
 
 export function zoneToRect(box, canvas) {
   return {

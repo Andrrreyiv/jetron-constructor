@@ -2,11 +2,11 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260722e';
+import { CanvasView } from './canvas.browser.js?v=20260723a';
 import { calculatePrice } from '../core/PriceCalculator.js';
 import { buildOrder } from '../core/OrderSummary.js';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260722e';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260723a';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -1070,6 +1070,7 @@ export class UniformApp {
 
     this._placeBrand('chest_logo_large', 'chest_brand'); // грудь справа
     this._placeBrand('shorts_number', 'shorts_brand');   // шорты слева
+    this._placeShortsNumber();                           // дубль номера со спины на шортах (белым)
   }
 
   // Ставит бренд-монограмму. Бокс: сохранённая админом позиция (zoneOverrides[form][brandKey]) либо
@@ -1092,6 +1093,25 @@ export class UniformApp {
     obj.brandKey = brandKey;
     if (!view.brandObjects) view.brandObjects = new Map();
     view.brandObjects.set(brandKey, obj);
+  }
+
+  // Дубль номера со спины на шортах (клиент 2026-07-23): «номер на шортах включён в стоимость».
+  // Контент зеркалит покупательский back_number, цвет ВСЕГДА белый (белых шорт нет). Позицию
+  // админ двигает в редакторе — храним под собственным ключом shorts_number_dup (как бренд),
+  // отдельным от полосок shorts_brand. Нет номера у покупателя → на шортах пусто.
+  _placeShortsNumber() {
+    const p = this.placements['back:back_number'];
+    const value = p && p.value;
+    if (!value) return;
+    const zone = this.formZones.find((z) => z.key === 'shorts_number');
+    const view = zone && this.targetView(zone);
+    if (!zone || !view) return;
+    const box = resolveBrandBox(this.config.zoneOverrides, this.formId, 'shorts_number_dup', zone.box);
+    const font = this.resolveFont(p.fontId, value);
+    const obj = view.placeStaticNumber(box, value, '#ffffff', font);
+    obj.brandKey = 'shorts_number_dup';
+    if (!view.brandObjects) view.brandObjects = new Map();
+    view.brandObjects.set('shorts_number_dup', obj);
   }
 
   // URL каталога с фильтром по линейке формы (клиент 2026-07-22: клик по плашке линейки
@@ -1127,7 +1147,9 @@ export class UniformApp {
     }
     // Всегда держим плашку первой в потоке (renderAll мог перерисовать холсты после неё).
     if (host.firstChild !== badge) host.insertBefore(badge, host.firstChild);
-    badge.textContent = `${line} \u2192`;
+    // Клиент 2026-07-23: компактная кнопка по размеру текста (чёрный шрифт, в рамке), не широкая
+    // полоса. Внешний .line-badge — прозрачная строка (держит перенос над холстами), pill — сама кнопка.
+    badge.innerHTML = `<span class="line-badge-pill">${escapeHtml(line)} →</span>`;
   }
 
   // Переход в каталог по линейке. Как и выход из конструктора: правим верхнее окно, если
