@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { zoneToRect, fitFontSize, fitTextToRect } from '../src/js/core/ZoneManager.js';
+import { zoneToRect, fitFontSize, fitTextToRect, fitInkToRect, inkAlignedCenter, FABRIC_BASELINE_RATIO, FABRIC_BOX_RATIO } from '../src/js/core/ZoneManager.js';
 
 // Заглушка текстового объекта Fabric: width/height пропорциональны кеглю (как реальные глифы).
 // wPer100/hPer100 — размеры строки при кегле 100.
@@ -63,23 +63,69 @@ test('fitTextToRect: цифры заполняют высоту рамки бе�
   assert.ok(obj.width <= 156 + 1e-6);
 });
 
-// Клиент 2026-07-23: номер должен прилипать к рамке край-в-край. Узкий номерной шрифт по бокам
-// не достаёт (пропорции цифры). maxStretch добивает узкую сторону до рамки, но не более лимита,
-// чтобы не искажать цифру сильно. Заполненную сторону не трогаем.
-test('fitTextToRect: maxStretch добивает узкую сторону до рамки с лимитом', () => {
-  const obj = fakeText(87, 113); // «23» ~ 87x113 при кегле 100 (узкая-высокая)
-  fitTextToRect(obj, { width: 156, height: 143 }, { maxStretch: 1.15 });
-  // высота заполнена равномерной подгонкой → scaleY не растягивается
-  assert.ok(Math.abs(obj.scaleY - 1) < 1e-9);
-  // ширина не добивала → растягиваем, но упираемся в лимит 1.15
-  assert.ok(Math.abs(obj.scaleX - 1.15) < 1e-9);
-  // после стретча ширина текста не вылезает за рамку
-  assert.ok(obj.width * obj.scaleX <= 156 + 1e-6);
-});
-
-test('fitTextToRect: без maxStretch масштаб по осям не трогается (для фамилии/текста)', () => {
+test('fitTextToRect: масштаб по осям не трогается — текст не деформируется', () => {
   const obj = fakeText(87, 113);
   fitTextToRect(obj, { width: 156, height: 143 });
   assert.equal(obj.scaleX, 1);
   assert.equal(obj.scaleY, 1);
+});
+
+// ── Посадка номера по чернилам (заказчик 2026-07-24) ────────────────────────────────
+// Метрики чернил при кегле 100: реальная краска глифа, без коробки Fabric.
+// «23» шрифтом РПЛ ~ 62.5×47.5 при кегле 100 (замер measureText), «2» ~ 31×47.
+
+// Заказчик: «если написать 23, то он по бокам упрётся просто в стенки… максимально до стенки
+// слева направо». Широкая строка ограничена шириной рамки → чернила заполняют её целиком.
+test('fitInkToRect: широкий номер упирается чернилами в боковые стенки', () => {
+  const rect = { left: 0, top: 0, width: 171, height: 156 };
+  const ink = { width: 62.5, ascent: 47.5, descent: 0 };
+  const { fontSize } = fitInkToRect(rect, ink, { ref: 100 });
+  const k = fontSize / 100;
+  assert.ok(Math.abs(ink.width * k - rect.width) < 1e-6);   // ширина заполнена впритык
+  assert.ok(ink.ascent * k <= rect.height + 1e-6);          // по высоте остаётся запас
+});
+
+// Одна цифра узкая → ограничивает высота рамки, деформации нет ни в одном случае.
+test('fitInkToRect: одиночная цифра ограничена высотой рамки', () => {
+  const rect = { left: 0, top: 0, width: 171, height: 156 };
+  const ink = { width: 31, ascent: 47, descent: 0 };
+  const { fontSize } = fitInkToRect(rect, ink, { ref: 100 });
+  const k = fontSize / 100;
+  assert.ok(Math.abs((ink.ascent + ink.descent) * k - rect.height) < 1e-6);
+  assert.ok(ink.width * k <= rect.width + 1e-6);
+});
+
+// Главное требование заказчика: «номер прилип к верхней рамке». Проверяем сам глиф, не коробку.
+test('inkAlignedCenter: верх чернил совпадает с верхней кромкой рамки', () => {
+  const rect = { left: 100, top: 40, width: 171, height: 156 };
+  const fontSize = 200;
+  const m = {
+    fontSize,
+    boxWidth: 120,
+    boxHeight: FABRIC_BOX_RATIO * fontSize,
+    inkWidth: 100,
+    inkAscent: 130,
+    inkLeftOffset: 8
+  };
+  const { centerY } = inkAlignedCenter(rect, m);
+  // где реально окажется верх краски: центр коробки → верх коробки → базовая линия → минус подъём
+  const inkTop = centerY - m.boxHeight / 2 + FABRIC_BASELINE_RATIO * fontSize - m.inkAscent;
+  assert.ok(Math.abs(inkTop - rect.top) < 1e-6);
+});
+
+// Цифра центрируется по ширине рамки именно чернилами: боковые полуапроши у номерных шрифтов
+// несимметричны, и центрирование по коробке давало видимый перекос при упоре в стенки.
+test('inkAlignedCenter: чернила центрированы по ширине рамки', () => {
+  const rect = { left: 100, top: 40, width: 171, height: 156 };
+  const m = {
+    fontSize: 200,
+    boxWidth: 120,
+    boxHeight: FABRIC_BOX_RATIO * 200,
+    inkWidth: 100,
+    inkAscent: 130,
+    inkLeftOffset: 8
+  };
+  const { centerX } = inkAlignedCenter(rect, m);
+  const inkCenterX = centerX - m.boxWidth / 2 + m.inkLeftOffset + m.inkWidth / 2;
+  assert.ok(Math.abs(inkCenterX - (rect.left + rect.width / 2)) < 1e-6);
 });

@@ -4,8 +4,8 @@
 // только для залогиненного администратора). Покупатель этот режим не видит.
 //
 // Браузерный слой (Fabric + DOM), вне node:test. Чистая математика границ — в core/ZoneOverrides.js.
-import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260723b';
-import { fitTextToRect, isNumberZone, NUMBER_MAX_STRETCH } from '../core/ZoneManager.js?v=20260723b';
+import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260724b';
+import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260724b';
 
 // Служебные origin-константы Fabric: фон рендерится от левого-верхнего угла (0,0).
 
@@ -205,10 +205,18 @@ class ZoneEditor {
     const top = overlay.top;
     const width = overlay.width * (overlay.scaleX || 1);
     const height = overlay.height * (overlay.scaleY || 1);
-    obj.set({ left: left + width / 2, top: top + height / 2 });
     if (obj.clipPath) obj.clipPath.set({ left, top, width, height });
+    if (!(obj.text !== undefined && isNumberZone(overlay.zoneKey))) {
+      obj.set({ left: left + width / 2, top: top + height / 2 });
+    }
     if (obj.text !== undefined) {
-      fitTextToRect(obj, { width, height }, { maxStretch: isNumberZone(overlay.zoneKey) ? NUMBER_MAX_STRETCH : 1 });
+      // Номер сажаем по чернилам (прижат к верхней кромке, без деформации) — тем же путём, что и
+      // в покупательском виде, иначе админ двигает рамку и посадка расходится с боевым рендером.
+      if (isNumberZone(overlay.zoneKey)) {
+        view._seatNumber(obj, { left, top, width, height }, String(obj.text), obj.fontFamily);
+      } else {
+        fitTextToRect(obj, { width, height });
+      }
     } else {
       const scale = Math.min(width / obj.width, height / obj.height);
       obj.set({ scaleX: scale, scaleY: scale });

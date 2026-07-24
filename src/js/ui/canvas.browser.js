@@ -2,8 +2,8 @@
 // Только браузерный слой (DOM + canvas) — не покрывается node:test, поэтому суффикс .browser.js.
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
-import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, NUMBER_MAX_STRETCH } from '../core/ZoneManager.js?v=20260723b';
-import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260723b';
+import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO } from '../core/ZoneManager.js?v=20260724b';
+import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260724b';
 
 export class CanvasView {
   constructor(canvasEl, canvasCfg) {
@@ -125,6 +125,44 @@ export class CanvasView {
     });
   }
 
+  // Метрики «чернил» (реальных пикселей глифа) строки при заданном кегле. Fabric отдаёт только
+  // коробку текста, поэтому меряем через 2D-контекст: actualBoundingBox* — это габарит самой краски.
+  _inkMetrics(text, fontFamily, fontSize) {
+    if (!this._inkCtx) this._inkCtx = document.createElement('canvas').getContext('2d');
+    const ctx = this._inkCtx;
+    // generic-семейства (sans-serif) нельзя брать в кавычки — иначе это имя шрифта, а не ключевое слово
+    const fam = /^(sans-serif|serif|monospace)$/.test(fontFamily) ? fontFamily : `"${fontFamily}"`;
+    ctx.font = `${fontSize}px ${fam}`;
+    const m = ctx.measureText(String(text));
+    return {
+      width: m.actualBoundingBoxLeft + m.actualBoundingBoxRight,
+      ascent: m.actualBoundingBoxAscent,
+      descent: m.actualBoundingBoxDescent,
+      leftOffset: -m.actualBoundingBoxLeft
+    };
+  }
+
+  // Сажает номер в рамку по чернилам: без деформации, ограничивающая сторона впритык,
+  // глиф прижат к верхней кромке (заказчик 2026-07-24). Мутирует fontSize/left/top объекта.
+  _seatNumber(obj, rect, text, fontFamily) {
+    const REF = 100;
+    const ink = this._inkMetrics(text, fontFamily, REF);
+    const { fontSize } = fitInkToRect(rect, ink, { ref: REF });
+    obj.set({ fontSize });
+    if (typeof obj.initDimensions === 'function') obj.initDimensions();
+    const k = fontSize / REF;
+    const { centerX, centerY } = inkAlignedCenter(rect, {
+      fontSize,
+      boxWidth: obj.width,
+      boxHeight: FABRIC_BOX_RATIO * fontSize,
+      inkWidth: ink.width * k,
+      inkAscent: ink.ascent * k,
+      inkLeftOffset: ink.leftOffset * k
+    });
+    obj.set({ left: centerX, top: centerY });
+    return fontSize;
+  }
+
   _clipFor(zone) {
     const r = this._rect(zone.box);
     return new fabric.Rect({
@@ -148,16 +186,20 @@ export class CanvasView {
     });
     // Точная подгонка по фактической ширине глифов выбранного шрифта: убирает зазор
     // между текстом и краем рамки (клиент 2026-07-22). fitFontSize выше — стартовая оценка.
-    // Номерные зоны (клиент 2026-07-23): цифра должна прилипать к рамке край-в-край — добиваем
-    // узкую сторону стретчем до ~15%, чтобы не оставался боковой зазор (номерные шрифты узкие).
-    fitTextToRect(obj, r, { maxStretch: isNumberZone(zone.key) ? NUMBER_MAX_STRETCH : 1 });
+    // Номерные зоны (заказчик 2026-07-24): цифра сажается по чернилам глифа — упирается в
+    // ограничивающую сторону рамки без деформации и прижимается к верхней кромке.
+    if (isNumberZone(zone.key)) this._seatNumber(obj, r, text, obj.fontFamily);
+    else fitTextToRect(obj, r);
     // Клиент: не давать менять размер полей на макете — убираем ручки масштаба/поворота,
     // элемент остаётся выделяемым и удаляемым, но не тянется по размеру.
     // hasBorders:false — убираем бирюзовую рамку выделения Fabric. Клиент 2026-07-17 (Safari):
     // «появилась вторая рамка» — поверх пунктирной рамки зоны Fabric рисовал свою рамку выделения,
     // получалось две рамки. Удаление элемента идёт через × в панели (removeFromZone по ключу),
     // а не через выделение на холсте, поэтому рамка выделения не нужна и только путает.
-    obj.set({ lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false, hasBorders: false });
+    // Заказчик 2026-07-24 (голос): «каждый элемент закреплён в своей зоне… покупатель не должен
+    // ничего никуда перемещать». Раньше перетаскивание не было залочено, и сдвинутый элемент
+    // обрезался clipPath зоны — со стороны это выглядело как «лого и цифра пропадают».
+    obj.set({ lockScalingX: true, lockScalingY: true, lockRotation: true, lockMovementX: true, lockMovementY: true, hasControls: false, hasBorders: false });
     obj.zoneKey = zone.key;
     this.userObjects.set(zone.key, obj);
     this.canvas.add(obj);
@@ -181,7 +223,7 @@ export class CanvasView {
     });
     // Клиент: не давать менять размер логотипа/картинки на макете — фиксируем масштаб и поворот.
     // hasBorders:false — та же бирюзовая рамка выделения Fabric, что и у текста (см. placeText). Убираем.
-    img.set({ lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false, hasBorders: false });
+    img.set({ lockScalingX: true, lockScalingY: true, lockRotation: true, lockMovementX: true, lockMovementY: true, hasControls: false, hasBorders: false });
     img.zoneKey = zone.key;
     this.userObjects.set(zone.key, img);
     this.canvas.add(img);
@@ -253,7 +295,7 @@ export class CanvasView {
       textAlign: 'center',
       selectable: false, evented: false
     });
-    fitTextToRect(obj, r, { maxStretch: NUMBER_MAX_STRETCH });
+    this._seatNumber(obj, r, String(text), obj.fontFamily);
     this.staticObjects.push(obj);
     this.canvas.add(obj);
     this.canvas.requestRenderAll();

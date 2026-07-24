@@ -18,7 +18,7 @@ export function fitFontSize({ text, rect, charWidthRatio = 0.75 }) {
 // ширину/высоту строки при опорном кегле и масштабируем так, чтобы текст вплотную
 // заполнил рамку по ограничивающей стороне — без пустого отступа.
 // obj — текстовый объект Fabric (fabric.IText); мутирует его fontSize, возвращает кегль.
-export function fitTextToRect(obj, rect, { ref = 100, maxStretch = 1 } = {}) {
+export function fitTextToRect(obj, rect, { ref = 100 } = {}) {
   obj.set({ fontSize: ref });
   if (typeof obj.initDimensions === 'function') obj.initDimensions();
   const w = obj.width || 1;
@@ -26,24 +26,43 @@ export function fitTextToRect(obj, rect, { ref = 100, maxStretch = 1 } = {}) {
   const size = Math.max(1, ref * Math.min(rect.width / w, rect.height / h));
   obj.set({ fontSize: size });
   if (typeof obj.initDimensions === 'function') obj.initDimensions();
-  // Клиент 2026-07-23: номер должен прилипать к рамке край-в-край. Равномерная подгонка выше
-  // заполняет лишь узкую сторону рамки — у высокого-узкого номерного шрифта по бокам остаётся
-  // зазор. maxStretch>1 добивает недостающую сторону масштабом до края рамки, но не более лимита
-  // (≈1.15), чтобы цифра не искажалась заметно. Заполненную сторону не трогаем (её ratio ≈ 1).
-  if (maxStretch > 1) {
-    const tw = obj.width || 1;
-    const th = obj.height || 1;
-    obj.set({
-      scaleX: Math.min(rect.width / tw, maxStretch),
-      scaleY: Math.min(rect.height / th, maxStretch)
-    });
-  }
   return size;
 }
 
-// Номерные зоны (back_number/chest_number/shorts_number): для них номер прилипает к рамке
-// край-в-край через стретч с лимитом (клиент 2026-07-23). Прочий текст (фамилия/надписи) — нет.
-export const NUMBER_MAX_STRETCH = 1.15;
+// ── Посадка номера по «чернилам» глифа (клиент 2026-07-24) ──────────────────────────
+// Fabric меряет текст КОРОБКОЙ: obj.height = 1.13×кегль (межстрочная плюс выносные элементы),
+// obj.width включает боковые полуапроши. Видимая цифра занимает лишь часть этой коробки —
+// замер на зоне номера 171×156 (шрифт РПЛ): «2» закрывала 36% ширины и 60% высоты рамки,
+// «23» — 73%/61%. Отсюда жалоба заказчика «номер не прилипает к стенкам рамки»: подгонка по
+// коробке физически не может прижать глиф к кромке. Прежний обход — стретч до 1.15 — лишь
+// маскировал зазор и деформировал цифру, что заказчик отдельно запретил («деформировать не надо»).
+// Поэтому номер считаем по фактическим чернилам (measureText.actualBoundingBox*), а не по коробке.
+export const FABRIC_BOX_RATIO = 1.13;      // obj.height / кегль у однострочного текста Fabric v6
+export const FABRIC_BASELINE_RATIO = 0.89; // базовая линия ниже верха коробки на 0.89×кегля
+
+// Кегль, при котором чернила вписаны в рамку БЕЗ деформации: упираемся в ограничивающую сторону,
+// вторая остаётся с запасом (заказчик: «23» упирается по бокам в стенки, какого размера будет —
+// такого и будет). ink — метрики чернил при кегле ref: { width, ascent, descent }.
+export function fitInkToRect(rect, ink, { ref = 100 } = {}) {
+  const inkW = Math.max(1, ink.width);
+  const inkH = Math.max(1, ink.ascent + ink.descent);
+  const fontSize = Math.max(1, ref * Math.min(rect.width / inkW, rect.height / inkH));
+  return { fontSize };
+}
+
+// Центр коробки Fabric (originX/originY = center), при котором чернила прижаты к ВЕРХНЕЙ кромке
+// рамки (заказчик 2026-07-24: «лучше всего к верхней части притянуть») и центрированы по ширине.
+// m — размеры при итоговом кегле: boxWidth/boxHeight — коробка Fabric, inkWidth/inkAscent — чернила,
+// inkLeftOffset — отступ чернил от левого края коробки (= -actualBoundingBoxLeft).
+export function inkAlignedCenter(rect, m) {
+  return {
+    centerX: rect.left + rect.width / 2 - m.inkLeftOffset - m.inkWidth / 2 + m.boxWidth / 2,
+    centerY: rect.top + m.inkAscent - FABRIC_BASELINE_RATIO * m.fontSize + m.boxHeight / 2
+  };
+}
+
+// Номерные зоны (back_number/chest_number/shorts_number): сажаются по чернилам с прижатием к верху.
+// Прочий текст (фамилия/надписи) — прежней подгонкой по коробке, заказчик по ним замечаний не давал.
 export function isNumberZone(key) { return /(^|_)number$/.test(String(key || '')); }
 
 export function zoneToRect(box, canvas) {
