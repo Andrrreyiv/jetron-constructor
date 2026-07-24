@@ -4,7 +4,7 @@ import { validateOverrides, validateCrops } from './core/ZoneOverrides.js';
 // Версионируем импорты изменённых модулей, чтобы обычная перезагрузка (не только Cmd+Shift+R)
 // подтягивала свежий файл: ESM кешируется по URL, а ?v на index.html не бустит вложенные импорты.
 import { UniformApp } from './ui/app.browser.js?v=20260723b';
-import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260723b';
+import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260724a';
 
 async function boot() {
   const statusEl = document.getElementById('status');

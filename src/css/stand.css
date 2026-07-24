@@ -172,9 +172,12 @@ body {
    Внешний .line-badge — прозрачная строка на всю ширину (flex-basis:100% держит перенос: холсты
    уходят под плашку); pointer-events:none, чтобы кликабелен был только сам pill, а не вся строка. */
 .line-badge {
-  flex-basis: 100%;
+  /* Клиент 2026-07-24: плашку — внутрь поля, в левый-верхний угол поверх картинки (не отдельной
+     строкой сверху). Абсолют в .views (position:relative) освобождает строку → холсты поднимаются
+     выше, контролы цвета/формы ближе к экрану. pointer-events:none на обёртке — кликабелен только pill. */
+  position: absolute; top: 0; left: 0; z-index: 3;
   display: flex; justify-content: flex-start;
-  margin-bottom: 10px; padding: 0;
+  margin: 0; padding: 0;
   background: none; border: none;
   pointer-events: none;
 }

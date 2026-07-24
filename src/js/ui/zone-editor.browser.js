@@ -253,7 +253,13 @@ class ZoneEditor {
       cornerColor: '#e07a1f', cornerStrokeColor: '#ffffff', transparentCorners: false,
       cornerSize: 12, hoverCursor: 'move'
     });
-    if (bg.setControlsVisibility) bg.setControlsVisibility({ mtr: false });
+    // Только угловые маркеры (равномерный масштаб через lockUniScaling). Рёберные (ml/mr/mt/mb)
+    // тянут по одной оси и деформируют мокап (клиент 2026-07-24: «граница поднимаю — картинка
+    // деформируется»). Кадрирование = двигать + масштабировать пропорционально, без растяжения.
+    if (bg.setControlsVisibility) bg.setControlsVisibility({
+      mtr: false, ml: false, mr: false, mt: false, mb: false,
+      tl: true, tr: true, bl: true, br: true
+    });
     canvas.backgroundImage = null;
     canvas.add(bg);
     if (canvas.sendObjectToBack) canvas.sendObjectToBack(bg);
