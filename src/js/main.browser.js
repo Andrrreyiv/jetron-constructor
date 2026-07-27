@@ -1,6 +1,6 @@
 // Точка входа стенда: грузим конфиг → валидируем на границе → запускаем приложение.
-import { validateConfig } from './core/ConfigLoader.js';
-import { validateOverrides, validateCrops } from './core/ZoneOverrides.js';
+import { validateConfig } from './core/ConfigLoader.js?v=20260727b';
+import { validateOverrides, validateCrops } from './core/ZoneOverrides.js?v=20260727b';
 // Версионируем импорты изменённых модулей, чтобы обычная перезагрузка (не только Cmd+Shift+R)
 // подтягивала свежий файл: ESM кешируется по URL, а ?v на index.html не бустит вложенные импорты.
 import { UniformApp } from './ui/app.browser.js?v=20260727b';

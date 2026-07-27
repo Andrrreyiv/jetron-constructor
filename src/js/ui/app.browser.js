@@ -3,10 +3,10 @@
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
 import { CanvasView } from './canvas.browser.js?v=20260724b';
-import { calculatePrice } from '../core/PriceCalculator.js';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260727b';
 import { indexCatalogPrices, resolveFormPrice } from '../core/CatalogPrices.js?v=20260727b';
 import { buildOrder } from '../core/OrderSummary.js?v=20260727a';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260727b';
 import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260724b';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
