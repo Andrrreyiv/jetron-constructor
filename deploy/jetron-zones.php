@@ -151,3 +151,73 @@ add_action('wp_ajax_jetron_save_crops', function () {
 add_action('wp_ajax_nopriv_jetron_save_crops', function () {
     wp_send_json_error(array('message' => 'login required'), 401);
 });
+
+/**
+ * Цены изделий из карточек товаров (клиент 2026-07-27: «не подтягивается цена из карточки товара»).
+ *
+ * Отдаёт плоский список позиций каталога: атрибуты товара «Модель» и «Цвет» совпадают с line/color
+ * формы конструктора, категория задаёт возрастную группу. Конструктор строит по нему индекс и берёт
+ * цену изделия оттуда, а прайс в конфиге остаётся запасным (каталог недоступен — считаем по нему).
+ *
+ * Чтение публичных данных: цены и так видны в каталоге, поэтому без nonce и без прав, доступно и гостю.
+ * Результат кешируем на 10 минут — иначе на каждый заход конструктора идёт тяжёлый обход каталога.
+ */
+function jetron_catalog_prices() {
+    $cached = get_transient('jetron_catalog_prices');
+    if (is_array($cached)) {
+        return $cached;
+    }
+    if (!function_exists('wc_get_products')) {
+        return array(); // WooCommerce отключён — конструктор просто останется на прайсе конфига.
+    }
+    // Категория → возрастная группа конструктора. Слаги совпадают с адресами каталога на сайте.
+    $groups = array('vzroslaya-forma' => 'adult', 'detskaya-forma' => 'child');
+    $items = array();
+    foreach ($groups as $slug => $age) {
+        $products = wc_get_products(array(
+            'status'   => 'publish',
+            'limit'    => 200,
+            'category' => array($slug),
+        ));
+        foreach ($products as $product) {
+            $price = (float) $product->get_price();
+            if ($price <= 0) {
+                continue;
+            }
+            $model = '';
+            $color = '';
+            // Ищем по ЛЕЙБЛУ атрибута, а не по слагу таксономии: слаг на сайте может быть любым.
+            foreach ($product->get_attributes() as $attribute) {
+                $label = wc_attribute_label($attribute->get_name());
+                $values = $product->get_attribute($attribute->get_name());
+                $first = trim(strtok((string) $values, ','));
+                if ($first === '') {
+                    continue;
+                }
+                if (mb_stripos($label, 'модель') !== false) {
+                    $model = $first;
+                } elseif (mb_stripos($label, 'цвет') !== false) {
+                    $color = $first;
+                }
+            }
+            if ($model === '' || $color === '') {
+                continue; // Без модели и цвета позицию не сопоставить с формой — пропускаем.
+            }
+            $items[] = array(
+                'model'     => $model,
+                'color'     => $color,
+                'age'       => $age,
+                'price'     => $price,
+                'productId' => $product->get_id(),
+            );
+        }
+    }
+    set_transient('jetron_catalog_prices', $items, 10 * MINUTE_IN_SECONDS);
+    return $items;
+}
+
+add_action('wp_ajax_jetron_prices', 'jetron_prices_respond');
+add_action('wp_ajax_nopriv_jetron_prices', 'jetron_prices_respond');
+function jetron_prices_respond() {
+    wp_send_json_success(array('items' => jetron_catalog_prices()));
+}

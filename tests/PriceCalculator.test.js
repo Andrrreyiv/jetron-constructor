@@ -100,3 +100,23 @@ test('от 20 комплектов малое лого на груди бесп�
   assert.equal(bulk.placementTotal, 0);
   assert.equal(bulk.total, 1280);
 });
+
+// Клиент 27.07: цена изделия должна браться из карточки товара, а не из прайса конфига.
+// Калькулятор принимает готовую цену формы; прайс конфига остаётся запасным вариантом.
+test('formPrice из каталога перекрывает прайс конфига', () => {
+  // 777 заведомо отличается от прайса конфига — иначе тест зелёный по случайному совпадению.
+  const r = calculatePrice({ prices, ageCategory: 'child', usedZones: [], formPrice: 777 });
+  assert.equal(r.formPrice, 777);
+  assert.equal(r.total, 777);
+});
+
+test('без formPrice цена берётся из конфига (обратная совместимость)', () => {
+  const r = calculatePrice({ prices, ageCategory: 'child', usedZones: [] });
+  assert.equal(r.formPrice, prices.form.child);
+});
+
+// Мусор вместо цены (каталог отдал 0/строку) не должен обнулять стоимость комплекта.
+test('некорректная formPrice игнорируется, берётся цена конфига', () => {
+  assert.equal(calculatePrice({ prices, ageCategory: 'adult', usedZones: [], formPrice: 0 }).formPrice, prices.form.adult);
+  assert.equal(calculatePrice({ prices, ageCategory: 'adult', usedZones: [], formPrice: 'дорого' }).formPrice, prices.form.adult);
+});

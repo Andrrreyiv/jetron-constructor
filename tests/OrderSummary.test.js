@@ -87,3 +87,14 @@ test('позиции несут ценовую группу — фамилия �
   // Группа тарифицируется один раз, независимо от числа зон в ней.
   assert.equal(order.price.placementTotal, 600);
 });
+
+// Цена изделия из карточки товара должна доходить и до сводки заказа: иначе в окне «Оформление
+// заказа» останется цена конфига и итог разойдётся с тем, что человек видел в панели (клиент 27.07).
+test('buildOrder считает по цене из каталога, если она передана', () => {
+  const order = buildOrder({
+    config, formId: 'champion-blue', ageCategory: 'child', quantity: 2, placements: [], formPrice: 777
+  });
+  assert.equal(order.price.formPrice, 777);
+  assert.equal(order.price.perKit, 777);
+  assert.equal(order.price.grandTotal, 1554);
+});

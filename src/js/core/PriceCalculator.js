@@ -1,5 +1,8 @@
-export function calculatePrice({ prices, ageCategory = 'adult', usedZones = [], gaiters = false, jetron = {}, quantity = 1 }) {
-  const formPrice = prices.form[ageCategory];
+export function calculatePrice({ prices, ageCategory = 'adult', usedZones = [], gaiters = false, jetron = {}, quantity = 1, formPrice: formPriceFromCatalog }) {
+  // Цена изделия приходит из карточки товара WooCommerce (клиент 27.07). Прайс конфига —
+  // запасной вариант: каталог недоступен, позиции нет или цена пришла битой (0/строка).
+  const catalogPrice = Number(formPriceFromCatalog);
+  const formPrice = Number.isFinite(catalogPrice) && catalogPrice > 0 ? catalogPrice : prices.form[ageCategory];
   const d = prices.discounts || {};
   const bulkFreeFrom = d.bulk_free_chest_logo_from || Infinity;
   const placementTable = prices.placement || {};

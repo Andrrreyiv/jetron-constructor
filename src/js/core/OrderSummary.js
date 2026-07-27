@@ -3,7 +3,7 @@
 // calculatePrice, что и в UI, поэтому сервер сможет её независимо пересчитать.
 import { calculatePrice } from './PriceCalculator.js';
 
-export function buildOrder({ config, formId, ageCategory = 'adult', gaiters = false, jetron = {}, quantity = 1, placements = [] }) {
+export function buildOrder({ config, formId, ageCategory = 'adult', gaiters = false, jetron = {}, quantity = 1, placements = [], formPrice }) {
   const form = config.forms.find((f) => f.id === formId);
   // Зоны берём из формы, иначе из общего шаблона каталога (color-first: большинство форм наследуют zoneTemplate).
   const zones = form.zones || config.zoneTemplate || [];
@@ -14,7 +14,8 @@ export function buildOrder({ config, formId, ageCategory = 'adult', gaiters = fa
     .filter(Boolean)
     .map((z) => ({ key: z.key, priceGroup: z.priceGroup || z.key, price: z.price || 0 }));
 
-  const p = calculatePrice({ prices: config.prices, ageCategory, usedZones, gaiters, jetron, quantity });
+  // formPrice — цена изделия из карточки товара (клиент 27.07); пусто → прайс конфига.
+  const p = calculatePrice({ prices: config.prices, ageCategory, usedZones, gaiters, jetron, quantity, formPrice });
 
   const items = placements
     .map((pl) => {

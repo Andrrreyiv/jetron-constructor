@@ -4,6 +4,7 @@
 // Цена считается тестируемой calculatePrice из core/.
 import { CanvasView } from './canvas.browser.js?v=20260724b';
 import { calculatePrice } from '../core/PriceCalculator.js';
+import { indexCatalogPrices, resolveFormPrice } from '../core/CatalogPrices.js?v=20260727b';
 import { buildOrder } from '../core/OrderSummary.js?v=20260727a';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js';
 import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260724b';
@@ -195,6 +196,7 @@ export class UniformApp {
   }
 
   async start() {
+    await this.loadCatalogPrices();
     await this.loadFonts();
     await this.loadBranding();
     this.buildPanel();
@@ -757,6 +759,7 @@ export class UniformApp {
 
     const render = () => {
       const order = buildOrder({
+        formPrice: this.currentFormPrice(),
         config: this.config,
         formId: this.formId,
         ageCategory: this.ageCategory,
@@ -812,8 +815,8 @@ export class UniformApp {
 
           <h3 style="margin:14px 0 6px">1. Размер</h3>
           <div class="row">
-            <label><input type="radio" name="ord-age" value="adult" ${this.ageCategory === 'adult' ? 'checked' : ''}> Взрослый (${money(this.config.prices.form.adult)})</label>
-            <label><input type="radio" name="ord-age" value="child" ${this.ageCategory === 'child' ? 'checked' : ''}> Детский (${money(this.config.prices.form.child)})</label>
+            <label><input type="radio" name="ord-age" value="adult" ${this.ageCategory === 'adult' ? 'checked' : ''}> Взрослый (${money(this.formPriceFor('adult'))})</label>
+            <label><input type="radio" name="ord-age" value="child" ${this.ageCategory === 'child' ? 'checked' : ''}> Детский (${money(this.formPriceFor('child'))})</label>
           </div>
           ${sizeTable(this.ageCategory)}
 
@@ -1535,8 +1538,37 @@ export class UniformApp {
     return out;
   }
 
+  // Цена изделия из карточек товаров WooCommerce (клиент 27.07). Плагин отдаёт список позиций
+  // {model,color,age,price}; сопоставляем по линейке+цвету+возрасту. Каталог недоступен (демо на
+  // GitHub Pages, WooCommerce выключен, сеть) — молча остаёмся на прайсе конфига.
+  async loadCatalogPrices() {
+    try {
+      const res = await fetch('/wp-admin/admin-ajax.php?action=jetron_prices', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const items = data && data.data && data.data.items;
+      if (Array.isArray(items) && items.length) this.catalogPrices = indexCatalogPrices(items);
+    } catch {
+      // тишина: запасной прайс уже в конфиге
+    }
+  }
+
+  // Цена текущей формы: карточка товара, иначе прайс конфига.
+  formPriceFor(ageCategory) {
+    const fallback = this.config.prices.form[ageCategory];
+    if (!this.catalogPrices) return fallback;
+    return resolveFormPrice(this.catalogPrices, {
+      line: this.form && this.form.line,
+      color: this.form && this.form.color,
+      ageCategory
+    }, fallback);
+  }
+
+  currentFormPrice() { return this.formPriceFor(this.ageCategory); }
+
   updatePrice() {
     const r = calculatePrice({
+      formPrice: this.currentFormPrice(),
       prices: this.config.prices,
       ageCategory: this.ageCategory,
       usedZones: this.usedZones(),
