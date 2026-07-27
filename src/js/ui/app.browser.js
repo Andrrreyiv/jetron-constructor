@@ -4,7 +4,7 @@
 // Цена считается тестируемой calculatePrice из core/.
 import { CanvasView } from './canvas.browser.js?v=20260724b';
 import { calculatePrice } from '../core/PriceCalculator.js';
-import { buildOrder } from '../core/OrderSummary.js';
+import { buildOrder } from '../core/OrderSummary.js?v=20260727a';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js';
 import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260724b';
 
@@ -472,9 +472,9 @@ export class UniformApp {
     const models = this.formsForColor(this.colorId);
     const activeColor = colors.find((c) => c.id === this.colorId);
     host.innerHTML = `
+      <div class="cp-download"><button id="download-btn" class="stage-btn" type="button">Скачать макет</button></div>
       <div class="cp-head">
         <div class="cp-title">Выберите цвет формы${activeColor ? ` <b>${escapeHtml(activeColor.name)}</b>` : ''}</div>
-        <button id="download-btn" class="stage-btn" type="button">Скачать макет</button>
       </div>
       <div class="color-palette">
         ${colors.map((c) => `<button class="pcolor ${c.id === this.colorId ? 'active' : ''}"
@@ -767,8 +767,34 @@ export class UniformApp {
       });
       this.lastOrder = order; // отладочный доступ + будущая отправка в WooCommerce (U1)
 
-      const itemsRows = order.items.length
-        ? order.items.map((i) => `<tr>
+      // Клиент 2026-07-27: «фамилия и номер разъединены отдельно, номер без цены — объединить,
+      // написать Иванов 23, 600 рублей». Зоны одной ценовой группы (priceGroup) сливаем в ОДНУ строку:
+      // значения через пробел, цена группы показывается один раз. Порядок групп — как в order.items.
+      const mergedItems = (() => {
+        const groups = new Map();
+        for (const i of order.items) {
+          const g = i.priceGroup || i.zoneKey;
+          if (!groups.has(g)) groups.set(g, []);
+          groups.get(g).push(i);
+        }
+        const out = [];
+        for (const [g, list] of groups) {
+          if (list.length === 1) { out.push(list[0]); continue; }
+          const opt = (this.config.placementOptions || []).find((o) => o.id === g);
+          const value = list.map((i) => (i.text ? i.text : (i.type === 'image' ? 'логотип' : ''))).filter(Boolean).join(' ');
+          out.push({
+            view: list[0].view,
+            label: opt ? opt.title : list.map((i) => i.label).join(' + '),
+            text: value,
+            type: 'text',
+            price: Math.max(...list.map((i) => i.price || 0))
+          });
+        }
+        return out;
+      })();
+
+      const itemsRows = mergedItems.length
+        ? mergedItems.map((i) => `<tr>
             <td>${i.label}</td>
             <td class="dim">${(VIEW_LABEL[i.view] || i.view).toLowerCase()}</td>
             <td>${i.text ? escapeHtml(i.text) : (i.type === 'image' ? 'логотип' : '')}</td>

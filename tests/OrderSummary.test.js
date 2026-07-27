@@ -68,3 +68,22 @@ test('гетры и скидка Джетрон в сводке, итог умн
   assert.equal(order.price.perKit, 1644); // (1280+450)*0.95 = 1643.5 → 1644
   assert.equal(order.price.grandTotal, 3288);
 });
+
+// Клиент 2026-07-27: в сводке заказа фамилия и номер спины шли ДВУМЯ строками, причём у номера
+// цена стояла прочерком («номер без цены… как-то не очень»). Обе зоны — одна ценовая группа
+// name_number (600 ₽ один раз), поэтому позиция обязана нести priceGroup: только по нему UI
+// может слить их в одну строку «Иванов 23 — 600 ₽», не выдумывая связь по имени ключа.
+test('позиции несут ценовую группу — фамилия и номер спины в одной группе', () => {
+  const order = buildOrder({
+    config, formId: 'champion-blue', ageCategory: 'adult', quantity: 1,
+    placements: [
+      { view: 'back', zoneKey: 'name', type: 'text', value: 'Иванов', fontId: 'rpl' },
+      { view: 'back', zoneKey: 'back_number', type: 'text', value: '23', fontId: 'rpl' }
+    ]
+  });
+  assert.equal(order.items.length, 2);
+  assert.equal(order.items[0].priceGroup, 'name_number');
+  assert.equal(order.items[1].priceGroup, 'name_number');
+  // Группа тарифицируется один раз, независимо от числа зон в ней.
+  assert.equal(order.price.placementTotal, 600);
+});

@@ -21,7 +21,9 @@ export function buildOrder({ config, formId, ageCategory = 'adult', gaiters = fa
       const z = zonesByKey.get(pl.zoneKey);
       if (!z) return null;
       // type зоны может быть 'any' (текст ИЛИ логотип) — в позиции пишем то, что человек реально нанёс.
-      const item = { view: pl.view, zoneKey: z.key, label: z.label, type: pl.type || z.type, price: z.price || 0 };
+      // priceGroup — по нему UI сливает зоны одной группы в одну строку сводки (фамилия+номер =
+      // 600 руб. один раз, клиент 2026-07-27). Значение то же, что берёт calculatePrice для тарификации.
+      const item = { view: pl.view, zoneKey: z.key, label: z.label, priceGroup: z.priceGroup || z.key, type: pl.type || z.type, price: z.price || 0 };
       if (pl.type === 'text') item.text = pl.value;
       return item;
     })

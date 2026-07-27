@@ -315,7 +315,13 @@ body {
 .hint { color: var(--muted); font-size: 13px; margin: 4px 0 0; line-height: 1.55; }
 
 /* ── Палитра цвета изделия (ТЗ §2.1) ─────────────────────── */
-.color-palette { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 14px; }
+/* justify-content:center + боковой запас 5px: кольцо активного цвета (box-shadow 4.5px) больше
+   не срезается левым краем, справа не остаётся «лишнего» отступа — ряд отцентрован
+   (клиент 2026-07-27: «слева рамка залезает, справа наоборот отступ, отцентровать»). */
+.color-palette {
+  display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 14px;
+  justify-content: center; padding: 0 5px;
+}
 .pcolor {
   width: 34px; height: 34px; border-radius: 8px;
   border: 2.5px solid #fff;
@@ -448,8 +454,11 @@ body {
   padding-top: 22px;
   border-top: 1px solid var(--line);
 }
+/* Клиент 2026-07-27: «Скачать макет» — сразу под самим макетом, отдельной строкой по центру;
+   «Выберите цвет формы» уезжает ниже. Раньше кнопка стояла в одной строке с заголовком. */
+.cp-download { display: flex; justify-content: center; margin-bottom: 16px; }
 .cp-head {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: center;
   gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
 }
 .cp-title {
@@ -574,11 +583,17 @@ body {
 .opt-upload-row {
   display: flex; align-items: stretch; gap: 10px; margin-top: 10px; flex-wrap: wrap;
 }
-/* Обе кнопки ряда — равной ширины и с одинаковой рамкой (клиент 2026-07-22: «сделать одинаковыми»). */
+/* Обе кнопки ряда — одинаковой высоты и рамки (клиент 2026-07-22: «сделать одинаковыми»).
+   Клиент 2026-07-27: плашка загрузки должна быть ШИРЕ, «Удалить фон» — чуть уже, при этом
+   высота у обеих одна (align-items:stretch в .opt-upload-row) и значки НЕ уменьшаем. */
 .opt-upload-row .opt-upload,
-.opt-upload-row .opt-rmbg { margin-top: 0; flex: 1 1 140px; min-width: 0; }
+.opt-upload-row .opt-rmbg { margin: 0; min-width: 0; }
+.opt-upload-row .opt-upload { flex: 1.25 1 150px; }
+.opt-upload-row .opt-rmbg { flex: 0.85 1 124px; }
 .opt-upload {
-  display: flex; align-items: center; gap: 11px;
+  /* justify-content:center — содержимое (кружок + подпись) по центру плашки, как в «Удалить фон».
+     Клиент 2026-07-27: «кружочек и надпись сильно смещены влево, надо центровать». */
+  display: flex; align-items: center; justify-content: center; gap: 11px;
   margin-top: 10px; padding: 12px 14px;
   border: 1.5px dashed var(--line-strong); border-radius: var(--r-sm);
   background: var(--surface-2); cursor: pointer;
@@ -606,10 +621,14 @@ body {
 }
 .opt-upload.has { border-style: solid; border-color: var(--success); background: var(--success-soft); }
 .opt-upload.has .opt-upload-icon { background: var(--success); }
-.opt-upload-text { font-size: 13.5px; font-weight: 600; color: var(--ink-2); flex: 1; }
+/* flex:0 1 auto — подпись не растягивается, поэтому кружок+текст стоят единой группой по центру
+   плашки (клиент 2026-07-27). Раньше flex:1 распирал текст и прижимал кружок к левому краю. */
+.opt-upload-text { font-size: 13.5px; font-weight: 600; color: var(--ink-2); flex: 0 1 auto; }
 .opt-del {
+  /* Без margin-left:auto — крестик больше не прилипает к краю рамки, стоит в общей группе
+     с отступом (клиент 2026-07-27: «крестик прилип к рамке, надо от рамы отлепить»). */
   display: grid; place-items: center; flex-shrink: 0;
-  width: 26px; height: 26px; border-radius: 50%; margin-left: auto;
+  width: 26px; height: 26px; border-radius: 50%;
   background: rgba(0, 0, 0, .06); color: var(--muted);
   font-size: 18px; line-height: 1; cursor: pointer;
   transition: background .15s var(--ease), color .15s var(--ease);
@@ -957,7 +976,10 @@ input[type="radio"], input[type="checkbox"] {
   .topbar .logo { font-size: 21px; letter-spacing: 3.5px; }
   #price-total { font-size: 26px; }
   /* Пункт списка/чекбоксы — крупнее для касания */
-  .panel label { padding: 3px 0; min-height: 30px; }
+  /* :not(.opt-upload) — плашка «Загрузить логотип» это <label>, и общее мобильное правило
+     сбивало ей padding до 3px, из-за чего она была НИЖЕ кнопки «Удалить фон»
+     (клиент 2026-07-27: «удалить фон выше, чем загрузить логотип»). Её отступы держит .opt-upload. */
+  .panel label:not(.opt-upload) { padding: 3px 0; min-height: 30px; }
   .pcolor { width: 40px; height: 40px; }
   .color-palette { gap: 11px; }
   /* Карусель моделей — карточки чуть крупнее и заметнее, что скроллятся */
