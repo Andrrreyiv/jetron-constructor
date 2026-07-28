@@ -76,13 +76,21 @@ function jetron_admin_safe_name($name, $allowed) {
  * Приём загруженного файла в constructor/assets/<sub>/.
  * Возвращает относительный путь для конфига (assets/<sub>/имя) или null.
  */
-function jetron_admin_upload($field, $sub, $allowed) {
+function jetron_admin_upload($field, $sub, $allowed, $max_mb = 8, $must_be_image = false) {
     if (empty($_FILES[$field]['name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
         return null;
     }
+    // Тяжёлый файл тормозит конструктор у покупателя, поэтому режем на входе с понятным текстом.
+    if ($_FILES[$field]['size'] > $max_mb * 1024 * 1024) {
+        return array('error' => 'Файл больше ' . $max_mb . ' МБ. Сожмите его и попробуйте снова.');
+    }
+    // Расширения мало: под видом .png может прийти что угодно. Для фото проверяем, что это картинка.
+    if ($must_be_image && !@getimagesize($_FILES[$field]['tmp_name'])) {
+        return array('error' => 'Это не изображение. Нужен PNG, JPG или WebP.');
+    }
     $name = jetron_admin_safe_name($_FILES[$field]['name'], $allowed);
     if ($name === null) {
-        return null;
+        return array('error' => 'Формат файла не подходит. Разрешены: ' . implode(', ', $allowed) . '.');
     }
     $dir = jetron_admin_dir($sub);
     if (!is_dir($dir)) {
@@ -121,6 +129,16 @@ function jetron_admin_parse_grid($title, $text) {
     }
     if (!count($columns) || !count($rows)) {
         return null;
+    }
+    // Строка с другим числом ячеек развалила бы таблицу у покупателя, а заметил бы это уже он.
+    // Поэтому не сохраняем молча, а возвращаем номер проблемной строки для понятного сообщения.
+    foreach ($rows as $i => $cells) {
+        if (count($cells) !== count($columns)) {
+            return array('error' => sprintf(
+                'Строка %d: %d значений, а в заголовке %d. Проверьте точки с запятой.',
+                $i + 2, count($cells), count($columns)
+            ));
+        }
     }
     return array('title' => (string) $title, 'columns' => $columns, 'rows' => $rows);
 }
@@ -198,6 +216,9 @@ function jetron_admin_handle_post() {
         foreach (array('child' => 'Детские размеры', 'adult' => 'Взрослые размеры') as $key => $default) {
             $title = sanitize_text_field(wp_unslash($_POST['title_' . $key] ?? $default));
             $grid  = jetron_admin_parse_grid($title, wp_unslash($_POST['grid_' . $key] ?? ''));
+            if (is_array($grid) && isset($grid['error'])) {
+                return array('error', ($key === 'child' ? 'Детская таблица. ' : 'Взрослая таблица. ') . $grid['error']);
+            }
             if ($grid !== null) {
                 $sizes[$key] = $grid;
             }
@@ -212,9 +233,12 @@ function jetron_admin_handle_post() {
     }
 
     if ($action === 'font_add') {
-        $file = jetron_admin_upload('font_file', 'fonts', array('ttf', 'otf', 'woff', 'woff2'));
+        $file = jetron_admin_upload('font_file', 'fonts', array('ttf', 'otf', 'woff', 'woff2'), 5);
+        if (is_array($file)) {
+            return array('error', $file['error']);
+        }
         if ($file === null) {
-            return array('error', 'Файл шрифта не принят. Нужен .ttf, .otf, .woff или .woff2.');
+            return array('error', 'Выберите файл шрифта: .ttf, .otf, .woff или .woff2.');
         }
         $name = sanitize_text_field(wp_unslash($_POST['font_name'] ?? ''));
         if ($name === '') {
@@ -249,11 +273,17 @@ function jetron_admin_handle_post() {
 /** Обработка вкладки «Модели и цвета». */
 function jetron_admin_handle_models($data, $action) {
     if ($action === 'model_add') {
-        $front = jetron_admin_upload('img_front', 'mockups', array('png', 'jpg', 'jpeg', 'webp'));
+        $front = jetron_admin_upload('img_front', 'mockups', array('png', 'jpg', 'jpeg', 'webp'), 8, true);
+        if (is_array($front)) {
+            return array('error', 'Фото спереди. ' . $front['error']);
+        }
         if ($front === null) {
             return array('error', 'Нужна фотография вида спереди (PNG, JPG или WebP).');
         }
-        $back = jetron_admin_upload('img_back', 'mockups', array('png', 'jpg', 'jpeg', 'webp'));
+        $back = jetron_admin_upload('img_back', 'mockups', array('png', 'jpg', 'jpeg', 'webp'), 8, true);
+        if (is_array($back)) {
+            return array('error', 'Фото сзади. ' . $back['error']);
+        }
         if ($back === null) {
             $back = $front; // спина не обязательна: пока показываем тот же кадр
         }
@@ -298,7 +328,7 @@ function jetron_admin_handle_models($data, $action) {
         $data['forms'] = $forms;
         return jetron_admin_save($data) === false
             ? array('error', 'Не удалось записать настройки.')
-            : array('ok', 'Модель «' . $line . ' ' . $color . '» добавлена. Разметьте зоны в редакторе.');
+            : array('ok', 'Модель «' . $line . ' ' . $color . '» добавлена. ВАЖНО: зоны нанесения пока общие — откройте редактор зон и поправьте рамки под это фото, иначе номер и фамилия сядут мимо.');
     }
 
     if ($action === 'model_del') {
@@ -322,6 +352,16 @@ function jetron_admin_handle_models($data, $action) {
         }
     }
     return null;
+}
+
+/** Модели, для которых зоны уже размечены в редакторе (ключи zones.json). */
+function jetron_admin_mapped_forms() {
+    $path = ABSPATH . 'constructor/zones.json';
+    if (!file_exists($path)) {
+        return array();
+    }
+    $data = json_decode(file_get_contents($path), true);
+    return is_array($data) ? array_keys($data) : array();
 }
 
 /** Базовый конфиг конструктора — источник значений по умолчанию для полей формы. */
@@ -393,6 +433,8 @@ function jetron_admin_page() {
     $url    = admin_url('admin.php?page=jetron-constructor');
 
     echo '<div class="wrap"><h1>Конструктор формы</h1>';
+    echo '<p style="margin:6px 0 14px"><a class="button" href="' . esc_url(home_url('/constructor/')) . '" target="_blank">Открыть конструктор</a> '
+       . '<a class="button" href="' . esc_url(home_url('/constructor/?zones=edit')) . '" target="_blank">Редактор зон</a></p>';
     echo '<p style="max-width:720px;color:#50575e">Здесь настраивается то, что видит покупатель в конструкторе. '
        . 'Цена самой формы сюда не входит: она берётся из карточки товара. '
        . 'Изменения появляются у покупателей после обновления страницы конструктора.</p>';
@@ -547,16 +589,23 @@ function jetron_admin_tab_models($data, $nonce) {
     $editor = home_url('/constructor/?zones=edit');
 
     echo '<h3>Каталог моделей <span style="font-weight:400;color:#50575e">(' . count((array) $forms) . ')</span></h3>';
-    echo '<table class="widefat striped" style="max-width:820px"><thead><tr>'
-       . '<th style="width:90px">Фото</th><th>Линейка</th><th>Цвет</th><th></th></tr></thead><tbody>';
+    $mapped = jetron_admin_mapped_forms();
+    echo '<table class="widefat striped" style="max-width:900px"><thead><tr>'
+       . '<th style="width:90px">Фото</th><th>Линейка</th><th>Цвет</th><th>Зоны нанесения</th><th></th></tr></thead><tbody>';
     foreach ((array) $forms as $f) {
         $img = home_url('/constructor/' . ($f['images']['front'] ?? ''));
         echo '<tr><td><img src="' . esc_url($img) . '" alt="" style="width:70px;height:70px;object-fit:contain"></td>';
         echo '<td>' . esc_html($f['line'] ?? '') . '</td>';
         echo '<td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #ccc;'
            . 'vertical-align:middle;background:' . esc_attr($f['colorHex'] ?? '#fff') . '"></span> '
-           . esc_html($f['color'] ?? '') . '</td><td>';
-        echo '<form method="post" onsubmit="return confirm(&quot;Убрать модель из каталога?&quot;)">';
+           . esc_html($f['color'] ?? '') . '</td>';
+        // Новая модель наследует ОБЩИЕ зоны: если их не поправить, номер и фамилия сядут мимо.
+        $is_mapped = in_array(($f['id'] ?? ''), $mapped, true);
+        echo '<td>' . ($is_mapped
+            ? '<span style="color:#1a7f37">размечены</span>'
+            : '<span style="color:#bd5d00">не размечены</span><br><a href="' . esc_url(home_url('/constructor/?zones=edit')) . '" target="_blank">разметить</a>')
+           . '</td><td>';
+        echo '<form method="post" onsubmit="return confirm(&quot;Убрать модель из каталога? Вернуть можно кнопкой внизу страницы.&quot;)">';
         echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
         echo '<input type="hidden" name="jetron_admin_action" value="model_del">';
         echo '<input type="hidden" name="form_id" value="' . esc_attr($f['id'] ?? '') . '">';
@@ -569,14 +618,23 @@ function jetron_admin_tab_models($data, $nonce) {
     echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
     echo '<input type="hidden" name="jetron_admin_action" value="model_add">';
     echo '<table class="form-table"><tbody>';
+    $lines = array();
+    foreach ((array) $forms as $f) {
+        if (!empty($f['line'])) { $lines[$f['line']] = true; }
+    }
+    echo '<datalist id="jetron-lines">';
+    foreach (array_keys($lines) as $l) { echo '<option value="' . esc_attr($l) . '">'; }
+    echo '</datalist>';
     echo '<tr><th scope="row"><label for="line">Линейка</label></th>'
-       . '<td><input type="text" id="line" name="line" class="regular-text" placeholder="например, Champion" required></td></tr>';
+       . '<td><input type="text" id="line" name="line" list="jetron-lines" class="regular-text" placeholder="например, Champion" required>'
+       . '<p class="description">Начните печатать: существующие линейки подскажутся. Новое название создаст новую линейку.</p></td></tr>';
     echo '<tr><th scope="row"><label for="color_name">Название цвета</label></th>'
        . '<td><input type="text" id="color_name" name="color_name" class="regular-text" placeholder="например, Бирюзовый" required></td></tr>';
     echo '<tr><th scope="row"><label for="color_hex">Цвет кружка в фильтре</label></th>'
        . '<td><input type="color" id="color_hex" name="color_hex" value="#1f5fd6"></td></tr>';
     echo '<tr><th scope="row"><label for="img_front">Фото спереди</label></th>'
-       . '<td><input type="file" id="img_front" name="img_front" accept=".png,.jpg,.jpeg,.webp" required></td></tr>';
+       . '<td><input type="file" id="img_front" name="img_front" accept=".png,.jpg,.jpeg,.webp" required>'
+       . '<p class="description">До 8 МБ. Лучше квадратное фото на однотонном фоне, как у текущих моделей.</p></td></tr>';
     echo '<tr><th scope="row"><label for="img_back">Фото сзади</label></th>'
        . '<td><input type="file" id="img_back" name="img_back" accept=".png,.jpg,.jpeg,.webp">'
        . '<p class="description">Не обязательно. Если не загрузить, для спины возьмётся тот же кадр.</p></td></tr>';
