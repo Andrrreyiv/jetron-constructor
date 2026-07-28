@@ -1,10 +1,11 @@
 // Точка входа стенда: грузим конфиг → валидируем на границе → запускаем приложение.
-import { validateConfig } from './core/ConfigLoader.js?v=20260727c';
-import { validateOverrides, validateCrops } from './core/ZoneOverrides.js?v=20260727c';
+import { validateConfig } from './core/ConfigLoader.js?v=20260728a';
+import { validateOverrides, validateCrops } from './core/ZoneOverrides.js?v=20260728a';
+import { applyAdminOverrides } from './core/AdminOverrides.js?v=20260728a';
 // Версионируем импорты изменённых модулей, чтобы обычная перезагрузка (не только Cmd+Shift+R)
 // подтягивала свежий файл: ESM кешируется по URL, а ?v на index.html не бустит вложенные импорты.
-import { UniformApp } from './ui/app.browser.js?v=20260727c';
-import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260727c';
+import { UniformApp } from './ui/app.browser.js?v=20260728a';
+import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260728a';
 
 async function boot() {
   const statusEl = document.getElementById('status');
@@ -19,6 +20,14 @@ async function boot() {
       statusEl.hidden = false;
       return;
     }
+
+    // Настройки из админ-страницы (admin.json пишет mu-плагин jetron-admin.php): цены нанесений,
+    // размерные сетки, шрифты, цвета и каталог моделей. Раздел с битыми данными игнорируется
+    // внутри applyAdminOverrides, поэтому кривая правка в админке не роняет конструктор.
+    try {
+      const ar = await fetch('admin.json', { cache: 'no-store' });
+      if (ar.ok) Object.assign(config, applyAdminOverrides(config, await ar.json()));
+    } catch { /* админка ещё не настроена — работаем на базовом конфиге */ }
 
     // Палитра цвета текста управляется из админки (colors.json пишет mu-плагин jetron-colors.php),
     // минуя антибот/WAF. Читается после валидации, чтобы битый файл не заблокировал запуск.
