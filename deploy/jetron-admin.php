@@ -449,7 +449,12 @@ function jetron_admin_tab_prices($data, $base, $nonce) {
         'shorts_logo'       => 'Логотип на шортах',
     );
     $labels = array_merge($labels, $extra);
-    $placement = jetron_admin_value($data, array('prices', 'placement'), array());
+    // Показываем ОБЪЕДИНЕНИЕ базовых и сохранённых групп: иначе группа, появившаяся в базовом
+    // конфиге позже, никогда не попала бы в форму (в admin.json её нет, а он перекрывает базу).
+    $base_pl  = jetron_admin_base_config();
+    $base_pl  = isset($base_pl['prices']['placement']) ? (array) $base_pl['prices']['placement'] : array();
+    $saved_pl = isset($data['prices']['placement']) ? (array) $data['prices']['placement'] : array();
+    $placement = array_merge($base_pl, $saved_pl);
 
     echo '<form method="post"><input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
     echo '<input type="hidden" name="jetron_admin_action" value="prices">';
