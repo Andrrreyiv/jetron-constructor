@@ -4,8 +4,8 @@
 // только для залогиненного администратора). Покупатель этот режим не видит.
 //
 // Браузерный слой (Fabric + DOM), вне node:test. Чистая математика границ — в core/ZoneOverrides.js.
-import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260728a';
-import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260728a';
+import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260729a';
+import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260729a';
 
 // Служебные origin-константы Fabric: фон рендерится от левого-верхнего угла (0,0).
 
@@ -16,6 +16,17 @@ export function initZoneEditor(app) {
   if (typeof window === 'undefined') return null;
   const params = new URLSearchParams(window.location.search);
   if (params.get('zones') !== 'edit') return null;
+  // Из админки приходят по ссылке «разметить» у конкретной модели — сразу открываем её,
+  // иначе владелец ищет нужную среди сорока с лишним карточек.
+  const wanted = params.get('form');
+  const form = wanted && (app.config.forms || []).find((f) => f.id === wanted);
+  if (form) {
+    app.formId = form.id;
+    app.colorId = form.colorId;
+    app.buildColorPicker();
+    app.buildViews();
+    Promise.resolve(app.renderAll()).catch(() => {});
+  }
   const editor = new ZoneEditor(app);
   editor.mount();
   return editor;

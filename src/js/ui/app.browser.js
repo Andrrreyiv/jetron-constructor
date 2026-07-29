@@ -2,12 +2,12 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260728a';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260728a';
-import { indexCatalogPrices, resolveFormPrice } from '../core/CatalogPrices.js?v=20260728a';
-import { buildOrder } from '../core/OrderSummary.js?v=20260728a';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260728a';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260728a';
+import { CanvasView } from './canvas.browser.js?v=20260729a';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260729a';
+import { indexCatalogPrices, resolveFormPrice } from '../core/CatalogPrices.js?v=20260729a';
+import { buildOrder } from '../core/OrderSummary.js?v=20260729a';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260729a';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260729a';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (

@@ -640,9 +640,11 @@ function jetron_admin_tab_models($data, $nonce) {
            . esc_html($f['color'] ?? '') . '</td>';
         // Новая модель наследует ОБЩИЕ зоны: если их не поправить, номер и фамилия сядут мимо.
         $is_mapped = in_array(($f['id'] ?? ''), $mapped, true);
+        // Ссылка ведёт сразу на ЭТУ модель: редактор читает параметр form и открывает её.
+        $mark_url = add_query_arg('form', ($f['id'] ?? ''), home_url('/constructor/?zones=edit'));
         echo '<td>' . ($is_mapped
-            ? '<span style="color:#1a7f37">размечены</span>'
-            : '<span style="color:#bd5d00">не размечены</span><br><a href="' . esc_url(home_url('/constructor/?zones=edit')) . '" target="_blank">разметить</a>')
+            ? '<span style="color:#1a7f37">размечены</span><br><a href="' . esc_url($mark_url) . '" target="_blank">поправить</a>'
+            : '<span style="color:#bd5d00">не размечены</span><br><a href="' . esc_url($mark_url) . '" target="_blank">разметить</a>')
            . '</td><td>';
         echo '<form method="post" onsubmit="return confirm(&quot;Убрать модель из каталога? Вернуть можно кнопкой внизу страницы.&quot;)">';
         echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
