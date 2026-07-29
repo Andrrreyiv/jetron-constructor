@@ -318,8 +318,7 @@ function jetron_admin_handle_models($data, $action) {
         }
         $data['colors'] = $colors;
 
-        $forms = isset($data['forms']) && is_array($data['forms']) ? $data['forms'] : jetron_admin_base_forms();
-        $forms[] = array(
+        $entry = array(
             'id'       => $form_id,
             'line'     => $line,
             'colorId'  => $color_id,
@@ -327,17 +326,44 @@ function jetron_admin_handle_models($data, $action) {
             'colorHex' => $hex,
             'images'   => array('front' => $front, 'back' => $back, 'shoulder' => null),
         );
+        // Такая пара «линейка + цвет» уже есть — это замена фотографий, а не второй такой же пункт каталога.
+        $forms    = isset($data['forms']) && is_array($data['forms']) ? $data['forms'] : jetron_admin_base_forms();
+        $replaced = false;
+        foreach ($forms as &$f) {
+            if (($f['id'] ?? '') === $form_id) {
+                $f = $entry;
+                $replaced = true;
+            }
+        }
+        unset($f);
+        if (!$replaced) {
+            $forms[] = $entry;
+        }
         $data['forms'] = $forms;
         return jetron_admin_save($data) === false
             ? array('error', 'Не удалось записать настройки.')
-            : array('ok', 'Модель «' . $line . ' ' . $color . '» добавлена. ВАЖНО: зоны нанесения пока общие — откройте редактор зон и поправьте рамки под это фото, иначе номер и фамилия сядут мимо.');
+            : array('ok', 'Модель «' . $line . ' ' . $color . '» ' . ($replaced ? 'обновлена.' : 'добавлена.')
+                . ' ВАЖНО: зоны нанесения пока общие — откройте редактор зон и поправьте рамки под это фото, иначе номер и фамилия сядут мимо.');
     }
 
     if ($action === 'model_del') {
-        $id = sanitize_text_field(wp_unslash($_POST['form_id'] ?? ''));
+        $id    = sanitize_text_field(wp_unslash($_POST['form_id'] ?? ''));
         $forms = isset($data['forms']) && is_array($data['forms']) ? $data['forms'] : jetron_admin_base_forms();
-        $data['forms'] = array_values(array_filter($forms, function ($f) use ($id) {
+        $left  = array_values(array_filter($forms, function ($f) use ($id) {
             return ($f['id'] ?? '') !== $id;
+        }));
+        if (count($left) === count($forms)) {
+            return array('error', 'Модель не найдена, обновите страницу и повторите.');
+        }
+        $data['forms'] = $left;
+        // Цвет без единой модели убираем: иначе в палитре остаётся кружок, за которым ничего нет.
+        $used = array();
+        foreach ($left as $f) {
+            $used[$f['colorId'] ?? ''] = true;
+        }
+        $colors = isset($data['colors']) && is_array($data['colors']) ? $data['colors'] : jetron_admin_base_colors();
+        $data['colors'] = array_values(array_filter($colors, function ($c) use ($used) {
+            return isset($used[$c['id'] ?? '']);
         }));
         return jetron_admin_save($data) === false
             ? array('error', 'Не удалось записать настройки.')
@@ -346,12 +372,21 @@ function jetron_admin_handle_models($data, $action) {
 
     if ($action === 'reset') {
         $section = sanitize_key(wp_unslash($_POST['section'] ?? ''));
-        if ($section !== '' && isset($data[$section])) {
-            unset($data[$section]);
-            return jetron_admin_save($data) === false
-                ? array('error', 'Не удалось записать настройки.')
-                : array('ok', 'Раздел сброшен к значениям по умолчанию.');
+        // Каталог моделей и палитра цветов связаны, сбрасываем их только вместе.
+        $keys = $section === 'forms' ? array('forms', 'colors') : array($section);
+        $hit  = false;
+        foreach ($keys as $k) {
+            if ($k !== '' && isset($data[$k])) {
+                unset($data[$k]);
+                $hit = true;
+            }
         }
+        if (!$hit) {
+            return array('ok', 'Раздел и так со значениями по умолчанию.');
+        }
+        return jetron_admin_save($data) === false
+            ? array('error', 'Не удалось записать настройки.')
+            : array('ok', 'Раздел сброшен к значениям по умолчанию.');
     }
     return null;
 }
@@ -648,5 +683,5 @@ function jetron_admin_tab_models($data, $nonce) {
     echo '<p style="margin-top:18px;color:#50575e">После добавления разметьте зоны нанесения: '
        . '<a href="' . esc_url($editor) . '" target="_blank">открыть редактор зон</a>. '
        . 'Выберите там новую модель, расставьте рамки и нажмите «Сохранить».</p>';
-    jetron_admin_reset_form('forms', $nonce, 'Вернуть исходный каталог');
+    jetron_admin_reset_form('forms', $nonce, 'Вернуть исходный каталог моделей и цветов');
 }
