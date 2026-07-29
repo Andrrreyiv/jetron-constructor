@@ -467,6 +467,8 @@ function jetron_admin_page() {
     echo '</div></div>';
 }
 
+// ВАЖНО: вызывать ТОЛЬКО после закрытия основной формы. Вложенные формы браузер не допускает —
+// внутренний </form> закроет внешний, и в POST уйдёт action=reset вместо сохранения раздела.
 function jetron_admin_reset_form($section, $nonce, $label) {
     echo '<form method="post" style="display:inline-block;margin-left:10px" '
        . 'onsubmit="return confirm(\'Сбросить раздел к значениям по умолчанию?\')">';
@@ -524,8 +526,8 @@ function jetron_admin_tab_prices($data, $base, $nonce) {
        . esc_attr($disc['bulk_free_chest_logo_from'] ?? 0) . '" class="small-text"> комплектов</td></tr>';
     echo '</tbody></table>';
     submit_button('Сохранить цены', 'primary', 'submit', false);
-    jetron_admin_reset_form('prices', $nonce, 'Сбросить к значениям по умолчанию');
     echo '</form>';
+    jetron_admin_reset_form('prices', $nonce, 'Сбросить к значениям по умолчанию');
 }
 
 /** Вкладка «Размерные сетки». Таблица правится текстом: строка = размер, колонки через ; */
@@ -543,8 +545,8 @@ function jetron_admin_tab_sizes($data, $nonce) {
            . esc_textarea(jetron_admin_grid_text($grid)) . '</textarea>';
     }
     submit_button('Сохранить размеры', 'primary', 'submit', false);
-    jetron_admin_reset_form('sizes', $nonce, 'Сбросить к значениям по умолчанию');
     echo '</form>';
+    jetron_admin_reset_form('sizes', $nonce, 'Сбросить к значениям по умолчанию');
 }
 
 /** Вкладка «Шрифты»: список с удалением + загрузка нового файла. */
@@ -579,8 +581,8 @@ function jetron_admin_tab_fonts($data, $nonce) {
        . '<p class="description">Если снять галочку, фамилия по-русски может отображаться квадратами.</p></td></tr>';
     echo '</tbody></table>';
     submit_button('Загрузить шрифт', 'primary', 'submit', false);
-    jetron_admin_reset_form('fonts', $nonce, 'Вернуть исходный список');
     echo '</form>';
+    jetron_admin_reset_form('fonts', $nonce, 'Вернуть исходный список');
 }
 
 /** Вкладка «Модели и цвета»: каталог с удалением + добавление новой модели. */
