@@ -41,7 +41,9 @@ function jetron_admin_load() {
 
 /** Запись admin.json. Возвращает число байт или false. */
 function jetron_admin_save($data) {
-    $json = wp_json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    // Пустой массив PHP кодируется как [], а конструктор ждёт объект. Работает и так (разделы
+    // проверяются поштучно), но [] сбивает с толку при отладке — приводим к {} явно.
+    $json = wp_json_encode(empty($data) ? new stdClass() : $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     return file_put_contents(jetron_admin_file_path(), $json, LOCK_EX);
 }
 
