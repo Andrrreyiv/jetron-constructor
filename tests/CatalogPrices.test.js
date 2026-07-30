@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { indexCatalogPrices, resolveFormPrice } from '../src/js/core/CatalogPrices.js';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes } from '../src/js/core/CatalogPrices.js';
 
 const items = [
   { model: 'Champion', color: 'Белый', age: 'adult', price: 1280 },
@@ -41,4 +41,17 @@ test('позиции без корректной цены игнорируютс
   ]);
   assert.equal(resolveFormPrice(idx, { line: 'Champion', color: 'Белый', ageCategory: 'adult' }, 1280), 1280);
   assert.equal(resolveFormPrice(idx, { line: 'Rich', color: 'Синий', ageCategory: 'adult' }, 1280), 1280);
+});
+
+test('индекс запоминает размеры карточки, разные у линеек', () => {
+  const index = indexCatalogPrices([
+    { model: 'New', color: 'Белый', age: 'adult', price: 780, sizes: ['M', 'L', 'XL'] },
+    { model: 'Star', color: 'Белый', age: 'adult', price: 1180, sizes: ['L', 'XL', '2XL'] },
+    { model: 'New', color: 'Белый', age: 'child', price: 780 }
+  ]);
+  assert.deepEqual(resolveFormSizes(index, { line: 'New', color: 'Белый', ageCategory: 'adult' }), ['M', 'L', 'XL']);
+  assert.deepEqual(resolveFormSizes(index, { line: 'Star', color: 'Белый', ageCategory: 'adult' }), ['L', 'XL', '2XL']);
+  assert.deepEqual(resolveFormSizes(index, { line: 'New', color: 'Белый', ageCategory: 'child' }), [], 'атрибут не заполнен — пусто');
+  assert.deepEqual(resolveFormSizes(index, { line: 'Venom', color: 'Белый', ageCategory: 'adult' }), [], 'нет карточки — пусто');
+  assert.equal(resolveFormPrice(index, { line: 'Star', color: 'Белый', ageCategory: 'adult' }, 1280), 1180, 'цена не сломалась');
 });

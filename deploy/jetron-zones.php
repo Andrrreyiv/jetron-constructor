@@ -186,6 +186,7 @@ function jetron_catalog_prices() {
             }
             $model = '';
             $color = '';
+            $sizes = array();
             // Ищем по ЛЕЙБЛУ атрибута, а не по слагу таксономии: слаг на сайте может быть любым.
             foreach ($product->get_attributes() as $attribute) {
                 $label = wc_attribute_label($attribute->get_name());
@@ -198,6 +199,15 @@ function jetron_catalog_prices() {
                     $model = $first;
                 } elseif (mb_stripos($label, 'цвет') !== false) {
                     $color = $first;
+                } elseif (mb_stripos($label, 'размер') !== false) {
+                    // Клиент 30.07: у линеек РАЗНЫЕ наборы размеров (New M…4XL, Star L…5XL),
+                    // поэтому отдаём набор карточки, чтобы конструктор не предлагал лишние.
+                    foreach (explode(',', (string) $values) as $one) {
+                        $one = trim($one);
+                        if ($one !== '' && !in_array($one, $sizes, true)) {
+                            $sizes[] = $one;
+                        }
+                    }
                 }
             }
             if ($model === '' || $color === '') {
@@ -208,6 +218,7 @@ function jetron_catalog_prices() {
                 'color'     => $color,
                 'age'       => $age,
                 'price'     => $price,
+                'sizes'     => $sizes,
                 'productId' => $product->get_id(),
             );
         }

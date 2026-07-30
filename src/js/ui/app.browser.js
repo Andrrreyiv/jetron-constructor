@@ -2,12 +2,13 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260729a';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260729a';
-import { indexCatalogPrices, resolveFormPrice } from '../core/CatalogPrices.js?v=20260729a';
-import { buildOrder } from '../core/OrderSummary.js?v=20260729a';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260729a';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260729a';
+import { CanvasView } from './canvas.browser.js?v=20260730a';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260730a';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes } from '../core/CatalogPrices.js?v=20260730a';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260730a';
+import { buildOrder } from '../core/OrderSummary.js?v=20260730a';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260730a';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260730a';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -741,7 +742,8 @@ export class UniformApp {
 
     // Размер выбирается кликом по строке (клиент 2026-07-15: «размеры не могу выбрать»).
     const sizeTable = (cat) => {
-      const grid = this.config.sizes?.[cat];
+      // Клиент 30.07: набор размеров у линеек разный, показываем ровно тот, что в карточке.
+      const grid = this.gridForAge(cat);
       if (!grid) return '';
       return `<table class="order-items size-select">
         <thead><tr><th aria-label="Выбор"></th>${grid.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
@@ -927,9 +929,24 @@ export class UniformApp {
   }
 
   // Таблица размеров (ТЗ 6): показываем сетки из конфига для всех категорий.
+  /** Сетка размеров под возраст, отфильтрованная по карточке выбранной формы. */
+  gridForAge(ageCategory) {
+    const grid = this.config.sizes?.[ageCategory];
+    if (!grid) return null;
+    const sizes = this.catalogPrices
+      ? resolveFormSizes(this.catalogPrices, {
+        line: this.form && this.form.line,
+        color: this.form && this.form.color,
+        ageCategory,
+      })
+      : [];
+    return filterGridBySizes(grid, sizes);
+  }
+
   showSizes() {
-    const sizes = this.config.sizes || {};
-    const tables = Object.entries(sizes).map(([, grid]) => `
+    // Раньше показывали ОБЕ сетки сразу: клиент 30.07 попросил только ту, что относится к выбору.
+    const grid = this.gridForAge(this.ageCategory);
+    const tables = (grid ? [grid] : []).map((grid) => `
       <h3 style="margin:14px 0 6px">${grid.title}</h3>
       <table class="order-items">
         <thead><tr>${grid.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>

@@ -21,13 +21,30 @@ export function indexCatalogPrices(items) {
     // Ноль/NaN/строка — это не цена: такую позицию пропускаем, чтобы не затереть цену конфига.
     if (!Number.isFinite(price) || price <= 0) continue;
     if (!it.model || !it.color) continue;
-    index.set(keyOf(it.model, it.color, it.age), price);
+    // Кроме цены запоминаем набор размеров карточки: у линеек он разный (клиент 30.07).
+    index.set(keyOf(it.model, it.color, it.age), {
+      price,
+      sizes: Array.isArray(it.sizes) ? it.sizes.filter((s) => typeof s === 'string' && s.trim() !== '') : [],
+    });
   }
   return index;
 }
 
+function hit(index, line, color, ageCategory) {
+  if (!index || typeof index.get !== 'function') return null;
+  const found = index.get(keyOf(line, color, ageCategory));
+  if (!found) return null;
+  // Индекс старого формата (только число) — поддерживаем, чтобы ничего не отвалилось.
+  return typeof found === 'number' ? { price: found, sizes: [] } : found;
+}
+
 export function resolveFormPrice(index, { line, color, ageCategory } = {}, fallback) {
-  if (!index || typeof index.get !== 'function') return fallback;
-  const hit = index.get(keyOf(line, color, ageCategory));
-  return Number.isFinite(hit) && hit > 0 ? hit : fallback;
+  const found = hit(index, line, color, ageCategory);
+  return found && Number.isFinite(found.price) && found.price > 0 ? found.price : fallback;
+}
+
+/** Размеры карточки выбранной формы. Пусто = каталог не ответил или атрибут не заполнен. */
+export function resolveFormSizes(index, { line, color, ageCategory } = {}) {
+  const found = hit(index, line, color, ageCategory);
+  return found && Array.isArray(found.sizes) ? found.sizes : [];
 }
