@@ -2,13 +2,13 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260730b';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260730b';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes } from '../core/CatalogPrices.js?v=20260730b';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260730b';
-import { buildOrder } from '../core/OrderSummary.js?v=20260730b';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260730b';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260730b';
+import { CanvasView } from './canvas.browser.js?v=20260730c';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260730c';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes } from '../core/CatalogPrices.js?v=20260730c';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260730c';
+import { buildOrder } from '../core/OrderSummary.js?v=20260730c';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260730c';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260730c';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
