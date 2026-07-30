@@ -680,6 +680,45 @@ function jetron_admin_tab_models($data, $nonce) {
        . '<td><input type="file" id="img_back" name="img_back" accept=".png,.jpg,.jpeg,.webp">'
        . '<p class="description">Не обязательно. Если не загрузить, для спины возьмётся тот же кадр.</p></td></tr>';
     echo '</tbody></table>';
+    // Клиент 30.07: «чтобы цвет подтягивался, а не выбирать руками». На сайте у атрибута «Цвет»
+    // хранится только название, оттенка там нет (проверено: у терминов pa_color нет ни hex,
+    // ни свотч-меты). Поэтому берём цвет прямо с загружаемого фото: считаем самый частый
+    // насыщенный оттенок изделия, игнорируя светлый фон и тени. Значение подставляется
+    // ТОЛЬКО если админ ещё не трогал пикер вручную.
+    echo '<script>(function(){
+      var f=document.getElementById("img_front"), c=document.getElementById("color_hex");
+      if(!f||!c) return;
+      var touched=false; c.addEventListener("input",function(){touched=true;});
+      f.addEventListener("change",function(){
+        var file=f.files&&f.files[0]; if(!file||touched) return;
+        var url=URL.createObjectURL(file), im=new Image();
+        im.onload=function(){
+          try{
+            var n=140, cv=document.createElement("canvas"); cv.width=n; cv.height=n;
+            var x=cv.getContext("2d"); x.drawImage(im,0,0,n,n);
+            var d=x.getImageData(0,0,n,n).data, bins={}, best=null, bestN=0;
+            for(var i=0;i<d.length;i+=4){
+              var r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];
+              if(a<200) continue;
+              var mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+              if(mx>238&&mx-mn<18) continue;      // белый фон
+              if(mx<26) continue;                  // почти чёрный шум
+              var k=(r>>4)+","+(g>>4)+","+(b>>4);
+              var e=bins[k]||(bins[k]={n:0,r:0,g:0,b:0});
+              e.n++; e.r+=r; e.g+=g; e.b+=b;
+              if(e.n>bestN){bestN=e.n;best=e;}
+            }
+            if(best){
+              var h=function(v){v=Math.round(v/best.n).toString(16);return v.length<2?"0"+v:v;};
+              c.value="#"+h(best.r)+h(best.g)+h(best.b);
+            }
+          }catch(err){/* фото с другого домена или битое — оставляем ручной выбор */}
+          URL.revokeObjectURL(url);
+        };
+        im.onerror=function(){URL.revokeObjectURL(url);};
+        im.src=url;
+      });
+    })();</script>';
     submit_button('Добавить модель', 'primary', 'submit', false);
     echo '</form>';
     echo '<p style="margin-top:18px;color:#50575e">После добавления разметьте зоны нанесения: '
