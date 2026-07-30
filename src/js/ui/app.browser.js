@@ -571,7 +571,16 @@ export class UniformApp {
       this.edit = setPlacement(this.edit, pkey, entry);
       if (!view) return;
       if (entry.type === 'text') view.placeText(zone, entry.value, this.resolveFont(entry.fontId, entry.value), entry.color);
-      else if (entry.type === 'image') view.placeImage(zone, entry.value);
+      else if (entry.type === 'image') {
+        // placeImage асинхронный: пока картинка грузится, renderJetron уже отработал и пропустил
+        // дубль логотипа на шортах (_placeShortsLogo выходит, если картинка ещё не готова, и ждёт
+        // «следующего рендера», которого никто не назначал). Клиент 30.07 на видео: «добавляем
+        // логотип на груди, он не выскакивает, если начну щёлкать — появляется». Повторяем
+        // раскладку штатных знаков после загрузки.
+        view.placeImage(zone, entry.value)
+          .then(() => this.renderJetron())
+          .catch(() => { /* картинка не загрузилась — на макете её просто нет */ });
+      }
     };
     if (opt.kind === 'name_number') {
       const fontId = c.fontId || this.defaultFontId();
