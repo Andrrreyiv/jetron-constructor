@@ -4,8 +4,8 @@
 // только для залогиненного администратора). Покупатель этот режим не видит.
 //
 // Браузерный слой (Fabric + DOM), вне node:test. Чистая математика границ — в core/ZoneOverrides.js.
-import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260731a';
-import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260731a';
+import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260731b';
+import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260731b';
 
 // Служебные origin-константы Fabric: фон рендерится от левого-верхнего угла (0,0).
 

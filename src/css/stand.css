@@ -1015,6 +1015,9 @@ input[type="radio"], input[type="checkbox"] {
   .cta.cta, #order-btn { min-height: 52px; }
   .price-lines-toggle { min-height: 44px; padding: 8px 0 !important; }
   .extra-toggle { min-height: 48px; }
+  /* Кликабельна сама кнопка .line-badge, а .line-badge-pill — span внутри неё.
+     Поднимаем обе: у span высота идёт от паддинга, у кнопки задаём напрямую. */
+  .line-badge { min-height: 44px; }
   .line-badge-pill { min-height: 44px; padding: 12px 14px; }
   .opt-head { min-height: 56px; }
   .opt-in { min-height: 46px; }
