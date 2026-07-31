@@ -2,13 +2,13 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260731b';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260731b';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes } from '../core/CatalogPrices.js?v=20260731b';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260731b';
-import { buildOrder } from '../core/OrderSummary.js?v=20260731b';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260731b';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260731b';
+import { CanvasView } from './canvas.browser.js?v=20260731c';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260731c';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes } from '../core/CatalogPrices.js?v=20260731c';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260731c';
+import { buildOrder } from '../core/OrderSummary.js?v=20260731c';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260731c';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260731c';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -963,6 +963,18 @@ export class UniformApp {
           add('jetron_spec', spec);
           add('jetron_size', this.size);
           add('jetron_total', String(this.lastOrder.price.grandTotal));
+          // Спецификация для пересчёта цены НА СЕРВЕРЕ (jetron-orders.php). Число выше сервер
+          // ценой не считает — только сверяет с собственным расчётом: иначе цену корзины можно
+          // было бы поставить любую, подменив поле в браузере.
+          add('jetron_order', JSON.stringify({
+            age: this.ageCategory,
+            model: (this.form && this.form.line) || '',
+            color: (this.form && this.form.color) || '',
+            size: this.size,
+            groups: [...new Set(this.usedZones().map((z) => z.priceGroup))],
+            gaiters: !!this.gaiters,
+            jetron: { chest: !!(this.jetron && this.jetron.chest), back: !!(this.jetron && this.jetron.back) }
+          }));
           if (png) add('jetron_png', png);
           document.body.appendChild(form);
           form.submit();
