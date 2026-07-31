@@ -2,13 +2,13 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260730c';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260730c';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes } from '../core/CatalogPrices.js?v=20260730c';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260730c';
-import { buildOrder } from '../core/OrderSummary.js?v=20260730c';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260730c';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260730c';
+import { CanvasView } from './canvas.browser.js?v=20260731a';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260731a';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes } from '../core/CatalogPrices.js?v=20260731a';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260731a';
+import { buildOrder } from '../core/OrderSummary.js?v=20260731a';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260731a';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260731a';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -292,6 +292,50 @@ export class UniformApp {
     if (this._resizeInstalled) return;
     this._resizeInstalled = true;
     let t;
+    const refit = () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        const dw = this._displayWidth(this.viewList().length);
+        if (Math.abs(dw - (this._lastDisplayWidth || 0)) < 8) return; // мелкие дрожания игнорируем
+        this.buildViews();
+        this.renderAll({ keepCards: true });
+      }, 180);
+    };
+
+    // ⚠️ Внутри iframe событие window.resize НЕ приходит: ширина рамки меняется вместе
+    // с родительской страницей, а окно вложенного документа об этом не уведомляют.
+    // Замер 31.07: ширина 812 → 375, событий resize = 0, холст застрял на 600px в сцене
+    // 367px и обрезался слева. Поэтому следим за КОРОБКОЙ своего корня, а не за окном.
+    // Реагируем только на ширину: высота меняется от самого холста, и слушать её — петля.
+    if (typeof ResizeObserver === 'function') {
+      const root = document.getElementById('app') || document.body;
+      let lastW = 0;
+      const ro = new ResizeObserver((entries) => {
+        const w = Math.round(entries[0] && entries[0].contentRect ? entries[0].contentRect.width : 0);
+        if (!w || Math.abs(w - lastW) < 2) return;
+        lastW = w;
+        refit();
+      });
+      ro.observe(root);
+      this._resizeObserver = ro;
+    }
+
+    // Подстраховка. ResizeObserver — основной механизм, но он привязан к циклу отрисовки
+    // и в некоторых средах события не доставляет (проверено 31.07: ни одного срабатывания
+    // при изменении ширины с 380 до 837). Раз речь о живом магазине, добавляем дешёвую
+    // сверку раз в секунду: одно чтение ширины, и выход, если она не менялась.
+    // Без проверки document.hidden сознательно: страница может считаться скрытой (например,
+    // конструктор в рамке на неактивной вкладке), и тогда поворот экрана остался бы незамеченным
+    // до следующего действия покупателя. Цена вопроса — одно чтение ширины в секунду.
+    this._widthPoll = setInterval(() => {
+      const el = document.getElementById('app') || document.body;
+      if (!el) return;
+      const w = Math.round(el.getBoundingClientRect().width);
+      if (!w || w === this._polledWidth) return;
+      this._polledWidth = w;
+      refit();
+    }, 1000);
+
     window.addEventListener('resize', () => {
       clearTimeout(t);
       t = setTimeout(() => {

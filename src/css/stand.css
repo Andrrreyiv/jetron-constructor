@@ -1001,3 +1001,33 @@ input[type="radio"], input[type="checkbox"] {
   from { opacity: 0; transform: translateY(28px); }
   to   { opacity: 1; transform: none; }
 }
+
+/* ── Тач-цели ────────────────────────────────────────────────────────
+   Привязаны к типу указателя, а не к ширине экрана: планшет шире 560px, но палец
+   там такой же. Замер 31.07 на 768px: 20 целей меньше минимума 44px (iOS HIG) —
+   свотчи цвета 34×34, «Детализация» 26px, плашка линейки 29px, «Скачать макет» 36px.
+   Блок отработан на конструкторе футболок и перенесён сюда без изменений подхода. */
+@media (pointer: coarse) {
+  .pcolor { width: 44px; height: 44px; }
+  .color-sw { width: 40px; height: 40px; }
+  .seg-btn { min-height: 46px; }
+  .stage-btn { min-height: 44px; }
+  .cta.cta, #order-btn { min-height: 52px; }
+  .price-lines-toggle { min-height: 44px; padding: 8px 0 !important; }
+  .extra-toggle { min-height: 48px; }
+  .line-badge-pill { min-height: 40px; padding: 10px 14px; }
+  .opt-head { min-height: 56px; }
+  .opt-in { min-height: 46px; }
+  .opt-upload, .opt-rmbg { min-height: 50px; }
+  .font-opt { min-height: 48px; }
+  .qty-stepper button { min-height: 44px; }
+  .order-close { width: 44px; height: 44px; }
+  .order-foot button { min-height: 48px; }
+  .model-card { min-height: 44px; }
+  /* Крестик удаления опции лежит на карточке: визуально его раздувать нельзя,
+     поэтому растим невидимую зону нажатия. */
+  /* position:relative обязателен: без него невидимая зона привяжется к чужому предку. */
+  .opt-del { width: 30px; height: 30px; position: relative; }
+  .opt-del::before { content: ''; position: absolute; inset: -7px; border-radius: 50%; }
+  .constructor-exit { width: 44px; height: 44px; }
+}
