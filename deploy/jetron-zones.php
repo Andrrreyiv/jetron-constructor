@@ -161,6 +161,54 @@ add_action('wp_ajax_nopriv_jetron_save_crops', function () {
 });
 
 /**
+ * Таблица размеров модели из ACF-полей термина «Модель» (pa_model): клиент 31.07 на видео
+ * показал, что уже сам ведёт её в админке WooCommerce — по КАЖДОЙ модели своя, с российским
+ * размером у взрослой сетки. Источник правды, заменяет угадывание по группам линеек
+ * (bug 30.07: Winner показывал сетку Star, см. docs/РАЗМЕРЫ-КОНФЛИКТ-2026-07-30.md).
+ * Ключи полей сняты прямо с формы редактирования термина (pa_model, term 45 «Winner»):
+ * взрослая — field_68640bb660a64 (Размер/Российский размер/Рост), детская — field_6864101160a6b
+ * (Размер/Рост/Возраст). ACF на таксономию отдаёт объект term по $post_id вида "pa_model_<id>".
+ */
+function jetron_model_size_grid($term_id, $age) {
+    if (!function_exists('get_field') || !$term_id) {
+        return null;
+    }
+    $term_ref = 'pa_model_' . $term_id;
+    if ($age === 'child') {
+        $rows = get_field('field_6864101160a6b', $term_ref);
+        $field_keys = array('field_6864101160a6d', 'field_6864101160a6e', 'field_6864102960a71');
+        $title = 'Детские размеры';
+        $columns = array('Размер на бирке', 'Рост, см', 'Возраст, лет');
+    } else {
+        $rows = get_field('field_68640bb660a64', $term_ref);
+        $field_keys = array('field_68640bf060a65', 'field_6a170303804a7', 'field_68640f4a60a67');
+        $title = 'Взрослые размеры';
+        $columns = array('Размер на бирке', 'Российский размер', 'Рост, см');
+    }
+    if (!is_array($rows) || !count($rows)) {
+        return null; // у модели нет своей сетки на этот возраст (например, взрослого Champion)
+    }
+    $out = array();
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $line = array();
+        foreach ($field_keys as $key) {
+            $v = isset($row[$key]) ? $row[$key] : '';
+            $line[] = is_object($v) && isset($v->name) ? $v->name : (is_array($v) ? '' : (string) $v);
+        }
+        if ($line[0] !== '') {
+            $out[] = $line;
+        }
+    }
+    if (!count($out)) {
+        return null;
+    }
+    return array('title' => $title, 'columns' => $columns, 'rows' => $out);
+}
+
+/**
  * Цены изделий из карточек товаров (клиент 2026-07-27: «не подтягивается цена из карточки товара»).
  *
  * Отдаёт плоский список позиций каталога: атрибуты товара «Модель» и «Цвет» совпадают с line/color
@@ -181,6 +229,8 @@ function jetron_catalog_prices() {
     // Категория → возрастная группа конструктора. Слаги совпадают с адресами каталога на сайте.
     $groups = array('vzroslaya-forma' => 'adult', 'detskaya-forma' => 'child');
     $items = array();
+    $model_term_cache = array();
+    $model_grid_cache = array();
     foreach ($groups as $slug => $age) {
         $products = wc_get_products(array(
             'status'   => 'publish',
@@ -221,12 +271,27 @@ function jetron_catalog_prices() {
             if ($model === '' || $color === '') {
                 continue; // Без модели и цвета позицию не сопоставить с формой — пропускаем.
             }
+            // Готовая сетка размеров этой модели+возраста из ACF (клиент 31.07, см. выше).
+            $grid = null;
+            if (!array_key_exists($model, $model_term_cache)) {
+                $term = get_term_by('name', $model, 'pa_model');
+                $model_term_cache[$model] = $term ? (int) $term->term_id : 0;
+            }
+            $term_id = $model_term_cache[$model];
+            if ($term_id) {
+                $grid_key = $term_id . '|' . $age;
+                if (!array_key_exists($grid_key, $model_grid_cache)) {
+                    $model_grid_cache[$grid_key] = jetron_model_size_grid($term_id, $age);
+                }
+                $grid = $model_grid_cache[$grid_key];
+            }
             $items[] = array(
                 'model'     => $model,
                 'color'     => $color,
                 'age'       => $age,
                 'price'     => $price,
                 'sizes'     => $sizes,
+                'sizeGrid'  => $grid,
                 'productId' => $product->get_id(),
             );
         }

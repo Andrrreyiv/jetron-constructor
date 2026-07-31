@@ -2,13 +2,13 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260731c';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260731c';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes } from '../core/CatalogPrices.js?v=20260731c';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260731c';
-import { buildOrder } from '../core/OrderSummary.js?v=20260731c';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260731c';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260731c';
+import { CanvasView } from './canvas.browser.js?v=20260731d';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260731d';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid } from '../core/CatalogPrices.js?v=20260731d';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260731d';
+import { buildOrder } from '../core/OrderSummary.js?v=20260731d';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260731d';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260731d';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -999,8 +999,20 @@ export class UniformApp {
   }
 
   // Таблица размеров (ТЗ 6): показываем сетки из конфига для всех категорий.
-  /** Сетка размеров под возраст, отфильтрованная по карточке выбранной формы. */
+  /** Сетка размеров под возраст: сперва таблица модели из ACF (клиент 31.07 показал видео —
+   * она уже заведена у него в админке WooCommerce, по каждой модели своя), иначе — сетка
+   * из конфига конструктора, отфильтрованная по размерам карточки (старый путь, запасной).
+   */
   gridForAge(ageCategory) {
+    const modelGrid = this.catalogPrices
+      ? resolveFormSizeGrid(this.catalogPrices, {
+        line: this.form && this.form.line,
+        color: this.form && this.form.color,
+        ageCategory,
+      })
+      : null;
+    if (modelGrid) return modelGrid;
+
     const grid = this.config.sizes?.[ageCategory];
     if (!grid) return null;
     const sizes = this.catalogPrices

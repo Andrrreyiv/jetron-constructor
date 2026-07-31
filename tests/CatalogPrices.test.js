@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes } from '../src/js/core/CatalogPrices.js';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid } from '../src/js/core/CatalogPrices.js';
 
 const items = [
   { model: 'Champion', color: 'Белый', age: 'adult', price: 1280 },
@@ -54,4 +54,33 @@ test('индекс запоминает размеры карточки, раз�
   assert.deepEqual(resolveFormSizes(index, { line: 'New', color: 'Белый', ageCategory: 'child' }), [], 'атрибут не заполнен — пусто');
   assert.deepEqual(resolveFormSizes(index, { line: 'Venom', color: 'Белый', ageCategory: 'adult' }), [], 'нет карточки — пусто');
   assert.equal(resolveFormPrice(index, { line: 'Star', color: 'Белый', ageCategory: 'adult' }, 1280), 1180, 'цена не сломалась');
+});
+
+// Клиент 31.07 (видео): у каждой модели своя таблица размеров в ACF-полях термина «Модель»,
+// с российским размером у взрослой. Она приходит от сервера уже готовой (title/columns/rows) —
+// это источник правды, вместо угадывания групп линеек (bug 30.07: Winner показывал сетку Star).
+test('готовая сетка модели (sizeGrid) приходит из индекса как есть', () => {
+  const grid = {
+    title: 'Взрослые размеры',
+    columns: ['Размер на бирке', 'Российский размер', 'Рост, см'],
+    rows: [['S', '44 (XS) RU', '160-168'], ['M', '46 (S) RU', '165-173']],
+  };
+  const index = indexCatalogPrices([
+    { model: 'Winner', color: 'Красный', age: 'adult', price: 1280, sizeGrid: grid },
+    { model: 'Champion', color: 'Белый', age: 'adult', price: 1280, sizeGrid: null },
+  ]);
+  assert.deepEqual(resolveFormSizeGrid(index, { line: 'Winner', color: 'Красный', ageCategory: 'adult' }), grid);
+  assert.equal(resolveFormSizeGrid(index, { line: 'Champion', color: 'Белый', ageCategory: 'adult' }), null, 'пустая сетка (нет ACF-данных) — null, а не мусор');
+  assert.equal(resolveFormSizeGrid(index, { line: 'Venom', color: 'Белый', ageCategory: 'adult' }), null, 'нет карточки — null');
+  assert.equal(resolveFormSizeGrid(null, { line: 'Winner', color: 'Красный', ageCategory: 'adult' }), null, 'каталог недоступен — null, вызывающая сторона падает на конфиг');
+});
+
+// Битая форма (без rows/columns, будущая порча ACF-ответа) не должна долетать до рендера как есть.
+test('sizeGrid без rows/columns отбрасывается на индексации', () => {
+  const index = indexCatalogPrices([
+    { model: 'Rich', color: 'Синий', age: 'adult', price: 1280, sizeGrid: { title: 'битая' } },
+    { model: 'Star', color: 'Синий', age: 'adult', price: 1280, sizeGrid: { columns: ['a'], rows: [] } },
+  ]);
+  assert.equal(resolveFormSizeGrid(index, { line: 'Rich', color: 'Синий', ageCategory: 'adult' }), null);
+  assert.equal(resolveFormSizeGrid(index, { line: 'Star', color: 'Синий', ageCategory: 'adult' }), null, 'пустой rows тоже не считается сеткой');
 });
