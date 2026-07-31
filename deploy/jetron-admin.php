@@ -43,7 +43,15 @@ function jetron_admin_load() {
 function jetron_admin_save($data) {
     // Пустой массив PHP кодируется как [], а конструктор ждёт объект. Работает и так (разделы
     // проверяются поштучно), но [] сбивает с толку при отладке — приводим к {} явно.
+    // serialize_precision на хостинге стоит 17, поэтому round($v, 4) уходил в файл как
+    // 0.29999999999999998889776975... Значение верное, но файл распухает. -1 включает
+    // кратчайшую запись, разбирающуюся обратно в то же число.
+    $prev = @ini_get('serialize_precision');
+    @ini_set('serialize_precision', '-1');
     $json = wp_json_encode(empty($data) ? new stdClass() : $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($prev !== false) {
+        @ini_set('serialize_precision', $prev);
+    }
     return file_put_contents(jetron_admin_file_path(), $json, LOCK_EX);
 }
 

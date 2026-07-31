@@ -91,7 +91,15 @@ function jetron_crops_sanitize($data) {
 
 /** Пишет чистую структуру в файл JSON-ом (PRETTY, без экранирования кириллицы/слэшей). Шлёт 500 при сбое. */
 function jetron_zones_write($path, $clean, $label) {
+    // serialize_precision на хостинге стоит 17, поэтому round($v, 4) уходил в файл как
+    // 0.29999999999999998889776975... Значение верное, но файл распухает. -1 включает
+    // кратчайшую запись, разбирающуюся обратно в то же число.
+    $prev = @ini_get('serialize_precision');
+    @ini_set('serialize_precision', '-1');
     $json  = wp_json_encode($clean, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($prev !== false) {
+        @ini_set('serialize_precision', $prev);
+    }
     $bytes = file_put_contents($path, $json, LOCK_EX);
     if ($bytes === false) {
         wp_send_json_error(array('message' => 'не удалось записать ' . $label), 500);
