@@ -165,9 +165,21 @@ add_action('wp_ajax_nopriv_jetron_save_crops', function () {
  * показал, что уже сам ведёт её в админке WooCommerce — по КАЖДОЙ модели своя, с российским
  * размером у взрослой сетки. Источник правды, заменяет угадывание по группам линеек
  * (bug 30.07: Winner показывал сетку Star, см. docs/РАЗМЕРЫ-КОНФЛИКТ-2026-07-30.md).
- * Ключи полей сняты прямо с формы редактирования термина (pa_model, term 45 «Winner»):
- * взрослая — field_68640bb660a64 (Размер/Российский размер/Рост), детская — field_6864101160a6b
- * (Размер/Рост/Возраст). ACF на таксономию отдаёт объект term по $post_id вида "pa_model_<id>".
+ * ACF на таксономию отдаёт термин по $post_id вида "pa_model_<id>".
+ *
+ * ⚠️ Обращаться к полям только ПО ИМЕНИ. Первая версия (442bb08) брала повторитель по ключу
+ * `field_…`, а подполя внутри строки — тоже по ключу, и sizeGrid приходил null у всех 62
+ * позиций каталога. Замер на боевом 31.07 показал причину: повторитель по ключу читается
+ * нормально (7 и 6 строк), но САМА СТРОКА у ACF ключей не содержит — она приindexирована
+ * ИМЕНАМИ подполей (`size`, `size_rus`, `height`). Поэтому `$row['field_…']` не находилось
+ * никогда, каждая строка отбрасывалась по пустому первому столбцу, и сетка выходила пустой.
+ * Имена ещё и переживают пересоздание поля в админке, а ключи — нет.
+ *
+ * Фактическая структура (снята с боевого, термин pa_model 45 «Winner»):
+ *   sizes_adult: size (термин), size_rus, height, shirt_height, shirt_width
+ *   sizes_child: size, height, age, shirt_height, shirt_width, shorts_height, shorts_width
+ * В конструктор отдаём три столбца — остальные это таблица промеров изделия, покупателю
+ * при выборе размера они не нужны.
  */
 function jetron_model_size_grid($term_id, $age) {
     if (!function_exists('get_field') || !$term_id) {
@@ -175,13 +187,13 @@ function jetron_model_size_grid($term_id, $age) {
     }
     $term_ref = 'pa_model_' . $term_id;
     if ($age === 'child') {
-        $rows = get_field('field_6864101160a6b', $term_ref);
-        $field_keys = array('field_6864101160a6d', 'field_6864101160a6e', 'field_6864102960a71');
+        $rows = get_field('sizes_child', $term_ref);
+        $sub_names = array('size', 'height', 'age');
         $title = 'Детские размеры';
         $columns = array('Размер на бирке', 'Рост, см', 'Возраст, лет');
     } else {
-        $rows = get_field('field_68640bb660a64', $term_ref);
-        $field_keys = array('field_68640bf060a65', 'field_6a170303804a7', 'field_68640f4a60a67');
+        $rows = get_field('sizes_adult', $term_ref);
+        $sub_names = array('size', 'size_rus', 'height');
         $title = 'Взрослые размеры';
         $columns = array('Размер на бирке', 'Российский размер', 'Рост, см');
     }
@@ -194,8 +206,9 @@ function jetron_model_size_grid($term_id, $age) {
             continue;
         }
         $line = array();
-        foreach ($field_keys as $key) {
-            $v = isset($row[$key]) ? $row[$key] : '';
+        foreach ($sub_names as $name) {
+            $v = isset($row[$name]) ? $row[$name] : '';
+            // Столбец «Размер» заведён как связь с термином — берём его название.
             $line[] = is_object($v) && isset($v->name) ? $v->name : (is_array($v) ? '' : (string) $v);
         }
         if ($line[0] !== '') {

@@ -1,11 +1,11 @@
 // Точка входа стенда: грузим конфиг → валидируем на границе → запускаем приложение.
-import { validateConfig } from './core/ConfigLoader.js?v=20260731d';
-import { validateOverrides, validateCrops } from './core/ZoneOverrides.js?v=20260731d';
-import { applyAdminOverrides } from './core/AdminOverrides.js?v=20260731d';
+import { validateConfig } from './core/ConfigLoader.js?v=20260731e';
+import { validateOverrides, validateCrops } from './core/ZoneOverrides.js?v=20260731e';
+import { applyAdminOverrides } from './core/AdminOverrides.js?v=20260731e';
 // Версионируем импорты изменённых модулей, чтобы обычная перезагрузка (не только Cmd+Shift+R)
 // подтягивала свежий файл: ESM кешируется по URL, а ?v на index.html не бустит вложенные импорты.
-import { UniformApp } from './ui/app.browser.js?v=20260731d';
-import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260731d';
+import { UniformApp } from './ui/app.browser.js?v=20260731e';
+import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260731e';
 
 async function boot() {
   const statusEl = document.getElementById('status');
