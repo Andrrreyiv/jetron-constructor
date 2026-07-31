@@ -221,7 +221,9 @@ export class UniformApp {
     btn.textContent = '×';
     Object.assign(btn.style, {
       position: 'fixed', top: '10px', right: '10px', zIndex: '2147483647',
-      width: '40px', height: '40px', lineHeight: '38px', padding: '0',
+      // 44px — минимум под палец (iOS HIG). Инлайновый стиль перебивает CSS,
+      // поэтому размер задаётся здесь, а не в @media (pointer: coarse).
+      width: '44px', height: '44px', lineHeight: '42px', padding: '0',
       borderRadius: '50%', border: 'none', cursor: 'pointer',
       background: 'rgba(17,17,17,0.72)', color: '#fff',
       fontSize: '26px', fontWeight: '400', textAlign: 'center',
