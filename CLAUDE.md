@@ -78,9 +78,15 @@ Space 6, Star 5, Winner 7, Волна 5, Фаворит 5; коралл не з�
   `src/config/mock-config.json`, `src/css/stand.css`.
 
 ### Два таргета деплоя
-- **Демо:** GitHub Pages, деплой = `git push origin main` → https://andrrreyiv.github.io/jetron-constructor/
-  Проверка токена: `curl .../index.html | grep stand.css?v=`. Каталога демо не видит → считает
-  по конфигу, это норма.
+- **Демо:** GitHub Pages из `main` (workflow'ов нет) → https://andrrreyiv.github.io/jetron-constructor/
+  Деплой = слияние ветки в `main` **кнопкой PR**, пересборка ~минуту. Проверка токена:
+  `curl .../index.html | grep 'v='`. **Сверено 29.08: `v=20260827a`, 49 мокапов и 4 ключевых
+  файла отдают 200, все 45 путей из живого конфига резолвятся, линеек 8 / расцветок 45,
+  Rich убран, Venom переименован.** ⚠️ Каталога демо не видит: цены падают на конфиг, а кнопка
+  «перейти в карточку» — на ссылку в РАЗДЕЛ каталога, то есть ровно на решение, которое клиент
+  опроверг 28.08. Показывать ему демо только с этой оговоркой.
+  ⚠️ Кириллица в URL: проверять списком через `tr -d '\r'`, иначе curl ответит
+  «Malformed input to a URL function» на каждом файле и покажет ложные 49 битых ссылок.
 - **Боевой:** `https://jetronsport.ru/constructor/` (WordPress/WooCommerce). Канал — **WP File
   Manager (elFinder), НЕ git**:
   1. Нужен Chrome с расширением Claude, залогиненный WP-админом (`list_connected_browsers`
@@ -147,12 +153,12 @@ Space 6, Star 5, Winner 7, Волна 5, Фаворит 5; коралл не з�
 
 ## ⚠️ Живые предупреждения
 
-- 🔴 **Долг по git:** ветка `fix/jetron-size-grid-acf` запушена (29.08, `d822213`), но **не влита
-  в `main`**. **Боевой работает с невлитой ветки: деплой из `main` откатит размеры из ACF.**
-  Влить может только человек: `gh` отдаёт `Bad credentials` и в нём нет сохранённой учётки,
-  GitHub закрыт доменной политикой в Claude in Chrome, а прямой `git push origin main` блокирует
-  хук `~/.claude/hooks/dangerous-actions-blocker.mjs` («используй ветку + PR»). Обходить его не надо.
-  Слить здесь: https://github.com/Andrrreyiv/jetron-constructor/compare/main...fix/jetron-size-grid-acf?expand=1
+- 🟢 **Долг по git закрыт 29.08:** PR #1 влит владельцем, `main` = `963a968`, ветка
+  `fix/jetron-size-grid-acf` подтянута к нему. Прежнее предупреждение «деплой из `main` откатит
+  размеры из ACF» **снято**: размеры теперь в `main`.
+  ⚠️ Правило остаётся: **сливать только через PR**. Прямой `git push origin main` блокирует хук
+  `~/.claude/hooks/dangerous-actions-blocker.mjs`, обходить его не надо. `gh` без учётки
+  (`Bad credentials`), GitHub закрыт доменной политикой Claude in Chrome — кнопку жмёт человек.
 - 🔴 **Сайт за 1R AntiBot.** `curl` на `/shop/`, `/wp-json/…`, `/product-sitemap.xml` редиректит
   на `/1r-captcha/`; обычный `fetch` из браузера тоже ловит антибот (17 КБ). Каталог и конфиги
   снимать **только НАВИГАЦИЕЙ** в Claude in Chrome. Статика в `/constructor/` по curl идёт нормально.
