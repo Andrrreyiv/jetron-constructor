@@ -399,7 +399,7 @@
       "price": 300,
       "box": {
         "x": 0.175,
-        "y": 0.3,
+        "y": 0.38,
         "w": 0.065,
         "h": 0.05
       }
@@ -412,7 +412,7 @@
       "price": 300,
       "box": {
         "x": 0.248,
-        "y": 0.295,
+        "y": 0.375,
         "w": 0.085,
         "h": 0.07
       }
@@ -425,7 +425,7 @@
       "price": 300,
       "box": {
         "x": 0.345,
-        "y": 0.3,
+        "y": 0.38,
         "w": 0.065,
         "h": 0.05
       }
@@ -438,7 +438,7 @@
       "price": 0,
       "box": {
         "x": 0.17,
-        "y": 0.415,
+        "y": 0.495,
         "w": 0.24,
         "h": 0.045
       }
@@ -452,7 +452,7 @@
       "included": true,
       "box": {
         "x": 0.16,
-        "y": 0.6,
+        "y": 0.68,
         "w": 0.06,
         "h": 0.05
       }
@@ -466,7 +466,7 @@
       "included": true,
       "box": {
         "x": 0.28,
-        "y": 0.6,
+        "y": 0.68,
         "w": 0.06,
         "h": 0.05
       }
@@ -482,7 +482,7 @@
       "align": "center",
       "box": {
         "x": 0.615,
-        "y": 0.165,
+        "y": 0.245,
         "w": 0.23,
         "h": 0.05
       }
@@ -497,7 +497,7 @@
       "align": "center",
       "box": {
         "x": 0.635,
-        "y": 0.205,
+        "y": 0.285,
         "w": 0.19,
         "h": 0.13
       }
@@ -512,7 +512,7 @@
       "align": "center",
       "box": {
         "x": 0.635,
-        "y": 0.35,
+        "y": 0.43,
         "w": 0.19,
         "h": 0.038
       }
@@ -525,13 +525,13 @@
       "price": 300,
       "box": {
         "x": 0.115,
-        "y": 0.295,
+        "y": 0.375,
         "w": 0.055,
         "h": 0.05
       }
     }
   ],
-  "_zoneTemplate_note": "Общий шаблон зон нанесения для всех моделей стенда (placeholder по Champion). На боевом каждая модель получает СВОИ координаты зон в см (U3, зоны-формы.md), т.к. геометрия линеек разная (ТЗ §9.4). Форма может переопределить зоны своим полем zones.",
+  "_zoneTemplate_note": "Общий шаблон зон нанесения для всех моделей стенда (placeholder по Champion). На боевом каждая модель получает СВОИ координаты зон в см (U3, зоны-формы.md), т.к. геометрия линеек разная (ТЗ §9.4). Форма может переопределить зоны своим полем zones. ⚠️ 2026-08-29: все y сдвинуты на +0.08 (96 px) вслед за формой — верхняя полоса под плашку и кнопку выросла с 24 до 120 px по просьбе клиента (normalize_mockups.TOP_MARGIN).",
   "zoneSets": {
     "singleFront": [
       {
@@ -675,7 +675,7 @@
       }
     ]
   },
-  "_zoneSets_note": "Наборы зон под конкретную геометрию фото. singleFront — для линеек New/Space/Winner, где перёд снят отдельным одиночным фото изделия (без спины рядом): передние зоны пересчитаны под центрированное фото одного комплекта. Зоны back/shoulder скопированы из zoneTemplate (спина пока на общем placeholder-мокапе). Точные координаты в см придут с U3.",
+  "_zoneSets_note": "Наборы зон под конкретную геометрию фото. singleFront — для одиночного фото переда без спины рядом: передние зоны центрированы по кадру. ⚠️ 2026-08-29 набор ОТКЛЮЧЁН у всех 12 расцветок New/Space/Winner: после нормализации 28.08 их мокапы стали композитом «перёд + зад», и центрированные координаты клали номер в шов между видами. Эти расцветки переведены на общий zoneTemplate. Набор оставлен в конфиге: он снова станет верным, если выберем вариант В (показывать только перёд). Точные координаты в см придут с U3.",
   "placementOptions": [
     {
       "id": "name_number",
@@ -744,8 +744,7 @@
         "front": "assets/mockups/New белая.webp",
         "back": "assets/mockups/New белая.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "winner-white",
@@ -769,8 +768,7 @@
         "front": "assets/mockups/Space белый.webp",
         "back": "assets/mockups/Space белый.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "star-white",
@@ -914,8 +912,7 @@
         "front": "assets/mockups/Space красный.webp",
         "back": "assets/mockups/Space красный.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "star-red",
@@ -975,8 +972,7 @@
         "front": "assets/mockups/Space чёрный.webp",
         "back": "assets/mockups/Space чёрный.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "star-black",
@@ -1000,8 +996,7 @@
         "front": "assets/mockups/New бирюзовая.webp",
         "back": "assets/mockups/New бирюзовая.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "winner-teal",
@@ -1025,8 +1020,7 @@
         "front": "assets/mockups/Space бирюзовый.webp",
         "back": "assets/mockups/Space бирюзовый.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "star-teal",
@@ -1062,8 +1056,7 @@
         "front": "assets/mockups/Winner зелёный.webp",
         "back": "assets/mockups/Winner зелёный.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "legend-green",
@@ -1099,8 +1092,7 @@
         "front": "assets/mockups/New оранжевая.webp",
         "back": "assets/mockups/New оранжевая.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "winner-orange",
@@ -1112,8 +1104,7 @@
         "front": "assets/mockups/Winner оранжевый.webp",
         "back": "assets/mockups/Winner оранжевый.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "champion-yellow",
@@ -1137,8 +1128,7 @@
         "front": "assets/mockups/Space жёлтый.webp",
         "back": "assets/mockups/Space жёлтый.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "champion-purple",
@@ -1162,8 +1152,7 @@
         "front": "assets/mockups/New фиолетовая.webp",
         "back": "assets/mockups/New фиолетовая.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "new-pink",
@@ -1175,8 +1164,7 @@
         "front": "assets/mockups/New розовая.webp",
         "back": "assets/mockups/New розовая.webp",
         "shoulder": null
-      },
-      "zoneSet": "singleFront"
+      }
     },
     {
       "id": "winner-pink",
