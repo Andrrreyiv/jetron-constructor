@@ -298,6 +298,10 @@ function jetron_catalog_prices() {
                 }
                 $grid = $model_grid_cache[$grid_key];
             }
+            // Адрес карточки ЭТОЙ расцветки. Клиент 28.08: кнопка над макетом ведёт в карточку
+            // показанной расцветки. Сопоставление «модель + цвет + возраст» уже построено выше
+            // ради цены — значит 45 адресов не надо ни собирать руками, ни просить у клиента.
+            $url = get_permalink($product->get_id());
             $items[] = array(
                 'model'     => $model,
                 'color'     => $color,
@@ -306,6 +310,7 @@ function jetron_catalog_prices() {
                 'sizes'     => $sizes,
                 'sizeGrid'  => $grid,
                 'productId' => $product->get_id(),
+                'url'       => is_string($url) ? $url : '',
             );
         }
     }

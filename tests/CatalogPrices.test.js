@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid } from '../src/js/core/CatalogPrices.js';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../src/js/core/CatalogPrices.js';
 
 const items = [
   { model: 'Champion', color: 'Белый', age: 'adult', price: 1280 },
@@ -83,4 +83,16 @@ test('sizeGrid без rows/columns отбрасывается на индекс�
   ]);
   assert.equal(resolveFormSizeGrid(index, { line: 'Rich', color: 'Синий', ageCategory: 'adult' }), null);
   assert.equal(resolveFormSizeGrid(index, { line: 'Star', color: 'Синий', ageCategory: 'adult' }), null, 'пустой rows тоже не считается сеткой');
+});
+
+// Клиент 28.08 просил 45 ссылок на карточки расцветок. Собирать их руками не нужно: сопоставление
+// «модель + цвет + возраст» у нас уже построено ради цены, и адрес приходит тем же ответом каталога.
+test('адрес карточки расцветки берётся из каталога по той же паре модель+цвет', () => {
+  const index = indexCatalogPrices([
+    { model: 'Волна', color: 'Синий', age: 'adult', price: 1280, url: 'https://jetronsport.ru/product/volna-blue/' },
+  ]);
+  assert.equal(
+    resolveFormProductUrl(index, { line: 'Волна', color: 'Синий', ageCategory: 'adult' }),
+    'https://jetronsport.ru/product/volna-blue/'
+  );
 });

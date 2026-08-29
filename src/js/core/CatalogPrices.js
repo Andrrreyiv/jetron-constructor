@@ -33,6 +33,8 @@ export function indexCatalogPrices(items) {
       price,
       sizes: Array.isArray(it.sizes) ? it.sizes.filter((s) => typeof s === 'string' && s.trim() !== '') : [],
       sizeGrid: validGrid,
+      // Адрес карточки этой расцветки (клиент 28.08) — приходит тем же ответом каталога.
+      url: typeof it.url === 'string' ? it.url.trim() : '',
     });
   }
   return index;
@@ -66,4 +68,16 @@ export function resolveFormSizes(index, { line, color, ageCategory } = {}) {
 export function resolveFormSizeGrid(index, { line, color, ageCategory } = {}) {
   const found = hit(index, line, color, ageCategory);
   return found && found.sizeGrid ? found.sizeGrid : null;
+}
+
+/**
+ * Адрес карточки товара этой расцветки. Клиент 28.08: кнопка над макетом должна вести в карточку
+ * ИМЕННО показанной расцветки. Сопоставление «модель + цвет + возраст» у нас уже построено ради
+ * цены — значит 45 адресов не нужно ни собирать руками, ни просить у клиента: их отдаёт тот же
+ * каталог. '' = каталога нет (демо-стенд) или позиция не сопоставилась; тогда кнопка честно
+ * остаётся ссылкой на раздел линейки.
+ */
+export function resolveFormProductUrl(index, { line, color, ageCategory } = {}) {
+  const found = hit(index, line, color, ageCategory);
+  return found && typeof found.url === 'string' ? found.url : '';
 }

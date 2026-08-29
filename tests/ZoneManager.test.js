@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { zoneToRect, fitFontSize, fitTextToRect, fitInkToRect, inkAlignedCenter, FABRIC_BASELINE_RATIO, FABRIC_BOX_RATIO } from '../src/js/core/ZoneManager.js';
+import { zoneToRect, fitFontSize, fitTextToRect, fitInkToRect, inkAlignedCenter, FABRIC_BASELINE_RATIO, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_RATIO } from '../src/js/core/ZoneManager.js';
 
 // Заглушка текстового объекта Fabric: width/height пропорциональны кеглю (как реальные глифы).
 // wPer100/hPer100 — размеры строки при кегле 100.
@@ -128,4 +128,45 @@ test('inkAlignedCenter: чернила центрированы по ширин�
   const { centerX } = inkAlignedCenter(rect, m);
   const inkCenterX = centerX - m.boxWidth / 2 + m.inkLeftOffset + m.inkWidth / 2;
   assert.ok(Math.abs(inkCenterX - (rect.left + rect.width / 2)) < 1e-6);
+});
+
+// ── Отступ сверху у цифр (заказчик 2026-08-27) ──────────────────────────────────────
+// «Цифры 8 и 7 нужно опустить на 1 пиксель вниз». Геометрия прижимает к кромке ВСЕ цифры
+// одинаково, разница у 7 и 8 оптическая: плоский верх глифа читается как касание, скруглённый
+// у 0/6/9 — нет. Отступ только двум цифрам разъедет номера «78» и «12», поэтому он единый.
+
+// Отступ — ДОЛЯ высоты зоны, не пиксели: холст пересчитывается под контейнер (замер 27.08 —
+// логическая ширина 597 при displayWidth 450 в конфиге), поэтому пиксель на десктопе, на телефоне
+// и в печати — три разные величины, и абсолютный отступ двигал бы номер по ткани.
+test('NUMBER_TOP_INSET_RATIO: отступ задан долей высоты зоны и мал', () => {
+  assert.ok(NUMBER_TOP_INSET_RATIO > 0);
+  assert.ok(NUMBER_TOP_INSET_RATIO < 0.05); // «на 1 пиксель» = волосок, а не заметный сдвиг
+});
+
+test('inkAlignedCenter: с отступом верх чернил опускается ровно на отступ', () => {
+  const rect = { left: 100, top: 40, width: 171, height: 156 };
+  const fontSize = 200;
+  const m = {
+    fontSize,
+    boxWidth: 120,
+    boxHeight: FABRIC_BOX_RATIO * fontSize,
+    inkWidth: 100,
+    inkAscent: 130,
+    inkLeftOffset: 8,
+    topInset: 2
+  };
+  const { centerY } = inkAlignedCenter(rect, m);
+  const inkTop = centerY - m.boxHeight / 2 + FABRIC_BASELINE_RATIO * fontSize - m.inkAscent;
+  assert.ok(Math.abs(inkTop - (rect.top + 2)) < 1e-6);
+});
+
+// Если отступ съест высоту молча, цифра вылезет за нижнюю кромку зоны ровно на его величину.
+test('fitInkToRect: с отступом чернила остаются внутри рамки по высоте', () => {
+  const rect = { left: 0, top: 0, width: 171, height: 156 };
+  const ink = { width: 31, ascent: 47, descent: 0 }; // одиночная цифра, ограничена высотой
+  const topInset = 2;
+  const { fontSize } = fitInkToRect(rect, ink, { ref: 100, topInset });
+  const inkH = (ink.ascent + ink.descent) * (fontSize / 100);
+  assert.ok(Math.abs(inkH - (rect.height - topInset)) < 1e-6);
+  assert.ok(topInset + inkH <= rect.height + 1e-6);
 });
