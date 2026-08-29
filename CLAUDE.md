@@ -5,7 +5,8 @@
 🔴 **Работа идёт. Состояние и что делать дальше — `docs/ПЕРЕДАЧА-2026-08-28.md`, читать первым.**
 Кратко: Этапы 1 (нормализация, **все 45**) и 2 (каталог — 8 линеек / 45 расцветок) закрыты,
 Этап 4 закрыт целиком, Этап 3 (зоны) снят с нас клиентом 28.08 — он расставит их сам.
-**Ничего не закоммичено и на боевой не выложено.** `npm test` 82 pass, `python -m pytest` 23 passed.
+**29.08 всё закоммичено и запушено** (3 коммита, `d822213`), **на боевой не выложено**.
+`npm test` 82 pass, `python -m pytest` 23 passed.
 Мокапы теперь **WebP q92** (партия 29 МБ → 3.3 МБ), расширение связано одной константой
 `normalize_mockups.FORMAT` — конфиг и диск разъехаться не могут. Приёмка: 45 файлов, битых 0,
 нарушение одно — `высота рамки разъехалась 674..854`, и это не баг, а вопрос 2 клиенту.
@@ -62,12 +63,12 @@ Space 6, Star 5, Winner 7, Волна 5, Фаворит 5; коралл не з�
 
 ## 📂 Где что лежит
 
-- **Git:** `https://github.com/Andrrreyiv/jetron-constructor`. Актуальная работа — в ветке
-  `fix/jetron-size-grid-acf` (коммит `73d5996`), **не влита в `main`**.
+- **Git:** `https://github.com/Andrrreyiv/jetron-constructor`, работа в ветке
+  `fix/jetron-size-grid-acf` (`d822213`), не влита в `main` — см. «Живые предупреждения».
 - **Локальный запуск:** `npx --yes serve -l 8777 .` (`.claude/launch.json`, конфигурация `jetron`),
   открывать `http://localhost:8777/`. ⚠️ `serve` роняет query на `/index.html` — `?zones=edit`
   цеплять к корню: `http://localhost:8777/?zones=edit`.
-- **Тесты:** `npm test` → **77 pass, 0 fail** (сверено 28.08); `python -m pytest` → **23 passed**
+- **Тесты:** `npm test` → **82 pass, 0 fail** (сверено 29.08); `python -m pytest` → **23 passed**
   (нормализация, приёмка, каталог). Рантайм-хуки в браузере: `window.__jetronApp`
   (покупатель), `window.__jetronEditor` (только при `?zones=edit`).
 - **Ключевые файлы:** `src/js/ui/app.browser.js` (панель, рендер, плашка, `gridForAge`),
@@ -146,11 +147,12 @@ Space 6, Star 5, Winner 7, Волна 5, Фаворит 5; коралл не з�
 
 ## ⚠️ Живые предупреждения
 
-- 🔴 **Долг по git:** ветка `fix/jetron-size-grid-acf` **не влита в `main`**, PR не открыт —
-  `gh` и GitHub MCP отдают `Bad credentials` на Windows-переменных `GH_TOKEN`/`GITHUB_TOKEN`.
-  **Боевой работает с невлитой ветки: деплой из `main` откатит размеры из ACF.**
-  Открыть вручную: https://github.com/Andrrreyiv/jetron-constructor/pull/new/fix/jetron-size-grid-acf
-  ⚠️ Прямой `git push origin main` блокирует глобальный хук `~/.claude/hooks/dangerous-actions-blocker.mjs`.
+- 🔴 **Долг по git:** ветка `fix/jetron-size-grid-acf` запушена (29.08, `d822213`), но **не влита
+  в `main`**. **Боевой работает с невлитой ветки: деплой из `main` откатит размеры из ACF.**
+  Влить может только человек: `gh` отдаёт `Bad credentials` и в нём нет сохранённой учётки,
+  GitHub закрыт доменной политикой в Claude in Chrome, а прямой `git push origin main` блокирует
+  хук `~/.claude/hooks/dangerous-actions-blocker.mjs` («используй ветку + PR»). Обходить его не надо.
+  Слить здесь: https://github.com/Andrrreyiv/jetron-constructor/compare/main...fix/jetron-size-grid-acf?expand=1
 - 🔴 **Сайт за 1R AntiBot.** `curl` на `/shop/`, `/wp-json/…`, `/product-sitemap.xml` редиректит
   на `/1r-captcha/`; обычный `fetch` из браузера тоже ловит антибот (17 КБ). Каталог и конфиги
   снимать **только НАВИГАЦИЕЙ** в Claude in Chrome. Статика в `/constructor/` по curl идёт нормально.
