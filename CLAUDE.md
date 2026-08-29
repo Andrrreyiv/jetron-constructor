@@ -73,8 +73,10 @@ Space 6, Star 5, Winner 7, Волна 5, Фаворит 5; коралл не з�
 ## 📂 Где что лежит
 
 - **Git:** `https://github.com/Andrrreyiv/jetron-constructor`, работа в ветке
-  `fix/jetron-size-grid-acf` (`5ae7239`, запушена). `main` = **`5ae7239`**, ветка и `main`
-  совпадают байт-в-байт, дерево чистое.
+  `fix/jetron-size-grid-acf` (`3579c8d`, запушена). `main` = **`5ae7239`** — весь КОД в `main`,
+  ветка впереди на один коммит, и он документационный (`3579c8d`, только `CLAUDE.md`
+  и передача). На демо это не влияет; сливать его в `main` без нужды не обязательно.
+  Дерево чистое.
 - **Локальный запуск:** `npx --yes serve -l 8777 .` (`.claude/launch.json`, конфигурация `jetron`),
   открывать `http://localhost:8777/`. ⚠️ `serve` роняет query на `/index.html` — `?zones=edit`
   цеплять к корню: `http://localhost:8777/?zones=edit`.
