@@ -22,9 +22,19 @@ export function indexCatalogPrices(items) {
     if (!Number.isFinite(price) || price <= 0) continue;
     if (!it.model || !it.color) continue;
     // Кроме цены запоминаем набор размеров карточки: у линеек он разный (клиент 30.07).
+    // sizeGrid — готовая таблица размеров модели из ACF-полей термина «Модель» (клиент 31.07
+    // на видео показал: она уже заведена у него в админке, по каждой модели своя, с российским
+    // размером у взрослой). Источник правды, заменяет угадывание по группам линеек.
+    const grid = it.sizeGrid;
+    const validGrid = grid && Array.isArray(grid.rows) && grid.rows.length && Array.isArray(grid.columns)
+      ? grid
+      : null;
     index.set(keyOf(it.model, it.color, it.age), {
       price,
       sizes: Array.isArray(it.sizes) ? it.sizes.filter((s) => typeof s === 'string' && s.trim() !== '') : [],
+      sizeGrid: validGrid,
+      // Адрес карточки этой расцветки (клиент 28.08) — приходит тем же ответом каталога.
+      url: typeof it.url === 'string' ? it.url.trim() : '',
     });
   }
   return index;
@@ -47,4 +57,27 @@ export function resolveFormPrice(index, { line, color, ageCategory } = {}, fallb
 export function resolveFormSizes(index, { line, color, ageCategory } = {}) {
   const found = hit(index, line, color, ageCategory);
   return found && Array.isArray(found.sizes) ? found.sizes : [];
+}
+
+/**
+ * Готовая таблица размеров модели (Размер / Российский размер / Рост), заведённая клиентом
+ * в ACF-полях термина «Модель» — 31.07 подтверждено видео и прямой проверкой полей на боевом.
+ * null = у модели/возраста таблицы нет (например, взрослого Champion в каталоге не существует),
+ * тогда вызывающая сторона остаётся на старой сетке из конфига + фильтр по размерам карточки.
+ */
+export function resolveFormSizeGrid(index, { line, color, ageCategory } = {}) {
+  const found = hit(index, line, color, ageCategory);
+  return found && found.sizeGrid ? found.sizeGrid : null;
+}
+
+/**
+ * Адрес карточки товара этой расцветки. Клиент 28.08: кнопка над макетом должна вести в карточку
+ * ИМЕННО показанной расцветки. Сопоставление «модель + цвет + возраст» у нас уже построено ради
+ * цены — значит 45 адресов не нужно ни собирать руками, ни просить у клиента: их отдаёт тот же
+ * каталог. '' = каталога нет (демо-стенд) или позиция не сопоставилась; тогда кнопка честно
+ * остаётся ссылкой на раздел линейки.
+ */
+export function resolveFormProductUrl(index, { line, color, ageCategory } = {}) {
+  const found = hit(index, line, color, ageCategory);
+  return found && typeof found.url === 'string' ? found.url : '';
 }

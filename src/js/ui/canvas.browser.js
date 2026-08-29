@@ -2,8 +2,8 @@
 // Только браузерный слой (DOM + canvas) — не покрывается node:test, поэтому суффикс .browser.js.
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
-import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO } from '../core/ZoneManager.js?v=20260731c';
-import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260731c';
+import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_RATIO } from '../core/ZoneManager.js?v=20260827a';
+import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260827a';
 
 export class CanvasView {
   constructor(canvasEl, canvasCfg) {
@@ -99,15 +99,16 @@ export class CanvasView {
     this.canvas.requestRenderAll();
   }
 
-  // Пунктирные рамки зон текущего вида — покупатель видит, куда можно поместить элемент.
+  // Зоны текущего вида: покупателю рамка не рисуется (заказчик 2026-08-27 — «вид портят»),
+  // но прямоугольник остаётся на холсте и ловит клик, открывающий нужный раздел панели.
+  // Обводку возвращает только редактор зон, см. zone-editor.browser.js → armAll().
   renderZones(zones) {
     this.clearAll();
     for (const z of zones) {
       const r = this._rect(z.box);
       const overlay = new fabric.Rect({
         left: r.left, top: r.top, width: r.width, height: r.height,
-        fill: 'rgba(31,95,214,0.06)', stroke: 'rgba(31,95,214,0.9)',
-        strokeDashArray: [6, 4], strokeWidth: 1.5,
+        fill: 'transparent', stroke: null, strokeWidth: 0,
         selectable: false, evented: true, hoverCursor: 'pointer',
         objectCaching: false
       });
@@ -143,11 +144,13 @@ export class CanvasView {
   }
 
   // Сажает номер в рамку по чернилам: без деформации, ограничивающая сторона впритык,
-  // глиф прижат к верхней кромке (заказчик 2026-07-24). Мутирует fontSize/left/top объекта.
+  // глиф прижат к верхней кромке (заказчик 2026-07-24) с малым отступом NUMBER_TOP_INSET_RATIO
+  // от высоты зоны (заказчик 2026-08-27). Мутирует fontSize/left/top объекта.
   _seatNumber(obj, rect, text, fontFamily) {
     const REF = 100;
     const ink = this._inkMetrics(text, fontFamily, REF);
-    const { fontSize } = fitInkToRect(rect, ink, { ref: REF });
+    const topInset = NUMBER_TOP_INSET_RATIO * rect.height;
+    const { fontSize } = fitInkToRect(rect, ink, { ref: REF, topInset });
     obj.set({ fontSize });
     if (typeof obj.initDimensions === 'function') obj.initDimensions();
     const k = fontSize / REF;
@@ -157,7 +160,8 @@ export class CanvasView {
       boxHeight: FABRIC_BOX_RATIO * fontSize,
       inkWidth: ink.width * k,
       inkAscent: ink.ascent * k,
-      inkLeftOffset: ink.leftOffset * k
+      inkLeftOffset: ink.leftOffset * k,
+      topInset
     });
     obj.set({ left: centerX, top: centerY });
     return fontSize;

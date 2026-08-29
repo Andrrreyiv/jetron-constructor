@@ -40,13 +40,25 @@ export function fitTextToRect(obj, rect, { ref = 100 } = {}) {
 export const FABRIC_BOX_RATIO = 1.13;      // obj.height / кегль у однострочного текста Fabric v6
 export const FABRIC_BASELINE_RATIO = 0.89; // базовая линия ниже верха коробки на 0.89×кегля
 
+// Отступ чернил от верхней кромки зоны номера (заказчик 2026-08-27: «цифры 8 и 7 опустить
+// на 1 пиксель вниз»). Прижатие к кромке геометрически одинаково у всех цифр — заметно оно
+// только у 7 и 8, у которых верх плоский; у скруглённых 0/6/9 глаз видит зазор там, где его нет.
+// Отступ поэтому единый: дай его двум цифрам — и «78» встанет ступенькой относительно «12».
+// Задан ДОЛЕЙ высоты зоны, а не пикселями: холст пересчитывается под контейнер (замер 27.08 —
+// логическая ширина 597 при displayWidth 450 в конфиге), поэтому «пиксель» на десктопе, на
+// телефоне и в макете печати — три разные величины. Доля же даёт один и тот же отступ везде.
+export const NUMBER_TOP_INSET_RATIO = 0.02;
+
 // Кегль, при котором чернила вписаны в рамку БЕЗ деформации: упираемся в ограничивающую сторону,
 // вторая остаётся с запасом (заказчик: «23» упирается по бокам в стенки, какого размера будет —
 // такого и будет). ink — метрики чернил при кегле ref: { width, ascent, descent }.
-export function fitInkToRect(rect, ink, { ref = 100 } = {}) {
+// topInset отнимается от доступной высоты: иначе цифра, опущенная на отступ, вылезет
+// за нижнюю кромку зоны ровно на его величину.
+export function fitInkToRect(rect, ink, { ref = 100, topInset = 0 } = {}) {
   const inkW = Math.max(1, ink.width);
   const inkH = Math.max(1, ink.ascent + ink.descent);
-  const fontSize = Math.max(1, ref * Math.min(rect.width / inkW, rect.height / inkH));
+  const availH = Math.max(1, rect.height - topInset);
+  const fontSize = Math.max(1, ref * Math.min(rect.width / inkW, availH / inkH));
   return { fontSize };
 }
 
@@ -57,7 +69,7 @@ export function fitInkToRect(rect, ink, { ref = 100 } = {}) {
 export function inkAlignedCenter(rect, m) {
   return {
     centerX: rect.left + rect.width / 2 - m.inkLeftOffset - m.inkWidth / 2 + m.boxWidth / 2,
-    centerY: rect.top + m.inkAscent - FABRIC_BASELINE_RATIO * m.fontSize + m.boxHeight / 2
+    centerY: rect.top + (m.topInset || 0) + m.inkAscent - FABRIC_BASELINE_RATIO * m.fontSize + m.boxHeight / 2
   };
 }
 

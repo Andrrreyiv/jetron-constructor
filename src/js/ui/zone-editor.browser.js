@@ -4,8 +4,8 @@
 // только для залогиненного администратора). Покупатель этот режим не видит.
 //
 // Браузерный слой (Fabric + DOM), вне node:test. Чистая математика границ — в core/ZoneOverrides.js.
-import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260731c';
-import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260731c';
+import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260827a';
+import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260827a';
 
 // Служебные origin-константы Fabric: фон рендерится от левого-верхнего угла (0,0).
 
@@ -138,7 +138,10 @@ class ZoneEditor {
           selectable: true, evented: true, hasControls: true, hasBorders: true,
           lockRotation: true, cornerColor: '#1f5fd6', cornerStrokeColor: '#ffffff',
           transparentCorners: false, cornerSize: 12,
-          fill: 'rgba(31,95,214,0.16)', hoverCursor: 'move'
+          fill: 'rgba(31,95,214,0.16)', hoverCursor: 'move',
+          // Покупателю рамок больше не рисуем (заказчик 2026-08-27), но админу без них зону
+          // не поймать — пунктир возвращаем здесь, только в режиме ?zones=edit.
+          stroke: 'rgba(31,95,214,0.9)', strokeDashArray: [6, 4], strokeWidth: 1.5
         });
         if (overlay.setControlsVisibility) overlay.setControlsVisibility({ mtr: false });
       }

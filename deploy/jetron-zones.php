@@ -161,6 +161,67 @@ add_action('wp_ajax_nopriv_jetron_save_crops', function () {
 });
 
 /**
+ * Таблица размеров модели из ACF-полей термина «Модель» (pa_model): клиент 31.07 на видео
+ * показал, что уже сам ведёт её в админке WooCommerce — по КАЖДОЙ модели своя, с российским
+ * размером у взрослой сетки. Источник правды, заменяет угадывание по группам линеек
+ * (bug 30.07: Winner показывал сетку Star, см. docs/РАЗМЕРЫ-КОНФЛИКТ-2026-07-30.md).
+ * ACF на таксономию отдаёт термин по $post_id вида "pa_model_<id>".
+ *
+ * ⚠️ Обращаться к полям только ПО ИМЕНИ. Первая версия (442bb08) брала повторитель по ключу
+ * `field_…`, а подполя внутри строки — тоже по ключу, и sizeGrid приходил null у всех 62
+ * позиций каталога. Замер на боевом 31.07 показал причину: повторитель по ключу читается
+ * нормально (7 и 6 строк), но САМА СТРОКА у ACF ключей не содержит — она приindexирована
+ * ИМЕНАМИ подполей (`size`, `size_rus`, `height`). Поэтому `$row['field_…']` не находилось
+ * никогда, каждая строка отбрасывалась по пустому первому столбцу, и сетка выходила пустой.
+ * Имена ещё и переживают пересоздание поля в админке, а ключи — нет.
+ *
+ * Фактическая структура (снята с боевого, термин pa_model 45 «Winner»):
+ *   sizes_adult: size (термин), size_rus, height, shirt_height, shirt_width
+ *   sizes_child: size, height, age, shirt_height, shirt_width, shorts_height, shorts_width
+ * В конструктор отдаём три столбца — остальные это таблица промеров изделия, покупателю
+ * при выборе размера они не нужны.
+ */
+function jetron_model_size_grid($term_id, $age) {
+    if (!function_exists('get_field') || !$term_id) {
+        return null;
+    }
+    $term_ref = 'pa_model_' . $term_id;
+    if ($age === 'child') {
+        $rows = get_field('sizes_child', $term_ref);
+        $sub_names = array('size', 'height', 'age');
+        $title = 'Детские размеры';
+        $columns = array('Размер на бирке', 'Рост, см', 'Возраст, лет');
+    } else {
+        $rows = get_field('sizes_adult', $term_ref);
+        $sub_names = array('size', 'size_rus', 'height');
+        $title = 'Взрослые размеры';
+        $columns = array('Размер на бирке', 'Российский размер', 'Рост, см');
+    }
+    if (!is_array($rows) || !count($rows)) {
+        return null; // у модели нет своей сетки на этот возраст (например, взрослого Champion)
+    }
+    $out = array();
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $line = array();
+        foreach ($sub_names as $name) {
+            $v = isset($row[$name]) ? $row[$name] : '';
+            // Столбец «Размер» заведён как связь с термином — берём его название.
+            $line[] = is_object($v) && isset($v->name) ? $v->name : (is_array($v) ? '' : (string) $v);
+        }
+        if ($line[0] !== '') {
+            $out[] = $line;
+        }
+    }
+    if (!count($out)) {
+        return null;
+    }
+    return array('title' => $title, 'columns' => $columns, 'rows' => $out);
+}
+
+/**
  * Цены изделий из карточек товаров (клиент 2026-07-27: «не подтягивается цена из карточки товара»).
  *
  * Отдаёт плоский список позиций каталога: атрибуты товара «Модель» и «Цвет» совпадают с line/color
@@ -181,6 +242,8 @@ function jetron_catalog_prices() {
     // Категория → возрастная группа конструктора. Слаги совпадают с адресами каталога на сайте.
     $groups = array('vzroslaya-forma' => 'adult', 'detskaya-forma' => 'child');
     $items = array();
+    $model_term_cache = array();
+    $model_grid_cache = array();
     foreach ($groups as $slug => $age) {
         $products = wc_get_products(array(
             'status'   => 'publish',
@@ -221,13 +284,33 @@ function jetron_catalog_prices() {
             if ($model === '' || $color === '') {
                 continue; // Без модели и цвета позицию не сопоставить с формой — пропускаем.
             }
+            // Готовая сетка размеров этой модели+возраста из ACF (клиент 31.07, см. выше).
+            $grid = null;
+            if (!array_key_exists($model, $model_term_cache)) {
+                $term = get_term_by('name', $model, 'pa_model');
+                $model_term_cache[$model] = $term ? (int) $term->term_id : 0;
+            }
+            $term_id = $model_term_cache[$model];
+            if ($term_id) {
+                $grid_key = $term_id . '|' . $age;
+                if (!array_key_exists($grid_key, $model_grid_cache)) {
+                    $model_grid_cache[$grid_key] = jetron_model_size_grid($term_id, $age);
+                }
+                $grid = $model_grid_cache[$grid_key];
+            }
+            // Адрес карточки ЭТОЙ расцветки. Клиент 28.08: кнопка над макетом ведёт в карточку
+            // показанной расцветки. Сопоставление «модель + цвет + возраст» уже построено выше
+            // ради цены — значит 45 адресов не надо ни собирать руками, ни просить у клиента.
+            $url = get_permalink($product->get_id());
             $items[] = array(
                 'model'     => $model,
                 'color'     => $color,
                 'age'       => $age,
                 'price'     => $price,
                 'sizes'     => $sizes,
+                'sizeGrid'  => $grid,
                 'productId' => $product->get_id(),
+                'url'       => is_string($url) ? $url : '',
             );
         }
     }

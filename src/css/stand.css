@@ -174,15 +174,17 @@ body {
 .line-badge {
   /* Клиент 2026-07-24: плашку — внутрь поля, в левый-верхний угол поверх картинки (не отдельной
      строкой сверху). Абсолют в .views (position:relative) освобождает строку → холсты поднимаются
-     выше, контролы цвета/формы ближе к экрану. pointer-events:none на обёртке — кликабелен только pill. */
-  position: absolute; top: 0; left: 0; z-index: 3;
-  display: flex; justify-content: flex-start;
+     выше, контролы цвета/формы ближе к экрану. pointer-events:none на обёртке — кликабельны
+     только сами pill'ы.
+     Клиент 2026-08-28: кнопка перехода — «справа наверху». Поэтому строка растянута на всю
+     ширину (right:0), ярлык линейки остаётся слева, кнопка уходит к правому краю. */
+  position: absolute; top: 0; left: 0; right: 0; z-index: 3;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
   margin: 0; padding: 0;
   background: none; border: none;
   pointer-events: none;
 }
 .line-badge-pill {
-  pointer-events: auto;
   display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 14px;
   background: var(--stage-card); color: #111;
@@ -190,13 +192,30 @@ body {
   border-radius: 10px;
   font-weight: 700; font-size: 13px; letter-spacing: .06em; text-transform: uppercase;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
-  cursor: pointer;
   transition: border-color .2s var(--ease), transform .2s var(--ease), box-shadow .2s var(--ease);
 }
-.line-badge-pill:hover {
+/* Ярлык «что показано» — не действие: не кликается и не подсвечивается. Раньше он был частью
+   кнопки, и именно из-за этого клиент 27.08 не нашёл кнопку перехода: всё выглядело подписью. */
+.line-badge-name { pointer-events: none; }
+/* Кнопка перехода: синяя, как ссылка — цвет отделяет глагол от подписи и делает нажимаемость
+   видимой без наведения. */
+.line-badge-cta {
+  pointer-events: auto;
+  color: var(--navy);
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.line-badge-cta:hover {
   border-color: var(--navy);
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, .12);
+  text-decoration: underline;
+}
+.line-badge-cta:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
 }
 .canvas-wrap {
   background: var(--stage-card);
@@ -954,6 +973,12 @@ input[type="radio"], input[type="checkbox"] {
     padding-right: max(24px, env(safe-area-inset-right));
   }
   #stage { padding: 28px 16px 22px; border-radius: var(--r-lg); }
+  /* Крестик выхода — position:fixed в правом верхнем углу ОКНА (44px + отступ 10px). На узком
+     экране плашка растягивается почти до края, и кнопка перехода уходит ровно под крестик:
+     замер 28.08 на 375px и 640px дал перекрытие 42×19 и 13 px. Держим для крестика полосу
+     справа. На широком экране плашка до края не достаёт (замер на 900px: запас 76px),
+     поэтому правило живёт только здесь. */
+  .line-badge { padding-right: 54px; }
   #price-box { position: static; }
   .topbar { position: static; padding-top: max(15px, env(safe-area-inset-top)); }
   /* Ряд кнопок в панели тянется на всю ширину — удобнее пальцем */
@@ -1015,8 +1040,8 @@ input[type="radio"], input[type="checkbox"] {
   .cta.cta, #order-btn { min-height: 52px; }
   .price-lines-toggle { min-height: 44px; padding: 8px 0 !important; }
   .extra-toggle { min-height: 48px; }
-  /* Кликабельна сама кнопка .line-badge, а .line-badge-pill — span внутри неё.
-     Поднимаем обе: у span высота идёт от паддинга, у кнопки задаём напрямую. */
+  /* Кликабельна теперь только .line-badge-cta (2026-08-28), но тач-цель держим у обоих pill'ов:
+     высота строки задаётся ими, и ярлык не должен быть ниже кнопки. */
   .line-badge { min-height: 44px; }
   .line-badge-pill { min-height: 44px; padding: 12px 14px; }
   .opt-head { min-height: 56px; }

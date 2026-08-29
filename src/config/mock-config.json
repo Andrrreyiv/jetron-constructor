@@ -40,11 +40,11 @@
       "Champion": "champion",
       "Legend": "legend",
       "New": "new",
-      "Rich": "rich",
       "Space": "space",
       "Star": "star",
-      "Venom": "venom",
-      "Winner": "winner"
+      "Winner": "winner",
+      "Фаворит": "favorit",
+      "Волна": "volna"
     }
   },
   "_catalog_note": "Плашка линейки слева вверху над макетом (клиент 2026-07-22): показывает название линейки и по клику ведёт в каталог с фильтром по этой линейке. base+slug+suffix → адрес категории WooCommerce. Слаги — ПРЕДПОЛОЖЕНИЕ по названию линейки, клиент должен подтвердить реальные URL категорий на jetronsport.ru. Нет линейки в lineSlugs → slug = название в нижнем регистре.",
@@ -117,11 +117,6 @@
       "hex": "#7a1f3d"
     },
     {
-      "id": "coral",
-      "name": "Коралловый",
-      "hex": "#ff6f61"
-    },
-    {
       "id": "lime",
       "name": "Лаймовый",
       "hex": "#a4c639"
@@ -130,6 +125,11 @@
       "id": "lilac",
       "name": "Сиреневый",
       "hex": "#b57edc"
+    },
+    {
+      "id": "lightblue",
+      "name": "Голубой",
+      "hex": "#4fb3f7"
     }
   ],
   "_colors_note": "Палитра цветов ИЗДЕЛИЯ (ТЗ §2.1, кружочки). Цвет НЕ перекрашивается программно — это готовые фото каждой формы. Список редактируется в админке (клиент добавляет/убирает цвета вместе с загрузкой мокапа).",
@@ -729,8 +729,58 @@
       "color": "Белый",
       "colorHex": "#f2f4f7",
       "images": {
-        "front": "assets/mockups/Champion белый фон.png",
-        "back": "assets/mockups/Champion белый фон.png",
+        "front": "assets/mockups/Champion белый.webp",
+        "back": "assets/mockups/Champion белый.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "new-white",
+      "line": "New",
+      "colorId": "white",
+      "color": "Белый",
+      "colorHex": "#f2f4f7",
+      "images": {
+        "front": "assets/mockups/New белая.webp",
+        "back": "assets/mockups/New белая.webp",
+        "shoulder": null
+      },
+      "zoneSet": "singleFront"
+    },
+    {
+      "id": "winner-white",
+      "line": "Winner",
+      "colorId": "white",
+      "color": "Белый",
+      "colorHex": "#f2f4f7",
+      "images": {
+        "front": "assets/mockups/Winner белый.webp",
+        "back": "assets/mockups/Winner белый.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "space-white",
+      "line": "Space",
+      "colorId": "white",
+      "color": "Белый",
+      "colorHex": "#f2f4f7",
+      "images": {
+        "front": "assets/mockups/Space белый.webp",
+        "back": "assets/mockups/Space белый.webp",
+        "shoulder": null
+      },
+      "zoneSet": "singleFront"
+    },
+    {
+      "id": "star-white",
+      "line": "Star",
+      "colorId": "white",
+      "color": "Белый",
+      "colorHex": "#f2f4f7",
+      "images": {
+        "front": "assets/mockups/Star белый.webp",
+        "back": "assets/mockups/Star белый.webp",
         "shoulder": null
       }
     },
@@ -741,82 +791,32 @@
       "color": "Белый",
       "colorHex": "#f2f4f7",
       "images": {
-        "front": "assets/mockups/Legend белая.jpg",
-        "back": "assets/mockups/Legend белая.jpg",
+        "front": "assets/mockups/Legend белая.webp",
+        "back": "assets/mockups/Legend белая.webp",
         "shoulder": null
       }
     },
     {
-      "id": "new-white",
-      "line": "New",
+      "id": "favorit-white",
+      "line": "Фаворит",
       "colorId": "white",
       "color": "Белый",
       "colorHex": "#f2f4f7",
-      "zoneSet": "singleFront",
       "images": {
-        "front": "assets/mockups/New белая перед.jpg",
-        "back": "assets/mockups/New белая.jpg",
+        "front": "assets/mockups/Фаворит белая.webp",
+        "back": "assets/mockups/Фаворит белая.webp",
         "shoulder": null
       }
     },
     {
-      "id": "rich-white",
-      "line": "Rich",
+      "id": "volna-white",
+      "line": "Волна",
       "colorId": "white",
       "color": "Белый",
       "colorHex": "#f2f4f7",
       "images": {
-        "front": "assets/mockups/Rich белая.webp",
-        "back": "assets/mockups/Rich белая.webp",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "space-white",
-      "line": "Space",
-      "colorId": "white",
-      "color": "Белый",
-      "colorHex": "#f2f4f7",
-      "zoneSet": "singleFront",
-      "images": {
-        "front": "assets/mockups/Space белый перед.jpg",
-        "back": "assets/mockups/Space белый.jpg",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "star-white",
-      "line": "Star",
-      "colorId": "white",
-      "color": "Белый",
-      "colorHex": "#f2f4f7",
-      "images": {
-        "front": "assets/mockups/Star белый.jpg",
-        "back": "assets/mockups/Star белый.jpg",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "venom-white",
-      "line": "Venom",
-      "colorId": "white",
-      "color": "Белый",
-      "colorHex": "#f2f4f7",
-      "images": {
-        "front": "assets/mockups/Venom белая.png",
-        "back": "assets/mockups/Venom белая.png",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "winner-white",
-      "line": "Winner",
-      "colorId": "white",
-      "color": "Белый",
-      "colorHex": "#f2f4f7",
-      "images": {
-        "front": "assets/mockups/Winner белый.jpg",
-        "back": "assets/mockups/Winner белый.jpg",
+        "front": "assets/mockups/Волна белая.webp",
+        "back": "assets/mockups/Волна белая.webp",
         "shoulder": null
       }
     },
@@ -827,44 +827,8 @@
       "color": "Синий",
       "colorHex": "#1f5fd6",
       "images": {
-        "front": "assets/mockups/Champion синий фон.png",
-        "back": "assets/mockups/Champion синий фон.png",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "legend-blue",
-      "line": "Legend",
-      "colorId": "blue",
-      "color": "Синий",
-      "colorHex": "#1f5fd6",
-      "images": {
-        "front": "assets/mockups/Legend синяя.jpg",
-        "back": "assets/mockups/Legend синяя.jpg",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "star-blue",
-      "line": "Star",
-      "colorId": "blue",
-      "color": "Синий",
-      "colorHex": "#1f5fd6",
-      "images": {
-        "front": "assets/mockups/Star синяя.jpg",
-        "back": "assets/mockups/Star синяя.jpg",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "venom-blue",
-      "line": "Venom",
-      "colorId": "blue",
-      "color": "Синий",
-      "colorHex": "#1f5fd6",
-      "images": {
-        "front": "assets/mockups/Venom синяя.png",
-        "back": "assets/mockups/Venom синяя.png",
+        "front": "assets/mockups/Champion синий.webp",
+        "back": "assets/mockups/Champion синий.webp",
         "shoulder": null
       }
     },
@@ -875,69 +839,56 @@
       "color": "Синий",
       "colorHex": "#1f5fd6",
       "images": {
-        "front": "assets/mockups/Winner синий.jpg",
-        "back": "assets/mockups/Winner синий.jpg",
+        "front": "assets/mockups/Winner синий.webp",
+        "back": "assets/mockups/Winner синий.webp",
         "shoulder": null
       }
     },
     {
-      "id": "legend-red",
-      "line": "Legend",
-      "colorId": "red",
-      "color": "Красный",
-      "colorHex": "#e2001a",
-      "images": {
-        "front": "assets/mockups/Legend красная.jpg",
-        "back": "assets/mockups/Legend красная.jpg",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "rich-red",
-      "line": "Rich",
-      "colorId": "red",
-      "color": "Красный",
-      "colorHex": "#e2001a",
-      "images": {
-        "front": "assets/mockups/Rich красная.webp",
-        "back": "assets/mockups/Rich красная.webp",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "space-red",
-      "line": "Space",
-      "colorId": "red",
-      "color": "Красный",
-      "colorHex": "#e2001a",
-      "zoneSet": "singleFront",
-      "images": {
-        "front": "assets/mockups/Space красный перед.jpg",
-        "back": "assets/mockups/Space красный.jpg",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "star-red",
+      "id": "star-blue",
       "line": "Star",
-      "colorId": "red",
-      "color": "Красный",
-      "colorHex": "#e2001a",
+      "colorId": "blue",
+      "color": "Синий",
+      "colorHex": "#1f5fd6",
       "images": {
-        "front": "assets/mockups/Star красный.jpg",
-        "back": "assets/mockups/Star красный.jpg",
+        "front": "assets/mockups/Star синий.webp",
+        "back": "assets/mockups/Star синий.webp",
         "shoulder": null
       }
     },
     {
-      "id": "venom-red",
-      "line": "Venom",
-      "colorId": "red",
-      "color": "Красный",
-      "colorHex": "#e2001a",
+      "id": "legend-blue",
+      "line": "Legend",
+      "colorId": "blue",
+      "color": "Синий",
+      "colorHex": "#1f5fd6",
       "images": {
-        "front": "assets/mockups/Venom красная.png",
-        "back": "assets/mockups/Venom красная.png",
+        "front": "assets/mockups/Legend синяя.webp",
+        "back": "assets/mockups/Legend синяя.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "favorit-blue",
+      "line": "Фаворит",
+      "colorId": "blue",
+      "color": "Синий",
+      "colorHex": "#1f5fd6",
+      "images": {
+        "front": "assets/mockups/Фаворит синяя.webp",
+        "back": "assets/mockups/Фаворит синяя.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "volna-blue",
+      "line": "Волна",
+      "colorId": "blue",
+      "color": "Синий",
+      "colorHex": "#1f5fd6",
+      "images": {
+        "front": "assets/mockups/Волна синяя.webp",
+        "back": "assets/mockups/Волна синяя.webp",
         "shoulder": null
       }
     },
@@ -948,8 +899,69 @@
       "color": "Красный",
       "colorHex": "#e2001a",
       "images": {
-        "front": "assets/mockups/Winner красный.jpg",
-        "back": "assets/mockups/Winner красный.jpg",
+        "front": "assets/mockups/Winner красный.webp",
+        "back": "assets/mockups/Winner красный.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "space-red",
+      "line": "Space",
+      "colorId": "red",
+      "color": "Красный",
+      "colorHex": "#e2001a",
+      "images": {
+        "front": "assets/mockups/Space красный.webp",
+        "back": "assets/mockups/Space красный.webp",
+        "shoulder": null
+      },
+      "zoneSet": "singleFront"
+    },
+    {
+      "id": "star-red",
+      "line": "Star",
+      "colorId": "red",
+      "color": "Красный",
+      "colorHex": "#e2001a",
+      "images": {
+        "front": "assets/mockups/Star красный.webp",
+        "back": "assets/mockups/Star красный.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "legend-red",
+      "line": "Legend",
+      "colorId": "red",
+      "color": "Красный",
+      "colorHex": "#e2001a",
+      "images": {
+        "front": "assets/mockups/Legend красная.webp",
+        "back": "assets/mockups/Legend красная.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "favorit-red",
+      "line": "Фаворит",
+      "colorId": "red",
+      "color": "Красный",
+      "colorHex": "#e2001a",
+      "images": {
+        "front": "assets/mockups/Фаворит красная.webp",
+        "back": "assets/mockups/Фаворит красная.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "volna-red",
+      "line": "Волна",
+      "colorId": "red",
+      "color": "Красный",
+      "colorHex": "#e2001a",
+      "images": {
+        "front": "assets/mockups/Волна красная.webp",
+        "back": "assets/mockups/Волна красная.webp",
         "shoulder": null
       }
     },
@@ -959,12 +971,12 @@
       "colorId": "black",
       "color": "Чёрный",
       "colorHex": "#1a1a1a",
-      "zoneSet": "singleFront",
       "images": {
-        "front": "assets/mockups/Space чёрный перед.jpg",
-        "back": "assets/mockups/Space чёрный.jpg",
+        "front": "assets/mockups/Space чёрный.webp",
+        "back": "assets/mockups/Space чёрный.webp",
         "shoulder": null
-      }
+      },
+      "zoneSet": "singleFront"
     },
     {
       "id": "star-black",
@@ -973,8 +985,58 @@
       "color": "Чёрный",
       "colorHex": "#1a1a1a",
       "images": {
-        "front": "assets/mockups/Star чёрный.jpg",
-        "back": "assets/mockups/Star чёрный.jpg",
+        "front": "assets/mockups/Star чёрный.webp",
+        "back": "assets/mockups/Star чёрный.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "new-teal",
+      "line": "New",
+      "colorId": "teal",
+      "color": "Бирюзовый",
+      "colorHex": "#12b5ad",
+      "images": {
+        "front": "assets/mockups/New бирюзовая.webp",
+        "back": "assets/mockups/New бирюзовая.webp",
+        "shoulder": null
+      },
+      "zoneSet": "singleFront"
+    },
+    {
+      "id": "winner-teal",
+      "line": "Winner",
+      "colorId": "teal",
+      "color": "Бирюзовый",
+      "colorHex": "#12b5ad",
+      "images": {
+        "front": "assets/mockups/Winner бирюзовый.webp",
+        "back": "assets/mockups/Winner бирюзовый.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "space-teal",
+      "line": "Space",
+      "colorId": "teal",
+      "color": "Бирюзовый",
+      "colorHex": "#12b5ad",
+      "images": {
+        "front": "assets/mockups/Space бирюзовый.webp",
+        "back": "assets/mockups/Space бирюзовый.webp",
+        "shoulder": null
+      },
+      "zoneSet": "singleFront"
+    },
+    {
+      "id": "star-teal",
+      "line": "Star",
+      "colorId": "teal",
+      "color": "Бирюзовый",
+      "colorHex": "#12b5ad",
+      "images": {
+        "front": "assets/mockups/Star бирюзовый.webp",
+        "back": "assets/mockups/Star бирюзовый.webp",
         "shoulder": null
       }
     },
@@ -985,70 +1047,8 @@
       "color": "Бирюзовый",
       "colorHex": "#12b5ad",
       "images": {
-        "front": "assets/mockups/Legend бирюзовая.jpg",
-        "back": "assets/mockups/Legend бирюзовая.jpg",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "new-teal",
-      "line": "New",
-      "colorId": "teal",
-      "color": "Бирюзовый",
-      "colorHex": "#12b5ad",
-      "zoneSet": "singleFront",
-      "images": {
-        "front": "assets/mockups/New бирюзовая перед.jpg",
-        "back": "assets/mockups/New бирюзовая.jpg",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "rich-teal",
-      "line": "Rich",
-      "colorId": "teal",
-      "color": "Бирюзовый",
-      "colorHex": "#12b5ad",
-      "images": {
-        "front": "assets/mockups/Rich бирюзовая.webp",
-        "back": "assets/mockups/Rich бирюзовая.webp",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "space-teal",
-      "line": "Space",
-      "colorId": "teal",
-      "color": "Бирюзовый",
-      "colorHex": "#12b5ad",
-      "zoneSet": "singleFront",
-      "images": {
-        "front": "assets/mockups/Space бирюзовый перед.jpg",
-        "back": "assets/mockups/Space бирюзовый.jpg",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "star-teal",
-      "line": "Star",
-      "colorId": "teal",
-      "color": "Бирюзовый",
-      "colorHex": "#12b5ad",
-      "images": {
-        "front": "assets/mockups/Star бирюзовый.jpg",
-        "back": "assets/mockups/Star бирюзовый.jpg",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "legend-green",
-      "line": "Legend",
-      "colorId": "green",
-      "color": "Зелёный",
-      "colorHex": "#1a9c5b",
-      "images": {
-        "front": "assets/mockups/Legend зелёная.jpg",
-        "back": "assets/mockups/Legend зелёная.jpg",
+        "front": "assets/mockups/Legend бирюзовая.webp",
+        "back": "assets/mockups/Legend бирюзовая.webp",
         "shoulder": null
       }
     },
@@ -1058,10 +1058,22 @@
       "colorId": "green",
       "color": "Зелёный",
       "colorHex": "#1a9c5b",
-      "zoneSet": "singleFront",
       "images": {
-        "front": "assets/mockups/Winner зелёный перед.jpg",
-        "back": "assets/mockups/Winner зелёный.jpg",
+        "front": "assets/mockups/Winner зелёный.webp",
+        "back": "assets/mockups/Winner зелёный.webp",
+        "shoulder": null
+      },
+      "zoneSet": "singleFront"
+    },
+    {
+      "id": "legend-green",
+      "line": "Legend",
+      "colorId": "green",
+      "color": "Зелёный",
+      "colorHex": "#1a9c5b",
+      "images": {
+        "front": "assets/mockups/Legend зелёная.webp",
+        "back": "assets/mockups/Legend зелёная.webp",
         "shoulder": null
       }
     },
@@ -1072,8 +1084,8 @@
       "color": "Оранжевый",
       "colorHex": "#f47b20",
       "images": {
-        "front": "assets/mockups/Champion оранжевый фон.png",
-        "back": "assets/mockups/Champion оранжевый фон.png",
+        "front": "assets/mockups/Champion оранжевый.webp",
+        "back": "assets/mockups/Champion оранжевый.webp",
         "shoulder": null
       }
     },
@@ -1083,12 +1095,12 @@
       "colorId": "orange",
       "color": "Оранжевый",
       "colorHex": "#f47b20",
-      "zoneSet": "singleFront",
       "images": {
-        "front": "assets/mockups/New оранжевая перед.jpg",
-        "back": "assets/mockups/New оранжевая.jpg",
+        "front": "assets/mockups/New оранжевая.webp",
+        "back": "assets/mockups/New оранжевая.webp",
         "shoulder": null
-      }
+      },
+      "zoneSet": "singleFront"
     },
     {
       "id": "winner-orange",
@@ -1096,12 +1108,12 @@
       "colorId": "orange",
       "color": "Оранжевый",
       "colorHex": "#f47b20",
-      "zoneSet": "singleFront",
       "images": {
-        "front": "assets/mockups/Winner оранжевый перед.jpg",
-        "back": "assets/mockups/Winner оранжевый.jpg",
+        "front": "assets/mockups/Winner оранжевый.webp",
+        "back": "assets/mockups/Winner оранжевый.webp",
         "shoulder": null
-      }
+      },
+      "zoneSet": "singleFront"
     },
     {
       "id": "champion-yellow",
@@ -1110,8 +1122,8 @@
       "color": "Жёлтый",
       "colorHex": "#ffd400",
       "images": {
-        "front": "assets/mockups/Champion жёлтый фон.png",
-        "back": "assets/mockups/Champion жёлтый фон.png",
+        "front": "assets/mockups/Champion жёлтый.webp",
+        "back": "assets/mockups/Champion жёлтый.webp",
         "shoulder": null
       }
     },
@@ -1121,12 +1133,12 @@
       "colorId": "yellow",
       "color": "Жёлтый",
       "colorHex": "#ffd400",
-      "zoneSet": "singleFront",
       "images": {
-        "front": "assets/mockups/Space жёлтый перед.jpg",
-        "back": "assets/mockups/Space жёлтый.jpg",
+        "front": "assets/mockups/Space жёлтый.webp",
+        "back": "assets/mockups/Space жёлтый.webp",
         "shoulder": null
-      }
+      },
+      "zoneSet": "singleFront"
     },
     {
       "id": "champion-purple",
@@ -1135,8 +1147,8 @@
       "color": "Фиолетовый",
       "colorHex": "#7b2ff7",
       "images": {
-        "front": "assets/mockups/Champion фиолетовый фон.png",
-        "back": "assets/mockups/Champion фиолетовый фон.png",
+        "front": "assets/mockups/Champion фиолетовый.webp",
+        "back": "assets/mockups/Champion фиолетовый.webp",
         "shoulder": null
       }
     },
@@ -1146,12 +1158,12 @@
       "colorId": "purple",
       "color": "Фиолетовый",
       "colorHex": "#7b2ff7",
-      "zoneSet": "singleFront",
       "images": {
-        "front": "assets/mockups/New фиолетовая перед.jpg",
-        "back": "assets/mockups/New фиолетовая.jpg",
+        "front": "assets/mockups/New фиолетовая.webp",
+        "back": "assets/mockups/New фиолетовая.webp",
         "shoulder": null
-      }
+      },
+      "zoneSet": "singleFront"
     },
     {
       "id": "new-pink",
@@ -1159,22 +1171,34 @@
       "colorId": "pink",
       "color": "Розовый",
       "colorHex": "#ff6fae",
-      "zoneSet": "singleFront",
       "images": {
-        "front": "assets/mockups/New розовая перед.jpg",
-        "back": "assets/mockups/New розовая.jpg",
+        "front": "assets/mockups/New розовая.webp",
+        "back": "assets/mockups/New розовая.webp",
         "shoulder": null
-      }
+      },
+      "zoneSet": "singleFront"
     },
     {
-      "id": "rich-pink",
-      "line": "Rich",
+      "id": "winner-pink",
+      "line": "Winner",
       "colorId": "pink",
       "color": "Розовый",
       "colorHex": "#ff6fae",
       "images": {
-        "front": "assets/mockups/Rich розовая.webp",
-        "back": "assets/mockups/Rich розовая.webp",
+        "front": "assets/mockups/Winner розовый.webp",
+        "back": "assets/mockups/Winner розовый.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "volna-pink",
+      "line": "Волна",
+      "colorId": "pink",
+      "color": "Розовый",
+      "colorHex": "#ff6fae",
+      "images": {
+        "front": "assets/mockups/Волна розовая.webp",
+        "back": "assets/mockups/Волна розовая.webp",
         "shoulder": null
       }
     },
@@ -1185,20 +1209,20 @@
       "color": "Салатовый",
       "colorHex": "#8bc34a",
       "images": {
-        "front": "assets/mockups/Space салатовый.jpg",
-        "back": "assets/mockups/Space салатовый.jpg",
+        "front": "assets/mockups/Space салатовый.webp",
+        "back": "assets/mockups/Space салатовый.webp",
         "shoulder": null
       }
     },
     {
-      "id": "venom-lightgreen",
-      "line": "Venom",
+      "id": "favorit-lightgreen",
+      "line": "Фаворит",
       "colorId": "lightgreen",
       "color": "Салатовый",
       "colorHex": "#8bc34a",
       "images": {
-        "front": "assets/mockups/Venom салатовая.png",
-        "back": "assets/mockups/Venom салатовая.png",
+        "front": "assets/mockups/Фаворит салатовая.webp",
+        "back": "assets/mockups/Фаворит салатовая.webp",
         "shoulder": null
       }
     },
@@ -1209,20 +1233,8 @@
       "color": "Бордовый",
       "colorHex": "#7a1f3d",
       "images": {
-        "front": "assets/mockups/Champion бордовый фон.png",
-        "back": "assets/mockups/Champion бордовый фон.png",
-        "shoulder": null
-      }
-    },
-    {
-      "id": "legend-coral",
-      "line": "Legend",
-      "colorId": "coral",
-      "color": "Коралловый",
-      "colorHex": "#ff6f61",
-      "images": {
-        "front": "assets/mockups/Legend коралл.jpg",
-        "back": "assets/mockups/Legend коралл.jpg",
+        "front": "assets/mockups/Champion бордовый.webp",
+        "back": "assets/mockups/Champion бордовый.webp",
         "shoulder": null
       }
     },
@@ -1233,20 +1245,32 @@
       "color": "Лаймовый",
       "colorHex": "#a4c639",
       "images": {
-        "front": "assets/mockups/Legend лайм.jpg",
-        "back": "assets/mockups/Legend лайм.jpg",
+        "front": "assets/mockups/Legend лайм.webp",
+        "back": "assets/mockups/Legend лайм.webp",
         "shoulder": null
       }
     },
     {
-      "id": "venom-lilac",
-      "line": "Venom",
+      "id": "favorit-lilac",
+      "line": "Фаворит",
       "colorId": "lilac",
       "color": "Сиреневый",
       "colorHex": "#b57edc",
       "images": {
-        "front": "assets/mockups/Venom сиреневая.jpg",
-        "back": "assets/mockups/Venom сиреневая.jpg",
+        "front": "assets/mockups/Фаворит сиреневая.webp",
+        "back": "assets/mockups/Фаворит сиреневая.webp",
+        "shoulder": null
+      }
+    },
+    {
+      "id": "volna-lightblue",
+      "line": "Волна",
+      "colorId": "lightblue",
+      "color": "Голубой",
+      "colorHex": "#4fb3f7",
+      "images": {
+        "front": "assets/mockups/Волна голубая.webp",
+        "back": "assets/mockups/Волна голубая.webp",
         "shoulder": null
       }
     }

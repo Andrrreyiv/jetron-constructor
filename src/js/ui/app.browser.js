@@ -2,13 +2,14 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260731c';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260731c';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes } from '../core/CatalogPrices.js?v=20260731c';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260731c';
-import { buildOrder } from '../core/OrderSummary.js?v=20260731c';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260731c';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260731c';
+import { CanvasView } from './canvas.browser.js?v=20260827a';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260827a';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260827a';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260827a';
+import { buildOrder } from '../core/OrderSummary.js?v=20260827a';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260827a';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260827a';
+import { productLink } from '../core/ProductLink.js?v=20260828a';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -999,8 +1000,20 @@ export class UniformApp {
   }
 
   // Таблица размеров (ТЗ 6): показываем сетки из конфига для всех категорий.
-  /** Сетка размеров под возраст, отфильтрованная по карточке выбранной формы. */
+  /** Сетка размеров под возраст: сперва таблица модели из ACF (клиент 31.07 показал видео —
+   * она уже заведена у него в админке WooCommerce, по каждой модели своя), иначе — сетка
+   * из конфига конструктора, отфильтрованная по размерам карточки (старый путь, запасной).
+   */
   gridForAge(ageCategory) {
+    const modelGrid = this.catalogPrices
+      ? resolveFormSizeGrid(this.catalogPrices, {
+        line: this.form && this.form.line,
+        color: this.form && this.form.color,
+        ageCategory,
+      })
+      : null;
+    if (modelGrid) return modelGrid;
+
     const grid = this.config.sizes?.[ageCategory];
     if (!grid) return null;
     const sizes = this.catalogPrices
@@ -1250,48 +1263,68 @@ export class UniformApp {
     view.brandObjects.set('shorts_logo_dup', obj);
   }
 
-  // URL каталога с фильтром по линейке формы (клиент 2026-07-22: клик по плашке линейки
-  // ведёт в каталог, отфильтрованный по этой линейке). Слаги в config.catalog.lineSlugs;
-  // если линейки там нет — берём название в нижнем регистре.
-  _lineCatalogUrl() {
-    const c = this.config.catalog || {};
-    const line = (this.form && this.form.line) || '';
-    const slug = (c.lineSlugs && c.lineSlugs[line]) || line.toLowerCase();
-    return (c.base || '/shop/') + slug + (c.suffix || '');
+  // Куда ведёт кнопка на плашке. Клиент 2026-08-28: она должна открывать карточку ИМЕННО той
+  // расцветки, что на экране, а не раздел каталога по линейке. Адрес берём из того же каталога,
+  // что уже отдал цену и сетку размеров — просить у клиента 45 ссылок не нужно. Каталога нет
+  // (демо-стенд, WooCommerce выключен) или позиция не сопоставилась — остаёмся на прежней
+  // ссылке в раздел линейки с прежней подписью. Вся развилка в ProductLink.js.
+  _productLink() {
+    const form = this.form;
+    if (!form) return null;
+    const url = form.productUrl || (this.catalogPrices
+      ? resolveFormProductUrl(this.catalogPrices, {
+        line: form.line,
+        color: form.color,
+        ageCategory: this.ageCategory,
+      })
+      : '');
+    return productLink({ ...form, productUrl: url }, this.config.catalog || {});
   }
 
-  // Плашка линейки слева вверху над макетом (клиент 2026-07-22): показывает название линейки
-  // текущей формы (Champion, Legend, …) — информативно, и по клику ведёт в каталог с фильтром
-  // по этой линейке. Позиционируем абсолютно в левом верхнем углу #stage.
+  // Строка над макетом: слева ярлык линейки, справа кнопка перехода.
+  //
+  // Клиент 2026-07-22 просил показывать линейку текущей формы, 24.07 — держать ярлык в
+  // левом-верхнем углу поверх картинки. 2026-08-28 добавил: «справа наверху кнопку перейти
+  // в карточку», которая ведёт в карточку показанной расцветки. Раньше это было ОДНО целое —
+  // кнопка, подписанная названием линейки, и она читалась как ярлык, а не как действие
+  // (замечание клиента 27.08). Теперь ярлык и действие разведены: название осталось слева
+  // и кликабельным быть перестало, кнопка встала справа. Вложить <button> в <button> нельзя,
+  // поэтому обёртка стала <div>.
   _renderLineBadge() {
     if (typeof document === 'undefined') return;
-    // Плашка — часть потока внутри #views (flex-basis:100% в CSS делает её отдельной строкой
-    // над холстами, align-self:flex-start прижимает влево). Раньше JS форсил position:absolute
-    // и вешал на #stage — плашка «улетала» над полем (клиент 2026-07-22). Теперь кладём первым
-    // ребёнком #views и не трогаем позиционирование — раскладку держит CSS.
+    // Обёртка лежит первым ребёнком #views и абсолютно позиционируется CSS (JS раскладку
+    // не трогает — на этом плашка один раз «улетала» над полем, клиент 2026-07-22).
     const host = this.viewsEl;
     const line = this.form && this.form.line;
     if (!host) return;
     let badge = host.querySelector('.line-badge');
-    if (!line) { if (badge) badge.remove(); return; }
+    const link = this._productLink();
+    if (!line || !link) { if (badge) badge.remove(); return; }
+    // Прежняя версия плашки была <button>; при обновлении с неё элемент надо заменить, иначе
+    // на странице останется кнопка-обёртка со старым onclick на всю строку.
+    if (badge && badge.tagName !== 'DIV') { badge.remove(); badge = null; }
     if (!badge) {
-      badge = document.createElement('button');
-      badge.type = 'button';
+      badge = document.createElement('div');
       badge.className = 'line-badge';
-      badge.style.cursor = 'pointer';
-      badge.onclick = () => this._goToLineCatalog();
     }
-    // Всегда держим плашку первой в потоке (renderAll мог перерисовать холсты после неё).
     if (host.firstChild !== badge) host.insertBefore(badge, host.firstChild);
-    // Клиент 2026-07-23: компактная кнопка по размеру текста (чёрный шрифт, в рамке), не широкая
-    // полоса. Внешний .line-badge — прозрачная строка (держит перенос над холстами), pill — сама кнопка.
-    badge.innerHTML = `<span class="line-badge-pill">${escapeHtml(line)} →</span>`;
+
+    const title = link.isCard
+      ? `Открыть карточку: ${line}, ${this.form.color || ''}`.replace(/,\s*$/, '')
+      : `Открыть каталог линейки ${line}`;
+    badge.classList.toggle('line-badge--card', link.isCard);
+    badge.innerHTML = `<span class="line-badge-pill line-badge-name">${escapeHtml(line)}</span>`
+      + `<button type="button" class="line-badge-pill line-badge-cta" title="${escapeHtml(title)}"`
+      + ` aria-label="${escapeHtml(title)}">${escapeHtml(link.label)}</button>`;
+    badge.querySelector('.line-badge-cta').onclick = () => this._goToLineCatalog();
   }
 
   // Переход в каталог по линейке. Как и выход из конструктора: правим верхнее окно, если
   // встроены в страницу товара same-origin; иначе — текущее окно.
   _goToLineCatalog() {
-    const target = this._lineCatalogUrl();
+    const link = this._productLink();
+    if (!link) return;
+    const target = link.href;
     try {
       if (window.top && window.top !== window.self) {
         window.top.location.href = target;
@@ -1654,6 +1687,10 @@ export class UniformApp {
   currentFormPrice() { return this.formPriceFor(this.ageCategory); }
 
   updatePrice() {
+    // Цена и адрес карточки берутся по ОДНОМУ ключу «линейка + цвет + возраст», значит меняются
+    // вместе. Переключатель «Взрослый/Детский» звал только updatePrice — кнопка осталась бы
+    // на карточке прежнего возраста, и человек увидел бы на макете одну цену, а в карточке другую.
+    this._renderLineBadge();
     const r = calculatePrice({
       formPrice: this.currentFormPrice(),
       prices: this.config.prices,
