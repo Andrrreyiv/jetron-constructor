@@ -4,6 +4,7 @@
 import * as fabric from 'fabric';
 import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_RATIO } from '../core/ZoneManager.js?v=20260831a';
 import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260831a';
+import { capWidthByHeight } from '../core/CanvasFit.js?v=20260831a';
 
 export class CanvasView {
   constructor(canvasEl, canvasCfg) {
@@ -18,6 +19,8 @@ export class CanvasView {
       // allowTouchScrolling пропускает вертикальный свайп странице (скролл работает поверх картинки).
       allowTouchScrolling: true
     });
+    // Бюджет высоты под холст. 0 / undefined = не ограничивать (редактор зон, тесты).
+    this.maxHeight = canvasCfg.maxHeight || 0;
     this.zoneOverlays = new Map(); // key -> fabric.Rect (пунктирная рамка зоны)
     this.userObjects = new Map();  // key -> объект, помещённый покупателем
     this.staticObjects = [];       // служебные надписи бренда (Jetron.ru) — не редактируются покупателем
@@ -46,6 +49,14 @@ export class CanvasView {
     // scaleToWidth в этом билде Fabric v6 берёт натуральную ширину элемента, игнорируя обрезанную
     // width, поэтому кадрированный фон масштабировался неверно (влезала вся картинка). Считаем
     // масштаб явно от текущей (уже кадрированной) width — видимая область точно вписывается в холст.
+    // Клиент 31.08: «на ноутбуке конструктор помещается без вертикальной прокрутки». Вписывания
+    // по одной ширине для этого мало — высота едет следом за пропорцией мокапа, и на 1366×768
+    // холст выходил 600×661, а страница переливалась на 250 px (замер 31.08). Пропорция известна
+    // только здесь, после загрузки картинки, поэтому и сужаем здесь, до расчёта масштаба.
+    if (this.maxHeight > 0) {
+      const capped = capWidthByHeight(this.canvas.getWidth(), img.height / img.width, this.maxHeight);
+      if (capped < this.canvas.getWidth()) this.canvas.setDimensions({ width: capped });
+    }
     const scale = this.canvas.getWidth() / img.width;
     img.set({ scaleX: scale, scaleY: scale });
     // Клиент 2026-07-22: у мокапов разная пропорция (Champion 3:4, Venom ~11:10 и др.), а высота холста

@@ -259,6 +259,25 @@ export class UniformApp {
     return Math.max(w, 260);
   }
 
+  // Сколько высоты остаётся холсту. Критерий приёмки клиента 31.08 — «на ноутбуке 1366×768
+  // конструктор помещается без вертикальной прокрутки», а до правки холст вписывался только
+  // по ширине и переливал страницу на 250 px.
+  //
+  // ⚠️ На мобильной раскладке (брейкпоинт 900) высоту НЕ режем и возвращаем 0: там палитра
+  // и эскизы стоят отдельными строками ПОД формой, вертикальная прокрутка законна, а клиент
+  // 2026-07-16 просил ровно обратного — «форма во весь экран без полей».
+  _availHeight() {
+    if (typeof window === 'undefined') return 0;
+    if (window.innerWidth <= 900) return 0;
+    const top = this.viewsEl ? this.viewsEl.getBoundingClientRect().top : 70;
+    const models = document.querySelector('#modelpick');
+    const modelsH = models ? models.getBoundingClientRect().height : 150;
+    // Замер 31.08 на 1366×768: обвязка #views над холстом и под ним (плашка линейки, рамка
+    // .canvas-wrap) 74 px + зазор сетки до ряда эскизов 14 px + низ сцены под ним 56 px.
+    const RESERVE = 144;
+    return Math.max(0, Math.round(window.innerHeight - top - modelsH - RESERVE));
+  }
+
   // Размер холста подстраивается под экран: на десктопе — как раньше (все виды в один ряд),
   // на планшете — 2 в ряд, на телефоне — один большой холст на всю ширину (а не крошечные 210px).
   _displayWidth(n) {
@@ -417,7 +436,7 @@ export class UniformApp {
       col.appendChild(wrap);
       this.viewsEl.appendChild(col);
 
-      const view = new CanvasView(canvasEl, { ...base, displayWidth });
+      const view = new CanvasView(canvasEl, { ...base, displayWidth, maxHeight: this._availHeight() });
       view.onChange = () => this.updatePrice();
       view.onZoneClick((key) => this.selectZone(key));
       this.views.set(v.id, view);
