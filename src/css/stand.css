@@ -143,10 +143,18 @@ body {
 }
 
 /* ── Тёмная сцена-витрина ────────────────────────────────── */
+/* Клиент 31.08 (11:20): «палитру цветов влево», настройки остаются справа, эскизы моделей —
+   прямо под картинкой. Сквозной критерий у него же: на ноутбуке 1366×768 конструктор должен
+   помещаться без вертикальной прокрутки. Поэтому flex-колонка заменена на grid: палитра
+   встаёт СБОКУ от макета и перестаёт съедать высоту. Мобильная раскладка — ниже,
+   в существующем брейкпоинте 900px (нового не заводим). */
 #stage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-areas: "pal views" "models models";
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  justify-items: center;
+  column-gap: 18px;
   background: var(--stage-bg);
   border: 1px solid var(--stage-border);
   border-radius: var(--r-xl);
@@ -178,19 +186,28 @@ body {
      только сами pill'ы.
      Клиент 2026-08-28: кнопка перехода — «справа наверху». Поэтому строка растянута на всю
      ширину (right:0), ярлык линейки остаётся слева, кнопка уходит к правому краю. */
+     Клиент 2026-08-31: между ними встала третья пилюля «Скачать макет». Раскладка переведена
+     со space-between на grid `1fr auto 1fr` — только так середина стоит по центру КАРТИНКИ,
+     а не посередине остатка между боковыми пилюлями разной ширины. */
   position: absolute; top: 0; left: 0; right: 0; z-index: 3;
-  display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  justify-items: center; align-items: start; gap: 8px;
   margin: 0; padding: 0;
   background: none; border: none;
   pointer-events: none;
 }
+/* Боковые пилюли прижаты к своим краям, средняя стоит по центру колонки. */
+.line-badge-name { justify-self: start; }
+.line-badge-cta { justify-self: end; }
+/* Клиент 2026-08-31 (11:11): «все эти кнопочки уменьшить, они немножко крупные, буквально
+   процентов на 20». Отсюда padding 6/14 → 5/11 и кегль 13 → 10.5 px. */
 .line-badge-pill {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 14px;
+  padding: 5px 11px;
   background: var(--stage-card); color: #111;
   border: 1px solid var(--stage-border);
   border-radius: 10px;
-  font-weight: 700; font-size: 13px; letter-spacing: .06em; text-transform: uppercase;
+  font-weight: 700; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
   transition: border-color .2s var(--ease), transform .2s var(--ease), box-shadow .2s var(--ease);
 }
@@ -199,6 +216,13 @@ body {
 .line-badge-name { pointer-events: none; }
 /* Кнопка перехода: синяя, как ссылка — цвет отделяет глагол от подписи и делает нажимаемость
    видимой без наведения. */
+.line-badge-dl {
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.line-badge-dl:hover { border-color: var(--navy); transform: translateY(-1px); }
 .line-badge-cta {
   pointer-events: auto;
   color: var(--navy);
@@ -468,27 +492,21 @@ body {
 }
 
 /* ── Блок выбора цвета/модели ПОД макетом (тёмная сцена) ─── */
-.colorpick {
-  width: 100%;
-  max-width: 640px;
-  margin: 26px auto 0;
-  position: relative; z-index: 1;
-  padding-top: 22px;
-  border-top: 1px solid var(--line);
+/* На ПК палитра — левая колонка сцены, поэтому ни ширины на весь ряд, ни разделительной
+   черты сверху, ни верхнего отступа ей больше не нужно (всё это было от жизни под макетом).
+   На мобильной старое поведение возвращается в брейкпоинте 900px. */
+.colorpick { grid-area: pal; position: relative; z-index: 1; }
+.modelpick { grid-area: models; width: 100%; max-width: 640px; margin-top: 14px; }
+.views { grid-area: views; }
+/* Две колонки свотчей по 34px: 8 рядов помещаются по высоте рядом с макетом, прокрутки нет.
+   Одна колонка была бы вдвое длиннее макета, три — шире, чем оставляет место картинке. */
+.colorpick .color-palette {
+  display: grid; grid-template-columns: repeat(2, 34px);
+  gap: 9px; margin-bottom: 0; padding: 5px;
 }
-/* Клиент 2026-07-27: «Скачать макет» — сразу под самим макетом, отдельной строкой по центру;
-   «Выберите цвет формы» уезжает ниже. Раньше кнопка стояла в одной строке с заголовком. */
-.cp-download { display: flex; justify-content: center; margin-bottom: 16px; }
-.cp-head {
-  display: flex; align-items: center; justify-content: center;
-  gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
-}
-.cp-title {
-  font-family: var(--font-display);
-  font-size: 13px; font-weight: 600; letter-spacing: .10em;
-  text-transform: uppercase; color: var(--stage-label);
-}
-.cp-title b { color: var(--ink); font-weight: 700; }
+/* ⚫ Правила `.cp-download`, `.cp-head`, `.cp-title`, `.cp-models-label` удалены 31.08 вместе
+   с самими надписями и кнопкой: клиент попросил убрать надписи над блоками, а «Скачать макет»
+   перенести на плашку внутрь картинки. Разметки под них больше нет ни одной. */
 .stage-btn {
   padding: 8px 16px; border-radius: 999px;
   background: #fff;
@@ -499,13 +517,6 @@ body {
   transition: background .15s var(--ease), border-color .15s var(--ease), transform .15s var(--ease);
 }
 .stage-btn:hover { border-color: var(--navy); transform: translateY(-1px); }
-.colorpick .color-palette { margin-bottom: 18px; }
-.cp-models-label {
-  font-family: var(--font-display);
-  font-size: 12px; font-weight: 600; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--stage-text); margin-bottom: 10px;
-}
-.cp-models-label b { color: var(--stage-label); font-weight: 700; }
 
 /* ── Заголовок панели-конструктора ───────────────────────── */
 .panel-title { padding: 4px 4px 6px; }
@@ -983,13 +994,38 @@ input[type="radio"], input[type="checkbox"] {
     padding-left: max(24px, env(safe-area-inset-left));
     padding-right: max(24px, env(safe-area-inset-right));
   }
-  #stage { padding: 28px 16px 22px; border-radius: var(--r-lg); }
+  /* Клиент 31.08: влево палитра уезжает только на ПК, «на мобильной как сейчас» — то есть
+     обратно в колонку под макет. Порядок его же: макет → цвета → эскизы моделей. */
+  #stage {
+    padding: 28px 16px 22px; border-radius: var(--r-lg);
+    grid-template-areas: "views" "pal" "models";
+    grid-template-columns: 1fr;
+  }
+  /* Цвета в ОДНУ строку с прокруткой, по образцу карусели форм снизу — клиент 31.08 (11:07):
+     «цветов очень много, получается две строки… чтобы были в одну строчку и просто
+     пролистывать влево-вправо». Боковой padding 5px обязателен: кольцо активного свотча
+     (box-shadow 4.5px) иначе срезается краем overflow-контейнера — на этом уже спотыкались
+     27.07. Две колонки — раскладка ПК, здесь она снимается. */
+  .colorpick { width: 100%; max-width: 640px; margin-top: 16px; }
+  .colorpick .color-palette {
+    display: flex; flex-wrap: nowrap; overflow-x: auto;
+    justify-content: flex-start;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+  }
+  .colorpick .pcolor { flex: 0 0 auto; }
+  .modelpick { margin-top: 12px; }
   /* Крестик выхода — position:fixed в правом верхнем углу ОКНА (44px + отступ 10px). На узком
      экране плашка растягивается почти до края, и кнопка перехода уходит ровно под крестик:
      замер 28.08 на 375px и 640px дал перекрытие 42×19 и 13 px. Держим для крестика полосу
      справа. На широком экране плашка до края не достаёт (замер на 900px: запас 76px),
-     поэтому правило живёт только здесь. */
-  .line-badge { padding-right: 54px; }
+     поэтому правило живёт только здесь.
+     ⚠️ Зазор снят с РЯДА и отдан правой колонке: клиент 31.08 просил «приклеить кнопку
+     к правому краю», а padding у ряда отодвигал от края все три пилюли сразу. */
+  .line-badge { padding-right: 0; }
+  .line-badge-cta { margin-right: 54px; }
   #price-box { position: static; }
   .topbar { position: static; padding-top: max(15px, env(safe-area-inset-top)); }
   /* Ряд кнопок в панели тянется на всю ширину — удобнее пальцем */

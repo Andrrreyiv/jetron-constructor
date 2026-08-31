@@ -431,7 +431,6 @@ export class UniformApp {
     this.panelEl.innerHTML = `
       <div class="panel-title">
         <h2>Соберите форму</h2>
-        <p>Включайте нужные нанесения. Всё, что добавите, сразу видно на макете слева.</p>
       </div>
 
       <div id="opt-list" class="opt-list"></div>
@@ -515,24 +514,30 @@ export class UniformApp {
     this.renderOptionCards();
   }
 
-  // Блок выбора цвета и модели ПОД макетом на тёмной сцене (дизайн 2026-07-12).
+  // Блок выбора цвета и модели на тёмной сцене (дизайн 2026-07-12).
+  //
+  // Пишет в ДВА хоста, а не в один: клиент 31.08 (11:20) уводит палитру влево от макета,
+  // а карусель эскизов оставляет прямо под макетом. Пока оба блока лежали в одном #colorpick
+  // и рисовались одним innerHTML, развести их по раскладке было нечем.
+  //
+  // Надписей над блоками больше нет — все три убраны по его же просьбе («убрать все ненужные
+  // надписи над этими блоками», критерий: конструктор помещается в один экран ноутбука
+  // 1366×768). Имя цвета при этом не потеряно: оно живёт в `title`/`aria-label` каждого свотча.
+  // Кнопка «Скачать макет» уехала на плашку внутрь картинки (`_renderLineBadge`).
   buildColorPicker() {
-    const host = document.getElementById('colorpick');
-    if (!host) return;
+    const palHost = document.getElementById('colorpick');
+    const modHost = document.getElementById('modelpick');
+    if (!palHost || !modHost) return;
     const colors = this.config.colors || [];
     const models = this.formsForColor(this.colorId);
-    const activeColor = colors.find((c) => c.id === this.colorId);
-    host.innerHTML = `
-      <div class="cp-download"><button id="download-btn" class="stage-btn" type="button">Скачать макет</button></div>
-      <div class="cp-head">
-        <div class="cp-title">Выберите цвет формы${activeColor ? ` <b>${escapeHtml(activeColor.name)}</b>` : ''}</div>
-      </div>
+    palHost.innerHTML = `
       <div class="color-palette">
         ${colors.map((c) => `<button class="pcolor ${c.id === this.colorId ? 'active' : ''}"
            data-color="${c.id}" title="${escapeHtml(c.name)}" aria-label="${escapeHtml(c.name)}"
            style="background:${c.hex}"></button>`).join('')}
       </div>
-      <div class="cp-models-label">Модель <b>${models.length} ${this.plural(models.length, 'вариант', 'варианта', 'вариантов')}</b></div>
+    `;
+    modHost.innerHTML = `
       <div class="model-carousel">
         ${models.map((f) => `<button class="model-card ${f.id === this.formId ? 'active' : ''}"
            data-form="${f.id}" title="${escapeHtml(f.line)} ${escapeHtml(f.color)}">
@@ -541,27 +546,34 @@ export class UniformApp {
       </div>
     `;
 
-    host.querySelectorAll('.pcolor').forEach((b) => {
+    palHost.querySelectorAll('.pcolor').forEach((b) => {
       b.onclick = async () => {
         if (b.dataset.color === this.colorId) return;
         this.colorId = b.dataset.color;
         const first = this.formsForColor(this.colorId)[0];
         if (first) this.formId = first.id;
+        // Здесь перерисовка нужна: состав карусели у другого цвета другой.
         this.buildColorPicker();
         this.buildViews();
         await this.renderAll();
       };
     });
-    host.querySelectorAll('.model-card').forEach((b) => {
+    modHost.querySelectorAll('.model-card').forEach((b) => {
       b.onclick = async () => {
         if (b.dataset.form === this.formId) return;
         this.formId = b.dataset.form;
-        this.buildColorPicker();
+        // ⚠️ `buildColorPicker()` здесь звать НЕЛЬЗЯ, и это не оптимизация, а починка.
+        // Клиент 31.08 (10:53): «нажимаете на самую правую — бегунок обратно в левое
+        // перекидывается… чтобы форма осталась на месте и просто выделялась рамкой именно
+        // та, которую нажали». Перерисовка innerHTML сбрасывает `scrollLeft` карусели.
+        // Смена модели внутри одного цвета не меняет ни палитру, ни состав карусели —
+        // значит достаточно переставить `.active` и перестроить холсты.
+        modHost.querySelectorAll('.model-card.active').forEach((a) => a.classList.remove('active'));
+        b.classList.add('active');
         this.buildViews();
         await this.renderAll();
       };
     });
-    host.querySelector('#download-btn').onclick = () => this.downloadImage();
   }
 
   // ── Модель опций (аккордеон + кэш + тумблер) ─────────────────────────────
@@ -1328,10 +1340,21 @@ export class UniformApp {
       ? `Открыть карточку: ${line}, ${this.form.color || ''}`.replace(/,\s*$/, '')
       : `Открыть каталог линейки ${line}`;
     badge.classList.toggle('line-badge--card', link.isCard);
+    // Три пилюли: ярлык линейки слева, «Скачать макет» по центру, переход в карточку справа.
+    // Клиент 31.08 (11:11): «кнопку „Скачать макет“ перекинем в саму фотографию, между
+    // кнопками названия линейки и „в карточку“, по середине сверху». Центрирование держит
+    // grid `1fr auto 1fr` в CSS, а не space-between: иначе середина съезжала бы вслед за
+    // разной шириной боковых пилюль.
     badge.innerHTML = `<span class="line-badge-pill line-badge-name">${escapeHtml(line)}</span>`
+      + `<button type="button" id="download-btn" class="line-badge-pill line-badge-dl"`
+      + ` title="Скачать макет" aria-label="Скачать макет">Скачать макет</button>`
       + `<button type="button" class="line-badge-pill line-badge-cta" title="${escapeHtml(title)}"`
       + ` aria-label="${escapeHtml(title)}">${escapeHtml(link.label)}</button>`;
+    // ⚠️ Обработчики вешаются при КАЖДОЙ перерисовке намеренно: `_renderLineBadge()` живёт
+    // внутри `updatePrice()` (ссылка на карточку зависит от возраста), и innerHTML выше
+    // каждый раз выбрасывает прежние узлы вместе с их onclick.
     badge.querySelector('.line-badge-cta').onclick = () => this._goToLineCatalog();
+    badge.querySelector('.line-badge-dl').onclick = () => this.downloadImage();
   }
 
   // Переход в каталог по линейке. Как и выход из конструктора: правим верхнее окно, если
