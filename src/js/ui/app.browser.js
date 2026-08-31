@@ -10,7 +10,7 @@ import { buildOrder } from '../core/OrderSummary.js?v=20260831a';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260831a';
 import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260831a';
 import { productLink } from '../core/ProductLink.js?v=20260831a';
-import { linkedNumberColor } from '../core/TextColor.js?v=20260831a';
+import { linkedNumberColor, linkedNumberFont } from '../core/TextColor.js?v=20260831a';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -640,11 +640,13 @@ export class UniformApp {
     } else if (opt.kind === 'upload') {
       if (c.image) draw(opt.zone, { type: 'image', value: c.image });
     } else if (opt.kind === 'number') {
-      // Цвет ведомый: клиент 30.08 просил привязать номер на груди к надписям на спине.
-      // Своего образца цвета у этой карточки нет, поэтому раньше номер всегда выходил
-      // цветом по умолчанию — на его скриншоте чёрным при белой спине.
+      // Цвет и шрифт ведомые: 30.08 клиент просил привязать номер на груди к надписям на
+      // спине по цвету, 31.08 — по шрифту. Своей карточки выбора у номера на груди нет,
+      // поэтому раньше он выходил значениями по умолчанию: на скриншоте чёрным при белой
+      // спине и чужим шрифтом.
       const color = linkedNumberColor(this.config.placementOptions, this.optCache, this.textColor);
-      if (c.number) draw(opt.zone, { type: 'text', value: c.number, fontId: this.defaultFontId(), color });
+      const fontId = linkedNumberFont(this.config.placementOptions, this.optCache, this.defaultFontId());
+      if (c.number) draw(opt.zone, { type: 'text', value: c.number, fontId, color });
     } else { // text_or_upload
       if (c.image) draw(opt.zone, { type: 'image', value: c.image });
       else if (c.text) draw(opt.zone, { type: 'text', value: c.text, fontId: c.fontId || this.defaultFontId(), color: c.color || this.textColor });

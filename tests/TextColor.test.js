@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { linkedNumberColor } from '../src/js/core/TextColor.js';
+import { linkedNumberColor, linkedNumberFont } from '../src/js/core/TextColor.js';
 
 // Опции размещения из `mock-config.json`: спина — `name_number`, грудь — `chest_number`.
 const опции = [
@@ -19,4 +19,12 @@ const опции = [
 test('номер на груди берёт цвет у надписей на спине, а не цвет по умолчанию', () => {
   const кэш = { name_number: { name: 'ИВАН', number: '10', color: '#ffffff' } };
   assert.equal(linkedNumberColor(опции, кэш, '#111111'), '#ffffff');
+});
+
+// Клиент 31.08 письменно: «Шрифт номера на груди, привязать к шрифту на спине».
+// Тот же дефект, что был с цветом: своего выбора шрифта у номера на груди нет,
+// он рисовался шрифтом по умолчанию мимо выбора клиента на спине.
+test('номер на груди берёт шрифт у надписей на спине, а не шрифт по умолчанию', () => {
+  const кэш = { name_number: { name: 'ИВАН', number: '10', fontId: 'college' } };
+  assert.equal(linkedNumberFont(опции, кэш, 'default'), 'college');
 });
