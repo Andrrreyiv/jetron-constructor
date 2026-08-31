@@ -435,9 +435,12 @@ body {
 #price-box .pline.discount { color: var(--success); font-weight: 700; }
 #price-lines { margin-bottom: 6px; }
 
+/* Клиент 31.08 обвёл красным короткую чёрточку над ценой: «Убрать эту полоску».
+   Это был border-top на #price-total — а он <span>, то есть inline, и рамка рисовалась
+   только над шириной самой цены, справа. Вместе с рамкой сняты margin-top и padding-top:
+   они стояли ради отбивки от неё. */
 #price-total {
-  margin-top: 12px; padding-top: 14px;
-  border-top: 1px solid var(--line);
+  margin-top: 12px;
   font-family: var(--font-display);
   font-size: 32px; font-weight: 700; letter-spacing: .01em;
   text-align: right; color: var(--ink);
@@ -550,8 +553,11 @@ body {
   white-space: nowrap;
 }
 .opt-card.active .opt-price { color: var(--ink); }
+/* Клиент 31.08 обвёл стрелки раскрытия: «Эти кнопки сделать крупнее».
+   16 px вместо 12 px; тот же размер у стрелок «Комплектации» и раскрытия цены,
+   иначе три одинаковых по смыслу стрелки разъедутся. */
 .opt-chev {
-  color: var(--line-strong); font-size: 12px;
+  color: var(--line-strong); font-size: 16px;
   transition: transform .22s var(--ease);
 }
 .opt-card.open .opt-chev { transform: rotate(180deg); color: var(--navy); }
@@ -711,8 +717,13 @@ body {
      перебивая общий Calibri раздела .opt-extra (тело блока остаётся на Calibri по правке 07-17). */
   font-family: var(--font-body); font-size: 15.5px; font-weight: 800; letter-spacing: -.01em;
 }
+/* Клиент 31.08: «слово Комплектация написано другим шрифтом». Так и было: сама надпись
+   лежит во вложенном <span>, в который `.opt-extra *` попадает НАПРЯМУЮ, а `.extra-toggle`
+   доставал его только наследованием — прямое совпадение бьёт наследование, и заголовок
+   уезжал на Calibri. Дотягиваемся до потомков явно; тело блока остаётся на Calibri. */
+.extra-toggle * { font-family: var(--font-body); }
 .extra-toggle:hover { color: var(--brand-strong) !important; transform: none !important; filter: none !important; }
-.extra-toggle .chev { color: var(--line-strong); font-size: 12px; transition: transform .2s var(--ease); }
+.extra-toggle .chev { color: var(--line-strong); font-size: 16px; transition: transform .2s var(--ease); }
 .extra-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
 .extra-body[hidden] { display: none; }
 .extra-body { padding-top: 2px; }
@@ -786,7 +797,7 @@ body {
   font-family: var(--font-body); font-size: 15.5px; font-weight: 800; letter-spacing: -.01em;
 }
 .price-lines-toggle:hover { color: var(--ink) !important; transform: none !important; filter: none !important; }
-.price-lines-toggle .chev { color: var(--line-strong); font-size: 12px; transition: transform .2s var(--ease); }
+.price-lines-toggle .chev { color: var(--line-strong); font-size: 16px; transition: transform .2s var(--ease); }
 .price-lines-toggle.open .chev { transform: rotate(180deg); }
 .price-lines { padding: 8px 0 4px; }
 .price-lines .pline {
