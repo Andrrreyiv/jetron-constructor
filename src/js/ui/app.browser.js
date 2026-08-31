@@ -2,15 +2,15 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260831a';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260831a';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260831a';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260831a';
-import { buildOrder } from '../core/OrderSummary.js?v=20260831a';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260831a';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260831a';
-import { productLink } from '../core/ProductLink.js?v=20260831a';
-import { linkedNumberColor, linkedNumberFont } from '../core/TextColor.js?v=20260831a';
+import { CanvasView } from './canvas.browser.js?v=20260831b';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260831b';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260831b';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260831b';
+import { buildOrder } from '../core/OrderSummary.js?v=20260831b';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260831b';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260831b';
+import { productLink } from '../core/ProductLink.js?v=20260831b';
+import { linkedNumberColor, linkedNumberFont } from '../core/TextColor.js?v=20260831b';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -272,9 +272,21 @@ export class UniformApp {
     const top = this.viewsEl ? this.viewsEl.getBoundingClientRect().top : 70;
     const models = document.querySelector('#modelpick');
     const modelsH = models ? models.getBoundingClientRect().height : 150;
-    // Замер 31.08 на 1366×768: обвязка #views над холстом и под ним (плашка линейки, рамка
-    // .canvas-wrap) 74 px + зазор сетки до ряда эскизов 14 px + низ сцены под ним 56 px.
-    const RESERVE = 144;
+    // Замер 31.08 на 1366×768: рамка .canvas-wrap вокруг холста 26 px (padding 12 сверху и снизу
+    // + бордюр) + зазор до ряда эскизов 14 px + низ сцены под ним 56 px + запас 4 px на разницу
+    // шрифтов и полос прокрутки у клиента.
+    // ⚠️ Было 144, потому что первый замер снимали со СЛОМАННОЙ плашкой линейки: из-за лишнего
+    // закрывающего маркера в комментарии `stand.css` у `.line-badge` терялся `position: absolute`,
+    // плашка стояла в потоке и съедала ~48 px высоты `#views`. После починки комментария строка
+    // освободилась (так и было задумано с 24.07), и прежний RESERVE начал резать холст впустую:
+    // низ сцены вставал на 691 при разрешённых 740, то есть 49 px высоты холста пропадали зря.
+    // Замер после правки, 1366×768, все 8 линеек кликами по эскизам: перелив 0 у каждой, низ
+    // сцены 735-736, высота холста упирается ровно в бюджет (454-455 px), а ширина расходится
+    // по пропорции линейки — Champion 412, Legend 407, Winner 398, Фаворит 399, Волна 397,
+    // Space 395, New 374, Star 368. До правки Champion был 372×410.
+    // ⚠️ Проверять сменой формы ТОЛЬКО кликом по эскизу. Прямой вызов `buildViews()` из консоли
+    // даёт холст 600×800 и перелив 341 — это не дефект, а обход `_displayWidth`/`_availHeight`.
+    const RESERVE = 100;
     return Math.max(0, Math.round(window.innerHeight - top - modelsH - RESERVE));
   }
 
