@@ -18,7 +18,15 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from normalize_mockups import CANVAS, ink_bbox, normalize, plan, save_mockup  # noqa: E402
+from normalize_mockups import (  # noqa: E402
+    BOTTOM_PX,
+    TOP_PX,
+    ink_bbox,
+    line_canvas,
+    normalize,
+    plan,
+    save_mockup,
+)
 
 # Допуск на совпадение рамки: округление при масштабировании даёт ±1 пиксель,
 # два берём с запасом. Больше двух — это уже разъехавшиеся зоны.
@@ -33,21 +41,53 @@ TOLERANCE = 2
 WEIGHT_BUDGET = 200 * 1024
 
 
+def измерить(tasks):
+    """Первый проход: рамка краски каждого исходника.
+
+    Возвращает `{индекс задачи: bbox}` и список битых файлов. Битый файл не
+    роняет партию: остальные 44 мокапа нужны, а про этот скажет приёмка.
+    """
+    boxes, broken = {}, []
+    for i, t in enumerate(tasks):
+        try:
+            with Image.open(t["src"]) as im:
+                boxes[i] = ink_bbox(np.asarray(im.convert("RGB"), "uint8"))
+        except Exception as e:  # noqa: BLE001 — причина уходит в отчёт как есть
+            broken.append((t["target"], repr(e)))
+    return boxes, broken
+
+
+def кадры_линеек(tasks, boxes):
+    """Кадр на каждую линейку. Ради этого прогон и разбит на два прохода.
+
+    Высоту кадра задаёт самая высокая форма линейки, поэтому посчитать его
+    по ходу рендера нельзя: на первом файле ещё неизвестно, не окажется ли
+    следующая расцветка выше.
+    """
+    по_линейке = {}
+    for i, t in enumerate(tasks):
+        if i in boxes:
+            по_линейке.setdefault(t["line"], []).append(boxes[i])
+    return {line: line_canvas(bs) for line, bs in по_линейке.items()}
+
+
 def run(map_path, out_dir, skip_lines, report_path):
     mapping = json.loads(Path(map_path).read_text(encoding="utf-8"))
     tasks = [t for t in plan(mapping) if t["line"] not in skip_lines]
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    rows, broken = [], []
-    for t in tasks:
-        try:
-            with Image.open(t["src"]) as im:
-                src_box = ink_bbox(np.asarray(im.convert("RGB"), "uint8"))
-                result = normalize(im)
-        except Exception as e:  # noqa: BLE001 — битый файл не должен ронять партию
-            broken.append((t["target"], repr(e)))
+    boxes, broken = измерить(tasks)
+    canvases = кадры_линеек(tasks, boxes)
+
+    rows = []
+    for i, t in enumerate(tasks):
+        if i not in boxes:
             continue
+        src_box = boxes[i]
+        canvas = canvases[t["line"]]
+        with Image.open(t["src"]) as im:
+            result = normalize(im, canvas)
 
         dst = save_mockup(result, out_dir / t["target"])
 
@@ -64,6 +104,7 @@ def run(map_path, out_dir, skip_lines, report_path):
                 "scale": round((got[3] - got[1] + 1) / src_h, 3),
                 "out_box": got,
                 "size": size,
+                "canvas": canvas,
                 "bytes": dst.stat().st_size,
             }
         )
@@ -78,21 +119,20 @@ def report(rows, broken, report_path):
         bad += [f"битый файл {n}: {e}" for n, e in broken]
 
     for r in rows:
-        if r["size"] != CANVAS:
-            bad.append(f"{r['target']}: размер {r['size']}, ожидался {CANVAS}")
+        if tuple(r["size"]) != tuple(r["canvas"]):
+            bad.append(f"{r['target']}: размер {r['size']}, кадр линейки {r['canvas']}")
         if r["bytes"] > WEIGHT_BUDGET:
             bad.append(f"{r['target']}: вес {r['bytes'] // 1024} КБ выше бюджета")
 
     if rows:
         tops = [r["out_box"][1] for r in rows]
-        heights = [r["out_box"][3] - r["out_box"][1] + 1 for r in rows]
-        # Ширину не сверяем: пропорция формы законно гуляет 0.48..0.62.
+        # Высоту НЕ сверяем: внутри линейки она законно гуляет — это зазор
+        # поставщика между передом и задом и то, сколько попало гетр и бутс.
+        # Ширину тоже не сверяем: пропорция формы 0.48..0.62.
         # Сверяем центр — зоны заданы долями ширины ХОЛСТА, а не формы.
         centers = [(r["out_box"][0] + r["out_box"][2]) / 2 for r in rows]
         if max(tops) - min(tops) > TOLERANCE:
             bad.append(f"верх рамки разъехался: {min(tops)}..{max(tops)}")
-        if max(heights) - min(heights) > TOLERANCE:
-            bad.append(f"высота рамки разъехалась: {min(heights)}..{max(heights)}")
         if max(centers) - min(centers) > TOLERANCE:
             bad.append(f"центр рамки разъехался: {min(centers)}..{max(centers)}")
 

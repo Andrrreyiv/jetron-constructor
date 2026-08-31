@@ -2,14 +2,15 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260827a';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260827a';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260827a';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260827a';
-import { buildOrder } from '../core/OrderSummary.js?v=20260827a';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260827a';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260827a';
-import { productLink } from '../core/ProductLink.js?v=20260828a';
+import { CanvasView } from './canvas.browser.js?v=20260831a';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260831a';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260831a';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260831a';
+import { buildOrder } from '../core/OrderSummary.js?v=20260831a';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260831a';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260831a';
+import { productLink } from '../core/ProductLink.js?v=20260831a';
+import { linkedNumberColor } from '../core/TextColor.js?v=20260831a';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -639,7 +640,11 @@ export class UniformApp {
     } else if (opt.kind === 'upload') {
       if (c.image) draw(opt.zone, { type: 'image', value: c.image });
     } else if (opt.kind === 'number') {
-      if (c.number) draw(opt.zone, { type: 'text', value: c.number, fontId: this.defaultFontId(), color: this.textColor });
+      // Цвет ведомый: клиент 30.08 просил привязать номер на груди к надписям на спине.
+      // Своего образца цвета у этой карточки нет, поэтому раньше номер всегда выходил
+      // цветом по умолчанию — на его скриншоте чёрным при белой спине.
+      const color = linkedNumberColor(this.config.placementOptions, this.optCache, this.textColor);
+      if (c.number) draw(opt.zone, { type: 'text', value: c.number, fontId: this.defaultFontId(), color });
     } else { // text_or_upload
       if (c.image) draw(opt.zone, { type: 'image', value: c.image });
       else if (c.text) draw(opt.zone, { type: 'text', value: c.text, fontId: c.fontId || this.defaultFontId(), color: c.color || this.textColor });
@@ -702,6 +707,14 @@ export class UniformApp {
       this.applyOption(opt);
     } else {
       this.hideOption(opt);
+    }
+    // Номер на груди ведомый по цвету (клиент 30.08). Своей карточки цвета у него нет,
+    // поэтому смена цвета на спине обязана перекрасить и его — иначе привязка сработала бы
+    // только при следующем вводе номера, то есть на глаз выглядела бы как её отсутствие.
+    if (opt.kind === 'name_number' && 'color' in patch) {
+      for (const o of this.availableOptions()) {
+        if (o.kind === 'number' && this.optionActive(o)) this.applyOption(o);
+      }
     }
     this.renderJetron();
     this.updatePrice();
