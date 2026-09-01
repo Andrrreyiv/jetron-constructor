@@ -2,8 +2,9 @@
 // Только браузерный слой (DOM + canvas) — не покрывается node:test, поэтому суффикс .browser.js.
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
-import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_RATIO } from '../core/ZoneManager.js?v=20260831a';
-import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260831a';
+import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX } from '../core/ZoneManager.js?v=20260831b';
+import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260831b';
+import { capWidthByHeight } from '../core/CanvasFit.js?v=20260831b';
 
 export class CanvasView {
   constructor(canvasEl, canvasCfg) {
@@ -18,6 +19,8 @@ export class CanvasView {
       // allowTouchScrolling пропускает вертикальный свайп странице (скролл работает поверх картинки).
       allowTouchScrolling: true
     });
+    // Бюджет высоты под холст. 0 / undefined = не ограничивать (редактор зон, тесты).
+    this.maxHeight = canvasCfg.maxHeight || 0;
     this.zoneOverlays = new Map(); // key -> fabric.Rect (пунктирная рамка зоны)
     this.userObjects = new Map();  // key -> объект, помещённый покупателем
     this.staticObjects = [];       // служебные надписи бренда (Jetron.ru) — не редактируются покупателем
@@ -46,6 +49,14 @@ export class CanvasView {
     // scaleToWidth в этом билде Fabric v6 берёт натуральную ширину элемента, игнорируя обрезанную
     // width, поэтому кадрированный фон масштабировался неверно (влезала вся картинка). Считаем
     // масштаб явно от текущей (уже кадрированной) width — видимая область точно вписывается в холст.
+    // Клиент 31.08: «на ноутбуке конструктор помещается без вертикальной прокрутки». Вписывания
+    // по одной ширине для этого мало — высота едет следом за пропорцией мокапа, и на 1366×768
+    // холст выходил 600×661, а страница переливалась на 250 px (замер 31.08). Пропорция известна
+    // только здесь, после загрузки картинки, поэтому и сужаем здесь, до расчёта масштаба.
+    if (this.maxHeight > 0) {
+      const capped = capWidthByHeight(this.canvas.getWidth(), img.height / img.width, this.maxHeight);
+      if (capped < this.canvas.getWidth()) this.canvas.setDimensions({ width: capped });
+    }
     const scale = this.canvas.getWidth() / img.width;
     img.set({ scaleX: scale, scaleY: scale });
     // Клиент 2026-07-22: у мокапов разная пропорция (Champion 3:4, Venom ~11:10 и др.), а высота холста
@@ -144,12 +155,15 @@ export class CanvasView {
   }
 
   // Сажает номер в рамку по чернилам: без деформации, ограничивающая сторона впритык,
-  // глиф прижат к верхней кромке (заказчик 2026-07-24) с малым отступом NUMBER_TOP_INSET_RATIO
-  // от высоты зоны (заказчик 2026-08-27). Мутирует fontSize/left/top объекта.
+  // глиф прижат к верхней кромке (заказчик 2026-07-24) с отступом NUMBER_TOP_INSET_PX
+  // (заказчик 2026-08-27 и 2026-08-31). Мутирует fontSize/left/top объекта.
+  // ⚠️ Отступ в ПИКСЕЛЯХ холста, а не в долях высоты зоны: он лечит срез сглаженной верхней
+  // строки глифа рамкой отсечения `_clipFor`, а сглаживание живёт в пикселях устройства.
+  // Разбор замера — в комментарии к константе в ZoneManager.js.
   _seatNumber(obj, rect, text, fontFamily) {
     const REF = 100;
     const ink = this._inkMetrics(text, fontFamily, REF);
-    const topInset = NUMBER_TOP_INSET_RATIO * rect.height;
+    const topInset = NUMBER_TOP_INSET_PX;
     const { fontSize } = fitInkToRect(rect, ink, { ref: REF, topInset });
     obj.set({ fontSize });
     if (typeof obj.initDimensions === 'function') obj.initDimensions();

@@ -2,15 +2,15 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260831a';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260831a';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260831a';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260831a';
-import { buildOrder } from '../core/OrderSummary.js?v=20260831a';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260831a';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260831a';
-import { productLink } from '../core/ProductLink.js?v=20260831a';
-import { linkedNumberColor } from '../core/TextColor.js?v=20260831a';
+import { CanvasView } from './canvas.browser.js?v=20260831b';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260831b';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260831b';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260831b';
+import { buildOrder } from '../core/OrderSummary.js?v=20260831b';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260831b';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260831b';
+import { productLink } from '../core/ProductLink.js?v=20260831b';
+import { linkedNumberColor, linkedNumberFont } from '../core/TextColor.js?v=20260831b';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -259,6 +259,37 @@ export class UniformApp {
     return Math.max(w, 260);
   }
 
+  // Сколько высоты остаётся холсту. Критерий приёмки клиента 31.08 — «на ноутбуке 1366×768
+  // конструктор помещается без вертикальной прокрутки», а до правки холст вписывался только
+  // по ширине и переливал страницу на 250 px.
+  //
+  // ⚠️ На мобильной раскладке (брейкпоинт 900) высоту НЕ режем и возвращаем 0: там палитра
+  // и эскизы стоят отдельными строками ПОД формой, вертикальная прокрутка законна, а клиент
+  // 2026-07-16 просил ровно обратного — «форма во весь экран без полей».
+  _availHeight() {
+    if (typeof window === 'undefined') return 0;
+    if (window.innerWidth <= 900) return 0;
+    const top = this.viewsEl ? this.viewsEl.getBoundingClientRect().top : 70;
+    const models = document.querySelector('#modelpick');
+    const modelsH = models ? models.getBoundingClientRect().height : 150;
+    // Замер 31.08 на 1366×768: рамка .canvas-wrap вокруг холста 26 px (padding 12 сверху и снизу
+    // + бордюр) + зазор до ряда эскизов 14 px + низ сцены под ним 56 px + запас 4 px на разницу
+    // шрифтов и полос прокрутки у клиента.
+    // ⚠️ Было 144, потому что первый замер снимали со СЛОМАННОЙ плашкой линейки: из-за лишнего
+    // закрывающего маркера в комментарии `stand.css` у `.line-badge` терялся `position: absolute`,
+    // плашка стояла в потоке и съедала ~48 px высоты `#views`. После починки комментария строка
+    // освободилась (так и было задумано с 24.07), и прежний RESERVE начал резать холст впустую:
+    // низ сцены вставал на 691 при разрешённых 740, то есть 49 px высоты холста пропадали зря.
+    // Замер после правки, 1366×768, все 8 линеек кликами по эскизам: перелив 0 у каждой, низ
+    // сцены 735-736, высота холста упирается ровно в бюджет (454-455 px), а ширина расходится
+    // по пропорции линейки — Champion 412, Legend 407, Winner 398, Фаворит 399, Волна 397,
+    // Space 395, New 374, Star 368. До правки Champion был 372×410.
+    // ⚠️ Проверять сменой формы ТОЛЬКО кликом по эскизу. Прямой вызов `buildViews()` из консоли
+    // даёт холст 600×800 и перелив 341 — это не дефект, а обход `_displayWidth`/`_availHeight`.
+    const RESERVE = 100;
+    return Math.max(0, Math.round(window.innerHeight - top - modelsH - RESERVE));
+  }
+
   // Размер холста подстраивается под экран: на десктопе — как раньше (все виды в один ряд),
   // на планшете — 2 в ряд, на телефоне — один большой холст на всю ширину (а не крошечные 210px).
   _displayWidth(n) {
@@ -417,7 +448,7 @@ export class UniformApp {
       col.appendChild(wrap);
       this.viewsEl.appendChild(col);
 
-      const view = new CanvasView(canvasEl, { ...base, displayWidth });
+      const view = new CanvasView(canvasEl, { ...base, displayWidth, maxHeight: this._availHeight() });
       view.onChange = () => this.updatePrice();
       view.onZoneClick((key) => this.selectZone(key));
       this.views.set(v.id, view);
@@ -431,7 +462,6 @@ export class UniformApp {
     this.panelEl.innerHTML = `
       <div class="panel-title">
         <h2>Соберите форму</h2>
-        <p>Включайте нужные нанесения. Всё, что добавите, сразу видно на макете слева.</p>
       </div>
 
       <div id="opt-list" class="opt-list"></div>
@@ -515,24 +545,30 @@ export class UniformApp {
     this.renderOptionCards();
   }
 
-  // Блок выбора цвета и модели ПОД макетом на тёмной сцене (дизайн 2026-07-12).
+  // Блок выбора цвета и модели на тёмной сцене (дизайн 2026-07-12).
+  //
+  // Пишет в ДВА хоста, а не в один: клиент 31.08 (11:20) уводит палитру влево от макета,
+  // а карусель эскизов оставляет прямо под макетом. Пока оба блока лежали в одном #colorpick
+  // и рисовались одним innerHTML, развести их по раскладке было нечем.
+  //
+  // Надписей над блоками больше нет — все три убраны по его же просьбе («убрать все ненужные
+  // надписи над этими блоками», критерий: конструктор помещается в один экран ноутбука
+  // 1366×768). Имя цвета при этом не потеряно: оно живёт в `title`/`aria-label` каждого свотча.
+  // Кнопка «Скачать макет» уехала на плашку внутрь картинки (`_renderLineBadge`).
   buildColorPicker() {
-    const host = document.getElementById('colorpick');
-    if (!host) return;
+    const palHost = document.getElementById('colorpick');
+    const modHost = document.getElementById('modelpick');
+    if (!palHost || !modHost) return;
     const colors = this.config.colors || [];
     const models = this.formsForColor(this.colorId);
-    const activeColor = colors.find((c) => c.id === this.colorId);
-    host.innerHTML = `
-      <div class="cp-download"><button id="download-btn" class="stage-btn" type="button">Скачать макет</button></div>
-      <div class="cp-head">
-        <div class="cp-title">Выберите цвет формы${activeColor ? ` <b>${escapeHtml(activeColor.name)}</b>` : ''}</div>
-      </div>
+    palHost.innerHTML = `
       <div class="color-palette">
         ${colors.map((c) => `<button class="pcolor ${c.id === this.colorId ? 'active' : ''}"
            data-color="${c.id}" title="${escapeHtml(c.name)}" aria-label="${escapeHtml(c.name)}"
            style="background:${c.hex}"></button>`).join('')}
       </div>
-      <div class="cp-models-label">Модель <b>${models.length} ${this.plural(models.length, 'вариант', 'варианта', 'вариантов')}</b></div>
+    `;
+    modHost.innerHTML = `
       <div class="model-carousel">
         ${models.map((f) => `<button class="model-card ${f.id === this.formId ? 'active' : ''}"
            data-form="${f.id}" title="${escapeHtml(f.line)} ${escapeHtml(f.color)}">
@@ -541,27 +577,34 @@ export class UniformApp {
       </div>
     `;
 
-    host.querySelectorAll('.pcolor').forEach((b) => {
+    palHost.querySelectorAll('.pcolor').forEach((b) => {
       b.onclick = async () => {
         if (b.dataset.color === this.colorId) return;
         this.colorId = b.dataset.color;
         const first = this.formsForColor(this.colorId)[0];
         if (first) this.formId = first.id;
+        // Здесь перерисовка нужна: состав карусели у другого цвета другой.
         this.buildColorPicker();
         this.buildViews();
         await this.renderAll();
       };
     });
-    host.querySelectorAll('.model-card').forEach((b) => {
+    modHost.querySelectorAll('.model-card').forEach((b) => {
       b.onclick = async () => {
         if (b.dataset.form === this.formId) return;
         this.formId = b.dataset.form;
-        this.buildColorPicker();
+        // ⚠️ `buildColorPicker()` здесь звать НЕЛЬЗЯ, и это не оптимизация, а починка.
+        // Клиент 31.08 (10:53): «нажимаете на самую правую — бегунок обратно в левое
+        // перекидывается… чтобы форма осталась на месте и просто выделялась рамкой именно
+        // та, которую нажали». Перерисовка innerHTML сбрасывает `scrollLeft` карусели.
+        // Смена модели внутри одного цвета не меняет ни палитру, ни состав карусели —
+        // значит достаточно переставить `.active` и перестроить холсты.
+        modHost.querySelectorAll('.model-card.active').forEach((a) => a.classList.remove('active'));
+        b.classList.add('active');
         this.buildViews();
         await this.renderAll();
       };
     });
-    host.querySelector('#download-btn').onclick = () => this.downloadImage();
   }
 
   // ── Модель опций (аккордеон + кэш + тумблер) ─────────────────────────────
@@ -640,11 +683,13 @@ export class UniformApp {
     } else if (opt.kind === 'upload') {
       if (c.image) draw(opt.zone, { type: 'image', value: c.image });
     } else if (opt.kind === 'number') {
-      // Цвет ведомый: клиент 30.08 просил привязать номер на груди к надписям на спине.
-      // Своего образца цвета у этой карточки нет, поэтому раньше номер всегда выходил
-      // цветом по умолчанию — на его скриншоте чёрным при белой спине.
+      // Цвет и шрифт ведомые: 30.08 клиент просил привязать номер на груди к надписям на
+      // спине по цвету, 31.08 — по шрифту. Своей карточки выбора у номера на груди нет,
+      // поэтому раньше он выходил значениями по умолчанию: на скриншоте чёрным при белой
+      // спине и чужим шрифтом.
       const color = linkedNumberColor(this.config.placementOptions, this.optCache, this.textColor);
-      if (c.number) draw(opt.zone, { type: 'text', value: c.number, fontId: this.defaultFontId(), color });
+      const fontId = linkedNumberFont(this.config.placementOptions, this.optCache, this.defaultFontId());
+      if (c.number) draw(opt.zone, { type: 'text', value: c.number, fontId, color });
     } else { // text_or_upload
       if (c.image) draw(opt.zone, { type: 'image', value: c.image });
       else if (c.text) draw(opt.zone, { type: 'text', value: c.text, fontId: c.fontId || this.defaultFontId(), color: c.color || this.textColor });
@@ -1326,10 +1371,21 @@ export class UniformApp {
       ? `Открыть карточку: ${line}, ${this.form.color || ''}`.replace(/,\s*$/, '')
       : `Открыть каталог линейки ${line}`;
     badge.classList.toggle('line-badge--card', link.isCard);
+    // Три пилюли: ярлык линейки слева, «Скачать макет» по центру, переход в карточку справа.
+    // Клиент 31.08 (11:11): «кнопку „Скачать макет“ перекинем в саму фотографию, между
+    // кнопками названия линейки и „в карточку“, по середине сверху». Центрирование держит
+    // grid `1fr auto 1fr` в CSS, а не space-between: иначе середина съезжала бы вслед за
+    // разной шириной боковых пилюль.
     badge.innerHTML = `<span class="line-badge-pill line-badge-name">${escapeHtml(line)}</span>`
+      + `<button type="button" id="download-btn" class="line-badge-pill line-badge-dl"`
+      + ` title="Скачать макет" aria-label="Скачать макет">Скачать макет</button>`
       + `<button type="button" class="line-badge-pill line-badge-cta" title="${escapeHtml(title)}"`
       + ` aria-label="${escapeHtml(title)}">${escapeHtml(link.label)}</button>`;
+    // ⚠️ Обработчики вешаются при КАЖДОЙ перерисовке намеренно: `_renderLineBadge()` живёт
+    // внутри `updatePrice()` (ссылка на карточку зависит от возраста), и innerHTML выше
+    // каждый раз выбрасывает прежние узлы вместе с их onclick.
     badge.querySelector('.line-badge-cta').onclick = () => this._goToLineCatalog();
+    badge.querySelector('.line-badge-dl').onclick = () => this.downloadImage();
   }
 
   // Переход в каталог по линейке. Как и выход из конструктора: правим верхнее окно, если
