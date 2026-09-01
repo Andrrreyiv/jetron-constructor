@@ -10,7 +10,7 @@ import { buildOrder } from '../core/OrderSummary.js?v=20260831b';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260831b';
 import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260831b';
 import { productLink } from '../core/ProductLink.js?v=20260831b';
-import { linkedNumberColor, linkedNumberFont } from '../core/TextColor.js?v=20260831b';
+import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать } from '../core/TextColor.js?v=20260831b';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -753,10 +753,12 @@ export class UniformApp {
     } else {
       this.hideOption(opt);
     }
-    // Номер на груди ведомый по цвету (клиент 30.08). Своей карточки цвета у него нет,
-    // поэтому смена цвета на спине обязана перекрасить и его — иначе привязка сработала бы
-    // только при следующем вводе номера, то есть на глаз выглядела бы как её отсутствие.
-    if (opt.kind === 'name_number' && 'color' in patch) {
+    // Номер на груди ведомый по цвету (клиент 30.08) и по шрифту (31.08). Своих карточек
+    // выбора у него нет, поэтому смена на спине обязана перерисовать и его — иначе привязка
+    // сработала бы только при следующем вводе номера, то есть на глаз выглядела бы как её
+    // отсутствие. ⚠️ Условие держит `ВЕДУЩИЕ_ПОЛЯ`, а не список полей здесь: шрифт добавили
+    // в значения 31.08, а сюда забыли, и на экране грудь оставалась прежним шрифтом.
+    if (opt.kind === 'name_number' && ведомыеПерерисовать(patch)) {
       for (const o of this.availableOptions()) {
         if (o.kind === 'number' && this.optionActive(o)) this.applyOption(o);
       }
