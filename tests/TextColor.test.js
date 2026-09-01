@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { linkedNumberColor, linkedNumberFont } from '../src/js/core/TextColor.js';
+import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать } from '../src/js/core/TextColor.js';
 
 // Опции размещения из `mock-config.json`: спина — `name_number`, грудь — `chest_number`.
 const опции = [
@@ -27,4 +27,16 @@ test('номер на груди берёт цвет у надписей на с
 test('номер на груди берёт шрифт у надписей на спине, а не шрифт по умолчанию', () => {
   const кэш = { name_number: { name: 'ИВАН', number: '10', fontId: 'college' } };
   assert.equal(linkedNumberFont(опции, кэш, 'default'), 'college');
+});
+
+// Замер 01.09 в браузере: сама привязка работала, а на экране её было НЕ ВИДНО. Смена шрифта
+// на спине перерисовывала спину и номер на шортах, а уже нарисованный номер на груди оставался
+// прежним шрифтом (`rpl` при `stalinist` на спине) — до следующего ввода в его поле.
+// Причина: перерисовку ведомых включал только патч с ЦВЕТОМ (правка 30.08), про шрифт (31.08)
+// то же условие не расширили. Для клиента это неотличимо от «привязку не сделали».
+test('смена шрифта на спине, как и цвета, обязана перерисовать ведомые номера', () => {
+  assert.equal(ведомыеПерерисовать({ color: '#ffffff' }), true);
+  assert.equal(ведомыеПерерисовать({ fontId: 'stalinist' }), true);
+  // Ввод самой фамилии ведомых не трогает: их значения от неё не зависят.
+  assert.equal(ведомыеПерерисовать({ name: 'ИВАНОВ' }), false);
 });
