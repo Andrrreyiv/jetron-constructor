@@ -125,8 +125,8 @@ Star 5, Winner 7, Волна 5, Фаворит 5; коралл не заводи
 
 - **Git:** `https://github.com/Andrrreyiv/jetron-constructor`. `origin/main` = **`4ed553c`**
   (merge PR #4, 38 файлов, +1344/−418 — правки по 14 комментариям). Рабочая ветка
-  **`fix/client-comments-31-08`** = **`dfea5df`**, дерево чистое; она на 1 коммит впереди
-  `origin/main` — это 🔴 **незапушенная починка пункта 13**, её надо отправить и влить PR-ом.
+  **`fix/client-comments-31-08`**, дерево чистое, впереди `origin/main` на 🔴 **незапушенную
+  починку пункта 13** (`dfea5df`) и этот статус: отправить и влить PR-ом.
   ⚠️ Локальный `main` отстал — за состоянием смотреть в `origin/main`.
   ⚠️ `gh` и GitHub MCP несут протухший токен (`Bad credentials`), но рабочий лежит в
   Credential Manager: `git push` проходит, а API — через `git credential fill` + urllib.
