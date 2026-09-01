@@ -387,8 +387,13 @@ body {
   cursor: pointer; padding: 0;
   transition: transform .18s var(--ease), box-shadow .18s var(--ease);
 }
-.pcolor:hover { transform: scale(1.12); }
-.pcolor.active { box-shadow: 0 0 0 2px #fff, 0 0 0 4.5px var(--brand); transform: scale(1.08); }
+/* ⚫ `transform: scale()` убран 01.09 (клиент, видео): «вот это гуляние рамки возможно убрать?».
+   Образец раздувался на 12 % под курсором и оставался на 8 % больше в активном состоянии —
+   замер показал активный свотч 36.7×36.7 при x=143.6 против 34×34 при x=145 у остальных,
+   то есть кольцо съезжало с сетки на 1.4 px при каждом движении мыши. Отклик на наведение
+   оставлен, но только цветом кольца: он не двигает ни одного пикселя геометрии. */
+.pcolor:hover { box-shadow: 0 0 0 1.5px var(--navy), var(--sh-sm); }
+.pcolor.active { box-shadow: 0 0 0 2px #fff, 0 0 0 4.5px var(--brand); }
 
 /* ── Карусель форм выбранного цвета ──────────────────────── */
 .model-carousel {
@@ -513,12 +518,20 @@ body {
 .colorpick { grid-area: pal; position: relative; z-index: 1; }
 .modelpick { grid-area: models; width: 100%; max-width: 640px; margin-top: 14px; }
 .views { grid-area: views; }
-/* Две колонки свотчей по 34px: 8 рядов помещаются по высоте рядом с макетом, прокрутки нет.
-   Одна колонка была бы вдвое длиннее макета, три — шире, чем оставляет место картинке. */
+/* ОДНА колонка свотчей — клиент 01.09: «слева палитру нужно сделать в одну строку».
+   ⚫ Прежние две колонки по 34 px были не прихотью: одна колонка того же размера даёт
+   15 × 34 + 14 × 9 + 10 = 646 px против 491 px, которые оставляет рядом стоящий макет, —
+   то есть возвращала бы вертикальную прокрутку, а её у клиента жёсткий запрет
+   (на 1366×768 перелив обязан быть 0). Поэтому колонка одна, но образец мельче:
+   15 × 26 + 14 × 5 + 10 = 470 px, запас к 491 остаётся 21 px.
+   Зазор 5 px выбран не на глаз: кольцо активного цвета это `box-shadow` на 4.5 px,
+   активен всегда ровно один образец, и 5 px — минимум, при котором кольцо не наезжает
+   на соседа. Боковой запас держит `padding: 5px`, иначе кольцо срезал бы край колонки. */
 .colorpick .color-palette {
-  display: grid; grid-template-columns: repeat(2, 34px);
-  gap: 9px; margin-bottom: 0; padding: 5px;
+  display: grid; grid-template-columns: 26px;
+  gap: 5px; margin-bottom: 0; padding: 5px;
 }
+.colorpick .pcolor { width: 26px; height: 26px; border-radius: 7px; border-width: 2px; }
 /* ⚫ Правила `.cp-download`, `.cp-head`, `.cp-title`, `.cp-models-label` удалены 31.08 вместе
    с самими надписями и кнопкой: клиент попросил убрать надписи над блоками, а «Скачать макет»
    перенести на плашку внутрь картинки. Разметки под них больше нет ни одной. */
@@ -565,11 +578,30 @@ body {
 }
 .opt-card.open { box-shadow: var(--sh-md); }
 
+/* Клиент 01.09 (три голосовых + два его макета): подпись «Номер на шортах включён в стоимость»
+   уезжала на вторую строку ровно в тот момент, когда появлялся тумблер, и карточка росла
+   с 66.2 до 82.4 px. Причина была не в длине текста, а в раскладке: шапка была flex-строкой,
+   `.opt-head-right` не сжимался, а текстовая колонка сжималась — 218.9 → 210.7 px при нужных 219.
+   Шапка переведена в сетку 2×2: заголовок и правый блок в первом ряду, подпись во втором ряду
+   на ВСЮ ширину. Подписи достаётся 338 px вместо 210.7, она держится в одну строку, а появление
+   тумблера больше не отнимает у неё ничего. Это и есть первый из двух вариантов клиента.
+
+   ⚫ Пустой слот под тумблер (`visibility: hidden` вместо вставки узла) пробовали и убрали:
+   он держал правый блок на 115.3 px всегда, а не 65.3, и от этого заголовок «Логотип на спине
+   под номером» ломался на две строки — карточка 48.8 → 72 px, страница 768 → 790, то есть
+   возвращалась прокрутка, которой клиент не должен видеть. Подпись и так больше не зависит
+   от тумблера, потому что лежит в своём ряду на всю ширину, — слот оказался лишним. */
 .opt-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 15px 16px; cursor: pointer; user-select: none;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center; column-gap: 12px; row-gap: 2px;
+  padding: 15px 16px; cursor: pointer; user-select: none;
 }
-.opt-head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* `display: contents` вместо своего бокса: заголовок и подпись становятся элементами
+   сетки шапки напрямую, поэтому подпись может растянуться под правым блоком. */
+.opt-head-text { display: contents; }
+.opt-title { grid-column: 1; grid-row: 1; }
+.opt-sub { grid-column: 1 / -1; grid-row: 2; }
+.opt-head-right { grid-column: 2; grid-row: 1; }
 .opt-title { font-weight: 800; font-size: 15.5px; color: var(--ink); letter-spacing: -.01em; }
 .opt-sub { font-size: 12px; color: var(--muted); line-height: 1.35; }
 .opt-head-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
@@ -605,9 +637,11 @@ body {
 .opt-toggle.on .knob { transform: translateX(17px); }
 
 /* Тело карточки */
+/* ⚫ `border-top: 1px dashed var(--line)` убран 01.09 по голосовому клиента: «когда я начал
+   заполнять, появилась пунктирная линия вдоль всего блока, если есть возможность её убрать,
+   будет замечательно». Шапку от тела и так отделяет отступ, разделитель был лишним. */
 .opt-body {
   padding: 4px 16px 16px;
-  border-top: 1px dashed var(--line);
   animation: opt-open .22s var(--ease);
 }
 @keyframes opt-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }

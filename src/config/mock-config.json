@@ -542,9 +542,9 @@
         "price": 300,
         "box": {
           "x": 0.175,
-          "y": 0.5565,
+          "y": 0.4737,
           "w": 0.065,
-          "h": 0.0605
+          "h": 0.0718
         }
       },
       {
@@ -555,9 +555,9 @@
         "price": 300,
         "box": {
           "x": 0.248,
-          "y": 0.5504,
+          "y": 0.4665,
           "w": 0.085,
-          "h": 0.0847
+          "h": 0.1005
         }
       },
       {
@@ -568,9 +568,9 @@
         "price": 300,
         "box": {
           "x": 0.345,
-          "y": 0.5565,
+          "y": 0.4737,
           "w": 0.065,
-          "h": 0.0605
+          "h": 0.0718
         }
       },
       {
@@ -581,9 +581,9 @@
         "price": 0,
         "box": {
           "x": 0.17,
-          "y": 0.6956,
+          "y": 0.6388,
           "w": 0.24,
-          "h": 0.0544
+          "h": 0.0646
         }
       },
       {
@@ -595,9 +595,9 @@
         "included": true,
         "box": {
           "x": 0.16,
-          "y": 0.9194,
+          "y": 0.9043,
           "w": 0.06,
-          "h": 0.0605
+          "h": 0.0718
         }
       },
       {
@@ -609,9 +609,9 @@
         "included": true,
         "box": {
           "x": 0.28,
-          "y": 0.9194,
+          "y": 0.9043,
           "w": 0.06,
-          "h": 0.0605
+          "h": 0.0718
         }
       },
       {
@@ -625,9 +625,9 @@
         "align": "center",
         "box": {
           "x": 0.615,
-          "y": 0.3931,
+          "y": 0.2799,
           "w": 0.23,
-          "h": 0.0605
+          "h": 0.0718
         }
       },
       {
@@ -640,9 +640,9 @@
         "align": "center",
         "box": {
           "x": 0.635,
-          "y": 0.4415,
+          "y": 0.3373,
           "w": 0.19,
-          "h": 0.1573
+          "h": 0.1866
         }
       },
       {
@@ -655,9 +655,9 @@
         "align": "center",
         "box": {
           "x": 0.635,
-          "y": 0.6169,
+          "y": 0.5455,
           "w": 0.19,
-          "h": 0.046
+          "h": 0.0545
         }
       },
       {
@@ -668,573 +668,9 @@
         "price": 300,
         "box": {
           "x": 0.115,
-          "y": 0.5504,
+          "y": 0.4665,
           "w": 0.055,
-          "h": 0.0605
-        }
-      }
-    ],
-    "New": [
-      {
-        "key": "chest_logo_small",
-        "label": "Лого клуба (левая грудь)",
-        "view": "front",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.175,
-          "y": 0.505,
-          "w": 0.065,
-          "h": 0.0549
-        }
-      },
-      {
-        "key": "chest_number",
-        "label": "Номер на грудь",
-        "view": "front",
-        "type": "text",
-        "price": 300,
-        "box": {
-          "x": 0.248,
-          "y": 0.4995,
-          "w": 0.085,
-          "h": 0.0769
-        }
-      },
-      {
-        "key": "chest_logo_large",
-        "label": "Лого на груди",
-        "view": "front",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.345,
-          "y": 0.505,
-          "w": 0.065,
-          "h": 0.0549
-        }
-      },
-      {
-        "key": "sponsor",
-        "label": "Спонсор",
-        "view": "front",
-        "type": "image",
-        "price": 0,
-        "box": {
-          "x": 0.17,
-          "y": 0.6313,
-          "w": 0.24,
-          "h": 0.0494
-        }
-      },
-      {
-        "key": "shorts_number",
-        "label": "Номер на шортах",
-        "view": "front",
-        "type": "text",
-        "price": 0,
-        "included": true,
-        "box": {
-          "x": 0.16,
-          "y": 0.8344,
-          "w": 0.06,
-          "h": 0.0549
-        }
-      },
-      {
-        "key": "shorts_logo",
-        "label": "Лого на шортах",
-        "view": "front",
-        "type": "image",
-        "price": 0,
-        "included": true,
-        "box": {
-          "x": 0.28,
-          "y": 0.8344,
-          "w": 0.06,
-          "h": 0.0549
-        }
-      },
-      {
-        "key": "name",
-        "label": "Фамилия",
-        "view": "back",
-        "type": "text",
-        "price": 600,
-        "priceGroup": "name_number",
-        "maxLines": 2,
-        "align": "center",
-        "box": {
-          "x": 0.615,
-          "y": 0.3568,
-          "w": 0.23,
-          "h": 0.0549
-        }
-      },
-      {
-        "key": "back_number",
-        "label": "Номер (спина)",
-        "view": "back",
-        "type": "text",
-        "price": 0,
-        "priceGroup": "name_number",
-        "align": "center",
-        "box": {
-          "x": 0.635,
-          "y": 0.4007,
-          "w": 0.19,
-          "h": 0.1427
-        }
-      },
-      {
-        "key": "back_logo",
-        "label": "Логотип/надпись под номером",
-        "view": "back",
-        "type": "any",
-        "price": 300,
-        "priceGroup": "logo_under_number",
-        "align": "center",
-        "box": {
-          "x": 0.635,
-          "y": 0.5599,
-          "w": 0.19,
-          "h": 0.0417
-        }
-      },
-      {
-        "key": "shoulder_logo",
-        "label": "Лого на плече",
-        "view": "shoulder",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.115,
-          "y": 0.4995,
-          "w": 0.055,
-          "h": 0.0549
-        }
-      }
-    ],
-    "Winner": [
-      {
-        "key": "chest_logo_small",
-        "label": "Лого клуба (левая грудь)",
-        "view": "front",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.175,
-          "y": 0.5375,
-          "w": 0.065,
-          "h": 0.0584
-        }
-      },
-      {
-        "key": "chest_number",
-        "label": "Номер на грудь",
-        "view": "front",
-        "type": "text",
-        "price": 300,
-        "box": {
-          "x": 0.248,
-          "y": 0.5316,
-          "w": 0.085,
-          "h": 0.0818
-        }
-      },
-      {
-        "key": "chest_logo_large",
-        "label": "Лого на груди",
-        "view": "front",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.345,
-          "y": 0.5375,
-          "w": 0.065,
-          "h": 0.0584
-        }
-      },
-      {
-        "key": "sponsor",
-        "label": "Спонсор",
-        "view": "front",
-        "type": "image",
-        "price": 0,
-        "box": {
-          "x": 0.17,
-          "y": 0.6719,
-          "w": 0.24,
-          "h": 0.0526
-        }
-      },
-      {
-        "key": "shorts_number",
-        "label": "Номер на шортах",
-        "view": "front",
-        "type": "text",
-        "price": 0,
-        "included": true,
-        "box": {
-          "x": 0.16,
-          "y": 0.888,
-          "w": 0.06,
-          "h": 0.0584
-        }
-      },
-      {
-        "key": "shorts_logo",
-        "label": "Лого на шортах",
-        "view": "front",
-        "type": "image",
-        "price": 0,
-        "included": true,
-        "box": {
-          "x": 0.28,
-          "y": 0.888,
-          "w": 0.06,
-          "h": 0.0584
-        }
-      },
-      {
-        "key": "name",
-        "label": "Фамилия",
-        "view": "back",
-        "type": "text",
-        "price": 600,
-        "priceGroup": "name_number",
-        "maxLines": 2,
-        "align": "center",
-        "box": {
-          "x": 0.615,
-          "y": 0.3797,
-          "w": 0.23,
-          "h": 0.0584
-        }
-      },
-      {
-        "key": "back_number",
-        "label": "Номер (спина)",
-        "view": "back",
-        "type": "text",
-        "price": 0,
-        "priceGroup": "name_number",
-        "align": "center",
-        "box": {
-          "x": 0.635,
-          "y": 0.4265,
-          "w": 0.19,
-          "h": 0.1519
-        }
-      },
-      {
-        "key": "back_logo",
-        "label": "Логотип/надпись под номером",
-        "view": "back",
-        "type": "any",
-        "price": 300,
-        "priceGroup": "logo_under_number",
-        "align": "center",
-        "box": {
-          "x": 0.635,
-          "y": 0.5959,
-          "w": 0.19,
-          "h": 0.0444
-        }
-      },
-      {
-        "key": "shoulder_logo",
-        "label": "Лого на плече",
-        "view": "shoulder",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.115,
-          "y": 0.5316,
-          "w": 0.055,
-          "h": 0.0584
-        }
-      }
-    ],
-    "Space": [
-      {
-        "key": "chest_logo_small",
-        "label": "Лого клуба (левая грудь)",
-        "view": "front",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.175,
-          "y": 0.5333,
-          "w": 0.065,
-          "h": 0.058
-        }
-      },
-      {
-        "key": "chest_number",
-        "label": "Номер на грудь",
-        "view": "front",
-        "type": "text",
-        "price": 300,
-        "box": {
-          "x": 0.248,
-          "y": 0.5275,
-          "w": 0.085,
-          "h": 0.0812
-        }
-      },
-      {
-        "key": "chest_logo_large",
-        "label": "Лого на груди",
-        "view": "front",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.345,
-          "y": 0.5333,
-          "w": 0.065,
-          "h": 0.058
-        }
-      },
-      {
-        "key": "sponsor",
-        "label": "Спонсор",
-        "view": "front",
-        "type": "image",
-        "price": 0,
-        "box": {
-          "x": 0.17,
-          "y": 0.6667,
-          "w": 0.24,
-          "h": 0.0522
-        }
-      },
-      {
-        "key": "shorts_number",
-        "label": "Номер на шортах",
-        "view": "front",
-        "type": "text",
-        "price": 0,
-        "included": true,
-        "box": {
-          "x": 0.16,
-          "y": 0.8812,
-          "w": 0.06,
-          "h": 0.058
-        }
-      },
-      {
-        "key": "shorts_logo",
-        "label": "Лого на шортах",
-        "view": "front",
-        "type": "image",
-        "price": 0,
-        "included": true,
-        "box": {
-          "x": 0.28,
-          "y": 0.8812,
-          "w": 0.06,
-          "h": 0.058
-        }
-      },
-      {
-        "key": "name",
-        "label": "Фамилия",
-        "view": "back",
-        "type": "text",
-        "price": 600,
-        "priceGroup": "name_number",
-        "maxLines": 2,
-        "align": "center",
-        "box": {
-          "x": 0.615,
-          "y": 0.3768,
-          "w": 0.23,
-          "h": 0.058
-        }
-      },
-      {
-        "key": "back_number",
-        "label": "Номер (спина)",
-        "view": "back",
-        "type": "text",
-        "price": 0,
-        "priceGroup": "name_number",
-        "align": "center",
-        "box": {
-          "x": 0.635,
-          "y": 0.4232,
-          "w": 0.19,
-          "h": 0.1507
-        }
-      },
-      {
-        "key": "back_logo",
-        "label": "Логотип/надпись под номером",
-        "view": "back",
-        "type": "any",
-        "price": 300,
-        "priceGroup": "logo_under_number",
-        "align": "center",
-        "box": {
-          "x": 0.635,
-          "y": 0.5913,
-          "w": 0.19,
-          "h": 0.0441
-        }
-      },
-      {
-        "key": "shoulder_logo",
-        "label": "Лого на плече",
-        "view": "shoulder",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.115,
-          "y": 0.5275,
-          "w": 0.055,
-          "h": 0.058
-        }
-      }
-    ],
-    "Star": [
-      {
-        "key": "chest_logo_small",
-        "label": "Лого клуба (левая грудь)",
-        "view": "front",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.175,
-          "y": 0.4973,
-          "w": 0.065,
-          "h": 0.0541
-        }
-      },
-      {
-        "key": "chest_number",
-        "label": "Номер на грудь",
-        "view": "front",
-        "type": "text",
-        "price": 300,
-        "box": {
-          "x": 0.248,
-          "y": 0.4919,
-          "w": 0.085,
-          "h": 0.0757
-        }
-      },
-      {
-        "key": "chest_logo_large",
-        "label": "Лого на груди",
-        "view": "front",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.345,
-          "y": 0.4973,
-          "w": 0.065,
-          "h": 0.0541
-        }
-      },
-      {
-        "key": "sponsor",
-        "label": "Спонсор",
-        "view": "front",
-        "type": "image",
-        "price": 0,
-        "box": {
-          "x": 0.17,
-          "y": 0.6216,
-          "w": 0.24,
-          "h": 0.0486
-        }
-      },
-      {
-        "key": "shorts_number",
-        "label": "Номер на шортах",
-        "view": "front",
-        "type": "text",
-        "price": 0,
-        "included": true,
-        "box": {
-          "x": 0.16,
-          "y": 0.8216,
-          "w": 0.06,
-          "h": 0.0541
-        }
-      },
-      {
-        "key": "shorts_logo",
-        "label": "Лого на шортах",
-        "view": "front",
-        "type": "image",
-        "price": 0,
-        "included": true,
-        "box": {
-          "x": 0.28,
-          "y": 0.8216,
-          "w": 0.06,
-          "h": 0.0541
-        }
-      },
-      {
-        "key": "name",
-        "label": "Фамилия",
-        "view": "back",
-        "type": "text",
-        "price": 600,
-        "priceGroup": "name_number",
-        "maxLines": 2,
-        "align": "center",
-        "box": {
-          "x": 0.615,
-          "y": 0.3514,
-          "w": 0.23,
-          "h": 0.0541
-        }
-      },
-      {
-        "key": "back_number",
-        "label": "Номер (спина)",
-        "view": "back",
-        "type": "text",
-        "price": 0,
-        "priceGroup": "name_number",
-        "align": "center",
-        "box": {
-          "x": 0.635,
-          "y": 0.3946,
-          "w": 0.19,
-          "h": 0.1405
-        }
-      },
-      {
-        "key": "back_logo",
-        "label": "Логотип/надпись под номером",
-        "view": "back",
-        "type": "any",
-        "price": 300,
-        "priceGroup": "logo_under_number",
-        "align": "center",
-        "box": {
-          "x": 0.635,
-          "y": 0.5514,
-          "w": 0.19,
-          "h": 0.0411
-        }
-      },
-      {
-        "key": "shoulder_logo",
-        "label": "Лого на плече",
-        "view": "shoulder",
-        "type": "image",
-        "price": 300,
-        "box": {
-          "x": 0.115,
-          "y": 0.4919,
-          "w": 0.055,
-          "h": 0.0541
+          "h": 0.0718
         }
       }
     ],
@@ -1247,9 +683,9 @@
         "price": 300,
         "box": {
           "x": 0.175,
-          "y": 0.5487,
+          "y": 0.4659,
           "w": 0.065,
-          "h": 0.0596
+          "h": 0.0706
         }
       },
       {
@@ -1260,9 +696,9 @@
         "price": 300,
         "box": {
           "x": 0.248,
-          "y": 0.5427,
+          "y": 0.4588,
           "w": 0.085,
-          "h": 0.0835
+          "h": 0.0988
         }
       },
       {
@@ -1273,9 +709,9 @@
         "price": 300,
         "box": {
           "x": 0.345,
-          "y": 0.5487,
+          "y": 0.4659,
           "w": 0.065,
-          "h": 0.0596
+          "h": 0.0706
         }
       },
       {
@@ -1286,9 +722,9 @@
         "price": 0,
         "box": {
           "x": 0.17,
-          "y": 0.6859,
+          "y": 0.6282,
           "w": 0.24,
-          "h": 0.0537
+          "h": 0.0635
         }
       },
       {
@@ -1300,9 +736,9 @@
         "included": true,
         "box": {
           "x": 0.16,
-          "y": 0.9066,
+          "y": 0.8894,
           "w": 0.06,
-          "h": 0.0596
+          "h": 0.0706
         }
       },
       {
@@ -1314,9 +750,9 @@
         "included": true,
         "box": {
           "x": 0.28,
-          "y": 0.9066,
+          "y": 0.8894,
           "w": 0.06,
-          "h": 0.0596
+          "h": 0.0706
         }
       },
       {
@@ -1330,9 +766,9 @@
         "align": "center",
         "box": {
           "x": 0.615,
-          "y": 0.3877,
+          "y": 0.2753,
           "w": 0.23,
-          "h": 0.0596
+          "h": 0.0706
         }
       },
       {
@@ -1345,9 +781,9 @@
         "align": "center",
         "box": {
           "x": 0.635,
-          "y": 0.4354,
+          "y": 0.3318,
           "w": 0.19,
-          "h": 0.1551
+          "h": 0.1835
         }
       },
       {
@@ -1360,9 +796,9 @@
         "align": "center",
         "box": {
           "x": 0.635,
-          "y": 0.6083,
+          "y": 0.5365,
           "w": 0.19,
-          "h": 0.0453
+          "h": 0.0536
         }
       },
       {
@@ -1373,13 +809,13 @@
         "price": 300,
         "box": {
           "x": 0.115,
-          "y": 0.5427,
+          "y": 0.4588,
           "w": 0.055,
-          "h": 0.0596
+          "h": 0.0706
         }
       }
     ],
-    "Фаворит": [
+    "New": [
       {
         "key": "chest_logo_small",
         "label": "Лого клуба (левая грудь)",
@@ -1388,9 +824,9 @@
         "price": 300,
         "box": {
           "x": 0.175,
-          "y": 0.5385,
+          "y": 0.4226,
           "w": 0.065,
-          "h": 0.0585
+          "h": 0.064
         }
       },
       {
@@ -1401,9 +837,9 @@
         "price": 300,
         "box": {
           "x": 0.248,
-          "y": 0.5327,
+          "y": 0.4162,
           "w": 0.085,
-          "h": 0.082
+          "h": 0.0896
         }
       },
       {
@@ -1414,9 +850,9 @@
         "price": 300,
         "box": {
           "x": 0.345,
-          "y": 0.5385,
+          "y": 0.4226,
           "w": 0.065,
-          "h": 0.0585
+          "h": 0.064
         }
       },
       {
@@ -1427,9 +863,9 @@
         "price": 0,
         "box": {
           "x": 0.17,
-          "y": 0.6732,
+          "y": 0.5699,
           "w": 0.24,
-          "h": 0.0527
+          "h": 0.0576
         }
       },
       {
@@ -1441,9 +877,9 @@
         "included": true,
         "box": {
           "x": 0.16,
-          "y": 0.8898,
+          "y": 0.8068,
           "w": 0.06,
-          "h": 0.0585
+          "h": 0.064
         }
       },
       {
@@ -1455,9 +891,9 @@
         "included": true,
         "box": {
           "x": 0.28,
-          "y": 0.8898,
+          "y": 0.8068,
           "w": 0.06,
-          "h": 0.0585
+          "h": 0.064
         }
       },
       {
@@ -1471,9 +907,9 @@
         "align": "center",
         "box": {
           "x": 0.615,
-          "y": 0.3805,
+          "y": 0.2497,
           "w": 0.23,
-          "h": 0.0585
+          "h": 0.064
         }
       },
       {
@@ -1486,9 +922,9 @@
         "align": "center",
         "box": {
           "x": 0.635,
-          "y": 0.4273,
+          "y": 0.301,
           "w": 0.19,
-          "h": 0.1522
+          "h": 0.1665
         }
       },
       {
@@ -1501,9 +937,9 @@
         "align": "center",
         "box": {
           "x": 0.635,
-          "y": 0.5971,
+          "y": 0.4867,
           "w": 0.19,
-          "h": 0.0445
+          "h": 0.0487
         }
       },
       {
@@ -1514,9 +950,432 @@
         "price": 300,
         "box": {
           "x": 0.115,
-          "y": 0.5327,
+          "y": 0.4162,
           "w": 0.055,
-          "h": 0.0585
+          "h": 0.064
+        }
+      }
+    ],
+    "Space": [
+      {
+        "key": "chest_logo_small",
+        "label": "Лого клуба (левая грудь)",
+        "view": "front",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.175,
+          "y": 0.4505,
+          "w": 0.065,
+          "h": 0.0683
+        }
+      },
+      {
+        "key": "chest_number",
+        "label": "Номер на грудь",
+        "view": "front",
+        "type": "text",
+        "price": 300,
+        "box": {
+          "x": 0.248,
+          "y": 0.4437,
+          "w": 0.085,
+          "h": 0.0956
+        }
+      },
+      {
+        "key": "chest_logo_large",
+        "label": "Лого на груди",
+        "view": "front",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.345,
+          "y": 0.4505,
+          "w": 0.065,
+          "h": 0.0683
+        }
+      },
+      {
+        "key": "sponsor",
+        "label": "Спонсор",
+        "view": "front",
+        "type": "image",
+        "price": 0,
+        "box": {
+          "x": 0.17,
+          "y": 0.6075,
+          "w": 0.24,
+          "h": 0.0614
+        }
+      },
+      {
+        "key": "shorts_number",
+        "label": "Номер на шортах",
+        "view": "front",
+        "type": "text",
+        "price": 0,
+        "included": true,
+        "box": {
+          "x": 0.16,
+          "y": 0.8601,
+          "w": 0.06,
+          "h": 0.0683
+        }
+      },
+      {
+        "key": "shorts_logo",
+        "label": "Лого на шортах",
+        "view": "front",
+        "type": "image",
+        "price": 0,
+        "included": true,
+        "box": {
+          "x": 0.28,
+          "y": 0.8601,
+          "w": 0.06,
+          "h": 0.0683
+        }
+      },
+      {
+        "key": "name",
+        "label": "Фамилия",
+        "view": "back",
+        "type": "text",
+        "price": 600,
+        "priceGroup": "name_number",
+        "maxLines": 2,
+        "align": "center",
+        "box": {
+          "x": 0.615,
+          "y": 0.2662,
+          "w": 0.23,
+          "h": 0.0683
+        }
+      },
+      {
+        "key": "back_number",
+        "label": "Номер (спина)",
+        "view": "back",
+        "type": "text",
+        "price": 0,
+        "priceGroup": "name_number",
+        "align": "center",
+        "box": {
+          "x": 0.635,
+          "y": 0.3208,
+          "w": 0.19,
+          "h": 0.1775
+        }
+      },
+      {
+        "key": "back_logo",
+        "label": "Логотип/надпись под номером",
+        "view": "back",
+        "type": "any",
+        "price": 300,
+        "priceGroup": "logo_under_number",
+        "align": "center",
+        "box": {
+          "x": 0.635,
+          "y": 0.5188,
+          "w": 0.19,
+          "h": 0.0519
+        }
+      },
+      {
+        "key": "shoulder_logo",
+        "label": "Лого на плече",
+        "view": "shoulder",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.115,
+          "y": 0.4437,
+          "w": 0.055,
+          "h": 0.0683
+        }
+      }
+    ],
+    "Star": [
+      {
+        "key": "chest_logo_small",
+        "label": "Лого клуба (левая грудь)",
+        "view": "front",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.175,
+          "y": 0.4151,
+          "w": 0.065,
+          "h": 0.0629
+        }
+      },
+      {
+        "key": "chest_number",
+        "label": "Номер на грудь",
+        "view": "front",
+        "type": "text",
+        "price": 300,
+        "box": {
+          "x": 0.248,
+          "y": 0.4088,
+          "w": 0.085,
+          "h": 0.0881
+        }
+      },
+      {
+        "key": "chest_logo_large",
+        "label": "Лого на груди",
+        "view": "front",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.345,
+          "y": 0.4151,
+          "w": 0.065,
+          "h": 0.0629
+        }
+      },
+      {
+        "key": "sponsor",
+        "label": "Спонсор",
+        "view": "front",
+        "type": "image",
+        "price": 0,
+        "box": {
+          "x": 0.17,
+          "y": 0.5597,
+          "w": 0.24,
+          "h": 0.0566
+        }
+      },
+      {
+        "key": "shorts_number",
+        "label": "Номер на шортах",
+        "view": "front",
+        "type": "text",
+        "price": 0,
+        "included": true,
+        "box": {
+          "x": 0.16,
+          "y": 0.7925,
+          "w": 0.06,
+          "h": 0.0629
+        }
+      },
+      {
+        "key": "shorts_logo",
+        "label": "Лого на шортах",
+        "view": "front",
+        "type": "image",
+        "price": 0,
+        "included": true,
+        "box": {
+          "x": 0.28,
+          "y": 0.7925,
+          "w": 0.06,
+          "h": 0.0629
+        }
+      },
+      {
+        "key": "name",
+        "label": "Фамилия",
+        "view": "back",
+        "type": "text",
+        "price": 600,
+        "priceGroup": "name_number",
+        "maxLines": 2,
+        "align": "center",
+        "box": {
+          "x": 0.615,
+          "y": 0.2453,
+          "w": 0.23,
+          "h": 0.0629
+        }
+      },
+      {
+        "key": "back_number",
+        "label": "Номер (спина)",
+        "view": "back",
+        "type": "text",
+        "price": 0,
+        "priceGroup": "name_number",
+        "align": "center",
+        "box": {
+          "x": 0.635,
+          "y": 0.2956,
+          "w": 0.19,
+          "h": 0.1635
+        }
+      },
+      {
+        "key": "back_logo",
+        "label": "Логотип/надпись под номером",
+        "view": "back",
+        "type": "any",
+        "price": 300,
+        "priceGroup": "logo_under_number",
+        "align": "center",
+        "box": {
+          "x": 0.635,
+          "y": 0.478,
+          "w": 0.19,
+          "h": 0.0478
+        }
+      },
+      {
+        "key": "shoulder_logo",
+        "label": "Лого на плече",
+        "view": "shoulder",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.115,
+          "y": 0.4088,
+          "w": 0.055,
+          "h": 0.0629
+        }
+      }
+    ],
+    "Winner": [
+      {
+        "key": "chest_logo_small",
+        "label": "Лого клуба (левая грудь)",
+        "view": "front",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.175,
+          "y": 0.4546,
+          "w": 0.065,
+          "h": 0.0689
+        }
+      },
+      {
+        "key": "chest_number",
+        "label": "Номер на грудь",
+        "view": "front",
+        "type": "text",
+        "price": 300,
+        "box": {
+          "x": 0.248,
+          "y": 0.4478,
+          "w": 0.085,
+          "h": 0.0964
+        }
+      },
+      {
+        "key": "chest_logo_large",
+        "label": "Лого на груди",
+        "view": "front",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.345,
+          "y": 0.4546,
+          "w": 0.065,
+          "h": 0.0689
+        }
+      },
+      {
+        "key": "sponsor",
+        "label": "Спонсор",
+        "view": "front",
+        "type": "image",
+        "price": 0,
+        "box": {
+          "x": 0.17,
+          "y": 0.6131,
+          "w": 0.24,
+          "h": 0.062
+        }
+      },
+      {
+        "key": "shorts_number",
+        "label": "Номер на шортах",
+        "view": "front",
+        "type": "text",
+        "price": 0,
+        "included": true,
+        "box": {
+          "x": 0.16,
+          "y": 0.868,
+          "w": 0.06,
+          "h": 0.0689
+        }
+      },
+      {
+        "key": "shorts_logo",
+        "label": "Лого на шортах",
+        "view": "front",
+        "type": "image",
+        "price": 0,
+        "included": true,
+        "box": {
+          "x": 0.28,
+          "y": 0.868,
+          "w": 0.06,
+          "h": 0.0689
+        }
+      },
+      {
+        "key": "name",
+        "label": "Фамилия",
+        "view": "back",
+        "type": "text",
+        "price": 600,
+        "priceGroup": "name_number",
+        "maxLines": 2,
+        "align": "center",
+        "box": {
+          "x": 0.615,
+          "y": 0.2687,
+          "w": 0.23,
+          "h": 0.0689
+        }
+      },
+      {
+        "key": "back_number",
+        "label": "Номер (спина)",
+        "view": "back",
+        "type": "text",
+        "price": 0,
+        "priceGroup": "name_number",
+        "align": "center",
+        "box": {
+          "x": 0.635,
+          "y": 0.3238,
+          "w": 0.19,
+          "h": 0.1791
+        }
+      },
+      {
+        "key": "back_logo",
+        "label": "Логотип/надпись под номером",
+        "view": "back",
+        "type": "any",
+        "price": 300,
+        "priceGroup": "logo_under_number",
+        "align": "center",
+        "box": {
+          "x": 0.635,
+          "y": 0.5235,
+          "w": 0.19,
+          "h": 0.0524
+        }
+      },
+      {
+        "key": "shoulder_logo",
+        "label": "Лого на плече",
+        "view": "shoulder",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.115,
+          "y": 0.4478,
+          "w": 0.055,
+          "h": 0.0689
         }
       }
     ],
@@ -1529,9 +1388,9 @@
         "price": 300,
         "box": {
           "x": 0.175,
-          "y": 0.5354,
+          "y": 0.4526,
           "w": 0.065,
-          "h": 0.0582
+          "h": 0.0686
         }
       },
       {
@@ -1542,9 +1401,9 @@
         "price": 300,
         "box": {
           "x": 0.248,
-          "y": 0.5296,
+          "y": 0.4457,
           "w": 0.085,
-          "h": 0.0815
+          "h": 0.096
         }
       },
       {
@@ -1555,9 +1414,9 @@
         "price": 300,
         "box": {
           "x": 0.345,
-          "y": 0.5354,
+          "y": 0.4526,
           "w": 0.065,
-          "h": 0.0582
+          "h": 0.0686
         }
       },
       {
@@ -1568,9 +1427,9 @@
         "price": 0,
         "box": {
           "x": 0.17,
-          "y": 0.6693,
+          "y": 0.6103,
           "w": 0.24,
-          "h": 0.0524
+          "h": 0.0617
         }
       },
       {
@@ -1582,9 +1441,9 @@
         "included": true,
         "box": {
           "x": 0.16,
-          "y": 0.8846,
+          "y": 0.864,
           "w": 0.06,
-          "h": 0.0582
+          "h": 0.0686
         }
       },
       {
@@ -1596,9 +1455,9 @@
         "included": true,
         "box": {
           "x": 0.28,
-          "y": 0.8846,
+          "y": 0.864,
           "w": 0.06,
-          "h": 0.0582
+          "h": 0.0686
         }
       },
       {
@@ -1612,9 +1471,9 @@
         "align": "center",
         "box": {
           "x": 0.615,
-          "y": 0.3783,
+          "y": 0.2674,
           "w": 0.23,
-          "h": 0.0582
+          "h": 0.0686
         }
       },
       {
@@ -1627,9 +1486,9 @@
         "align": "center",
         "box": {
           "x": 0.635,
-          "y": 0.4248,
+          "y": 0.3223,
           "w": 0.19,
-          "h": 0.1513
+          "h": 0.1783
         }
       },
       {
@@ -1642,9 +1501,9 @@
         "align": "center",
         "box": {
           "x": 0.635,
-          "y": 0.5936,
+          "y": 0.5211,
           "w": 0.19,
-          "h": 0.0442
+          "h": 0.0521
         }
       },
       {
@@ -1655,9 +1514,150 @@
         "price": 300,
         "box": {
           "x": 0.115,
-          "y": 0.5296,
+          "y": 0.4457,
           "w": 0.055,
-          "h": 0.0582
+          "h": 0.0686
+        }
+      }
+    ],
+    "Фаворит": [
+      {
+        "key": "chest_logo_small",
+        "label": "Лого клуба (левая грудь)",
+        "view": "front",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.175,
+          "y": 0.4557,
+          "w": 0.065,
+          "h": 0.069
+        }
+      },
+      {
+        "key": "chest_number",
+        "label": "Номер на грудь",
+        "view": "front",
+        "type": "text",
+        "price": 300,
+        "box": {
+          "x": 0.248,
+          "y": 0.4488,
+          "w": 0.085,
+          "h": 0.0967
+        }
+      },
+      {
+        "key": "chest_logo_large",
+        "label": "Лого на груди",
+        "view": "front",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.345,
+          "y": 0.4557,
+          "w": 0.065,
+          "h": 0.069
+        }
+      },
+      {
+        "key": "sponsor",
+        "label": "Спонсор",
+        "view": "front",
+        "type": "image",
+        "price": 0,
+        "box": {
+          "x": 0.17,
+          "y": 0.6145,
+          "w": 0.24,
+          "h": 0.0621
+        }
+      },
+      {
+        "key": "shorts_number",
+        "label": "Номер на шортах",
+        "view": "front",
+        "type": "text",
+        "price": 0,
+        "included": true,
+        "box": {
+          "x": 0.16,
+          "y": 0.87,
+          "w": 0.06,
+          "h": 0.069
+        }
+      },
+      {
+        "key": "shorts_logo",
+        "label": "Лого на шортах",
+        "view": "front",
+        "type": "image",
+        "price": 0,
+        "included": true,
+        "box": {
+          "x": 0.28,
+          "y": 0.87,
+          "w": 0.06,
+          "h": 0.069
+        }
+      },
+      {
+        "key": "name",
+        "label": "Фамилия",
+        "view": "back",
+        "type": "text",
+        "price": 600,
+        "priceGroup": "name_number",
+        "maxLines": 2,
+        "align": "center",
+        "box": {
+          "x": 0.615,
+          "y": 0.2693,
+          "w": 0.23,
+          "h": 0.069
+        }
+      },
+      {
+        "key": "back_number",
+        "label": "Номер (спина)",
+        "view": "back",
+        "type": "text",
+        "price": 0,
+        "priceGroup": "name_number",
+        "align": "center",
+        "box": {
+          "x": 0.635,
+          "y": 0.3245,
+          "w": 0.19,
+          "h": 0.1795
+        }
+      },
+      {
+        "key": "back_logo",
+        "label": "Логотип/надпись под номером",
+        "view": "back",
+        "type": "any",
+        "price": 300,
+        "priceGroup": "logo_under_number",
+        "align": "center",
+        "box": {
+          "x": 0.635,
+          "y": 0.5247,
+          "w": 0.19,
+          "h": 0.0525
+        }
+      },
+      {
+        "key": "shoulder_logo",
+        "label": "Лого на плече",
+        "view": "shoulder",
+        "type": "image",
+        "price": 300,
+        "box": {
+          "x": 0.115,
+          "y": 0.4488,
+          "w": 0.055,
+          "h": 0.069
         }
       }
     ]
