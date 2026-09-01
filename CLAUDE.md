@@ -158,7 +158,9 @@ Star 5, Winner 7, Волна 5, Фаворит 5; коралл не заводи
 
 - **Git:** `https://github.com/Andrrreyiv/jetron-constructor`. `origin/main` = **`42bdda5`**
   (merge PR #6 — вторая волна правок целиком; до него #5 = `c351f9c`, #4 = `4ed553c`).
-  Незакрытых PR нет, ветка `fix/client-comments-31-08` слита целиком, хвостов в ней не осталось.
+  Незакрытых PR нет, ветка `fix/client-comments-31-08` слита целиком.
+  ⚠️ После мержа в ветку лёг ещё один коммит — **только документация** (`0f7d8a8`, сверка
+  демо после мержа). Кода в нём нет, на демо он не влияет; доедет следующим PR.
   ⚠️ Локальный `main` отстал — за состоянием смотреть в `origin/main`.
   ⚠️ `gh` и GitHub MCP несут протухший токен (`Bad credentials`), но рабочий лежит в
   Credential Manager: `git push` проходит, а API — через `git credential fill` + urllib.
