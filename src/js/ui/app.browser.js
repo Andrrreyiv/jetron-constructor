@@ -2,15 +2,15 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260831b';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260831b';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260831b';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260831b';
-import { buildOrder } from '../core/OrderSummary.js?v=20260831b';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260831b';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260831b';
-import { productLink } from '../core/ProductLink.js?v=20260831b';
-import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать } from '../core/TextColor.js?v=20260831b';
+import { CanvasView } from './canvas.browser.js?v=20260901a';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260901a';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260901a';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260901a';
+import { buildOrder } from '../core/OrderSummary.js?v=20260901a';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260901a';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260901a';
+import { productLink } from '../core/ProductLink.js?v=20260901a';
+import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать } from '../core/TextColor.js?v=20260901a';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -221,16 +221,11 @@ export class UniformApp {
     btn.className = 'constructor-exit';
     btn.setAttribute('aria-label', 'Выйти из конструктора');
     btn.textContent = '×';
-    Object.assign(btn.style, {
-      position: 'fixed', top: '10px', right: '10px', zIndex: '2147483647',
-      // 44px — минимум под палец (iOS HIG). Инлайновый стиль перебивает CSS,
-      // поэтому размер задаётся здесь, а не в @media (pointer: coarse).
-      width: '44px', height: '44px', lineHeight: '42px', padding: '0',
-      borderRadius: '50%', border: 'none', cursor: 'pointer',
-      background: 'rgba(17,17,17,0.72)', color: '#fff',
-      fontSize: '26px', fontWeight: '400', textAlign: 'center',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.25)'
-    });
+    // ⚠️ Геометрия и оформление переехали в CSS (`.constructor-exit`) 01.09 и обратно
+    // в инлайн НЕ возвращаются. Инлайн ставили, чтобы перебить CSS, но у него есть
+    // цена: он не реагирует на ширину окна, а на телефоне крестик надо уменьшать
+    // и поднимать — иначе он занимает правый верхний угол, и ряд плашки приходится
+    // опускать на форму (ровно то, на что клиент пожаловался 01.09).
     btn.onclick = () => this._exitConstructor();
     document.body.appendChild(btn);
   }
@@ -560,20 +555,11 @@ export class UniformApp {
     const modHost = document.getElementById('modelpick');
     if (!palHost || !modHost) return;
     const colors = this.config.colors || [];
-    const models = this.formsForColor(this.colorId);
     palHost.innerHTML = `
       <div class="color-palette">
         ${colors.map((c) => `<button class="pcolor ${c.id === this.colorId ? 'active' : ''}"
            data-color="${c.id}" title="${escapeHtml(c.name)}" aria-label="${escapeHtml(c.name)}"
            style="background:${c.hex}"></button>`).join('')}
-      </div>
-    `;
-    modHost.innerHTML = `
-      <div class="model-carousel">
-        ${models.map((f) => `<button class="model-card ${f.id === this.formId ? 'active' : ''}"
-           data-form="${f.id}" title="${escapeHtml(f.line)} ${escapeHtml(f.color)}">
-           <span class="model-thumb"><img src="${encodeURI(f.images.front)}" alt="${escapeHtml(f.line)}" loading="lazy"></span>
-        </button>`).join('')}
       </div>
     `;
 
@@ -583,12 +569,36 @@ export class UniformApp {
         this.colorId = b.dataset.color;
         const first = this.formsForColor(this.colorId)[0];
         if (first) this.formId = first.id;
-        // Здесь перерисовка нужна: состав карусели у другого цвета другой.
-        this.buildColorPicker();
+        // ⚠️ `buildColorPicker()` здесь звать НЕЛЬЗЯ — ровно та же починка, что ниже у моделей.
+        // Клиент 01.09: «у цветов сделать так же как у формы, не перекидывать курсор на первый
+        // цвет». Палитра — ПОЛНЫЙ список `config.colors`, от выбора он не зависит: меняется
+        // только `.active`. Перерисовка innerHTML сбрасывала `scrollLeft` палитры в 0 (замер:
+        // 362 → 0), и на телефоне лента уезжала к первому цвету. Переставляем класс руками,
+        // а перерисовываем только карусель — её состав у другого цвета действительно другой.
+        palHost.querySelectorAll('.pcolor.active').forEach((a) => a.classList.remove('active'));
+        b.classList.add('active');
+        this._buildModelCarousel();
         this.buildViews();
         await this.renderAll();
       };
     });
+    this._buildModelCarousel();
+  }
+
+  // Карусель эскизов моделей. Вынесена из `buildColorPicker()`, чтобы смена цвета
+  // перерисовывала только её и не трогала DOM палитры (иначе теряется её прокрутка).
+  _buildModelCarousel() {
+    const modHost = document.getElementById('modelpick');
+    if (!modHost) return;
+    const models = this.formsForColor(this.colorId);
+    modHost.innerHTML = `
+      <div class="model-carousel">
+        ${models.map((f) => `<button class="model-card ${f.id === this.formId ? 'active' : ''}"
+           data-form="${f.id}" title="${escapeHtml(f.line)} ${escapeHtml(f.color)}">
+           <span class="model-thumb"><img src="${encodeURI(f.images.front)}" alt="${escapeHtml(f.line)}" loading="lazy"></span>
+        </button>`).join('')}
+      </div>
+    `;
     modHost.querySelectorAll('.model-card').forEach((b) => {
       b.onclick = async () => {
         if (b.dataset.form === this.formId) return;
