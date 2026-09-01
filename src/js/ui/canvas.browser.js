@@ -2,7 +2,7 @@
 // Только браузерный слой (DOM + canvas) — не покрывается node:test, поэтому суффикс .browser.js.
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
-import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_RATIO } from '../core/ZoneManager.js?v=20260831b';
+import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX } from '../core/ZoneManager.js?v=20260831b';
 import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260831b';
 import { capWidthByHeight } from '../core/CanvasFit.js?v=20260831b';
 
@@ -155,12 +155,15 @@ export class CanvasView {
   }
 
   // Сажает номер в рамку по чернилам: без деформации, ограничивающая сторона впритык,
-  // глиф прижат к верхней кромке (заказчик 2026-07-24) с малым отступом NUMBER_TOP_INSET_RATIO
-  // от высоты зоны (заказчик 2026-08-27). Мутирует fontSize/left/top объекта.
+  // глиф прижат к верхней кромке (заказчик 2026-07-24) с отступом NUMBER_TOP_INSET_PX
+  // (заказчик 2026-08-27 и 2026-08-31). Мутирует fontSize/left/top объекта.
+  // ⚠️ Отступ в ПИКСЕЛЯХ холста, а не в долях высоты зоны: он лечит срез сглаженной верхней
+  // строки глифа рамкой отсечения `_clipFor`, а сглаживание живёт в пикселях устройства.
+  // Разбор замера — в комментарии к константе в ZoneManager.js.
   _seatNumber(obj, rect, text, fontFamily) {
     const REF = 100;
     const ink = this._inkMetrics(text, fontFamily, REF);
-    const topInset = NUMBER_TOP_INSET_RATIO * rect.height;
+    const topInset = NUMBER_TOP_INSET_PX;
     const { fontSize } = fitInkToRect(rect, ink, { ref: REF, topInset });
     obj.set({ fontSize });
     if (typeof obj.initDimensions === 'function') obj.initDimensions();
