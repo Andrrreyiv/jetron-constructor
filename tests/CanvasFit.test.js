@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { capWidthByHeight } from '../src/js/core/CanvasFit.js';
+import { capWidthByHeight, fitCanvasInCard, FRAME_ASPECT } from '../src/js/core/CanvasFit.js';
 
 // Клиент 31.08: «на ноутбуке конструктор должен помещаться без вертикальной прокрутки».
 // Замер 1366×768 до правки: холст вписывался ТОЛЬКО по ширине (600 px → высота 661 px по
@@ -18,4 +18,43 @@ test('ширина холста ограничена доступной высо
   assert.equal(capWidthByHeight(600, champion, 800), 600);
   // Бюджета нет вовсе — не уходим в ноль и не отдаём отрицательное.
   assert.equal(capWidthByHeight(600, champion, 0), 150);
+});
+
+// Клиент 02.09 (волна 5): «чтобы на всех картинках вот эта белая рамка была без движения,
+// намертво зафиксирована, и чтобы она была одна, чтобы она не гуляла вверх-вниз… а внутри
+// они пускай плавают как хотят». Кадры мокапов на диске: ширина всегда 900, высота по самой
+// высокой форме линейки — Champion 836, Legend 850, Фаворит 869, Winner 871, Волна 875,
+// Space 879, New 937, Star 954. Пропорцию рамки берём Champion'а: клиент назвал его размеры
+// идеальными, и это единственный вариант, который не уменьшает уже принятое.
+const ЛИНЕЙКИ = [836, 850, 869, 871, 875, 879, 937, 954];
+
+test('белая карточка одна на все восемь линеек и не меняет размер', () => {
+  assert.equal(FRAME_ASPECT, 836 / 900);
+  const карточки = ЛИНЕЙКИ.map((h) => fitCanvasInCard(500, h / 900));
+  for (const c of карточки) {
+    assert.equal(c.cardWidth, 500);
+    assert.equal(c.cardHeight, карточки[0].cardHeight); // рамка не гуляет вверх-вниз
+  }
+  assert.ok(Math.abs(карточки[0].cardHeight - 464.44) < 0.01);
+});
+
+test('Champion заполняет рамку целиком, высокие линейки плавают внутри с белыми полями', () => {
+  const champion = fitCanvasInCard(500, 836 / 900);
+  assert.equal(champion.canvasWidth, 500); // «идеальные размеры» не трогаем
+  assert.equal(champion.canvasHeight, champion.cardHeight);
+
+  const star = fitCanvasInCard(500, 954 / 900); // самая высокая линейка
+  assert.ok(star.canvasWidth < star.cardWidth); // по бокам белое поле
+  assert.ok(Math.abs(star.canvasHeight - star.cardHeight) < 0.01); // упирается в высоту рамки
+  assert.ok(Math.abs(star.canvasWidth - 438.15) < 0.01);
+});
+
+// Волна 4 вылечила вертикальный перелив на 1366×768 (было 250 px, стало 0 у всех восьми).
+// Карточка не имеет права оказаться выше бюджета, а холст — выше карточки, иначе перелив вернётся.
+test('холст не вылезает за рамку ни на одной линейке, включая случай без пропорции', () => {
+  for (const h of [...ЛИНЕЙКИ, 0]) {
+    const c = fitCanvasInCard(500, h / 900);
+    assert.ok(c.canvasWidth <= c.cardWidth + 1e-9, `ширина у кадра ${h}`);
+    assert.ok(c.canvasHeight <= c.cardHeight + 1e-9, `высота у кадра ${h}`);
+  }
 });

@@ -2,13 +2,20 @@
 // Только браузерный слой (DOM + canvas) — не покрывается node:test, поэтому суффикс .browser.js.
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
-import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX } from '../core/ZoneManager.js?v=20260901a';
-import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260901a';
-import { capWidthByHeight } from '../core/CanvasFit.js?v=20260901a';
+import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX } from '../core/ZoneManager.js?v=20260902a';
+import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260902a';
+import { capWidthByHeight, fitCanvasInCard, FRAME_ASPECT } from '../core/CanvasFit.js?v=20260902a';
 
 export class CanvasView {
   constructor(canvasEl, canvasCfg) {
+    // Белая карточка. Берём родителя ДО создания fabric.Canvas: Fabric оборачивает <canvas>
+    // в свой .canvas-container и после этого parentElement указывал бы уже на обёртку Fabric.
+    this.wrapEl = canvasEl.parentElement;
     const displayWidth = canvasCfg.displayWidth || canvasCfg.width;
+    // Ширина, выбранная по горизонтали. Базой для расчёта карточки берём именно её, а не
+    // canvas.getWidth(): холст сужается под свою картинку, и повторный setBackground считал бы
+    // карточку от уже суженного холста — она бы уезжала вниз с каждым переключением расцветки.
+    this.displayWidth = displayWidth;
     const displayHeight = displayWidth * (canvasCfg.height / canvasCfg.width);
     this.canvas = new fabric.Canvas(canvasEl, {
       width: displayWidth,
@@ -53,9 +60,21 @@ export class CanvasView {
     // по одной ширине для этого мало — высота едет следом за пропорцией мокапа, и на 1366×768
     // холст выходил 600×661, а страница переливалась на 250 px (замер 31.08). Пропорция известна
     // только здесь, после загрузки картинки, поэтому и сужаем здесь, до расчёта масштаба.
-    if (this.maxHeight > 0) {
-      const capped = capWidthByHeight(this.canvas.getWidth(), img.height / img.width, this.maxHeight);
-      if (capped < this.canvas.getWidth()) this.canvas.setDimensions({ width: capped });
+    // Клиент 02.09 (волна 5): «белая рамка одна, намертво зафиксирована, не гуляет вверх-вниз,
+    // а внутри пускай плавают как хотят». Поэтому бюджет высоты считаем по ПОСТОЯННОЙ пропорции
+    // карточки (FRAME_ASPECT), а не по пропорции текущего мокапа: раньше карточка меняла размер
+    // на каждой линейке (ПК 439…501 по ширине, телефон 360…411 по высоте). Разбор — CanvasFit.js.
+    const imgAspect = img.height / img.width;
+    const base = this.displayWidth || this.canvas.getWidth();
+    const cardWidth = this.maxHeight > 0 ? capWidthByHeight(base, FRAME_ASPECT, this.maxHeight) : base;
+    const fit = fitCanvasInCard(cardWidth, imgAspect);
+    if (Math.abs(this.canvas.getWidth() - fit.canvasWidth) > 0.5) {
+      this.canvas.setDimensions({ width: fit.canvasWidth });
+    }
+    // Размер карточки задаём в пикселях, иначе она обтянет холст и снова «загуляет».
+    if (this.wrapEl) {
+      this.wrapEl.style.width = `${fit.cardWidth}px`;
+      this.wrapEl.style.height = `${fit.cardHeight}px`;
     }
     const scale = this.canvas.getWidth() / img.width;
     img.set({ scaleX: scale, scaleY: scale });
