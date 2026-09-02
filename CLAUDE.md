@@ -11,7 +11,8 @@
 
 ## 🟢 ВОЛНА 4 (02.09): все три правки НА ДЕМО, разработки не осталось
 
-🟢 **PR #8 влит владельцем, `origin/main` = `d4f833c`**, незакрытых PR нет.
+🟢 **PR #4-#9 влиты владельцем, `origin/main` = `b383ff4`, открытых PR ноль.**
+(#8 = `d4f833c` — код волны 4; #9 = `b383ff4` — только письмо №15, кода не трогает.)
 🟢 **Сверено ПОСЛЕ мержа на ЖИВОМ адресе, а не на localhost:** sha256 демо = `origin/main`
 у `index.html`, `stand.css`, `app.browser.js`. Замер на `github.io` в профиле телефона
 (`hasTouch`), пять ширин 320 / 360 / 375 / 412 / 768:
@@ -181,18 +182,18 @@ Star 5, Winner 7, Волна 5, Фаворит 5; коралл не заводи
 
 ## 📂 Где что лежит
 
-- **Git:** `https://github.com/Andrrreyiv/jetron-constructor`. `origin/main` = **`2b3b67c`**
-  (merge PR #7, 02.09 06:45; до него #6 = `42bdda5`, #5 = `c351f9c`, #4 = `4ed553c`).
-  Незакрытых PR нет; ветка `fix/client-comments-31-08` = `008a244` целиком внутри `main`
-  (`git diff HEAD origin/main` пуст). ⚠️ Локальный `main` отстал на 67, смотреть `origin/main`.
+- **Git:** `https://github.com/Andrrreyiv/jetron-constructor`. `origin/main` = **`b383ff4`**
+  (merge PR #9, 02.09; до него #8 = `d4f833c` — волна 4, #7 = `2b3b67c`, #6 = `42bdda5`,
+  #5 = `c351f9c`, #4 = `4ed553c`). Открытых PR ноль; слитые ветки `fix/client-comments-31-08`
+  и `docs/message-15` удалены. ⚠️ Смотреть `origin/main`, локальный отстаёт после каждого мержа.
   ⚠️ `gh` и GitHub MCP несут протухший токен (`Bad credentials`), но рабочий лежит в
   Credential Manager: `git push` проходит, а API — через `git credential fill` + urllib.
 - **Локальный запуск:** `npx --yes serve .` (`.claude/launch.json`, `jetron-preview`, порт 8778).
   ⚠️ `?zones=edit` цеплять к КОРНЮ. 🔴 **01.09 Preview MCP и Claude in Chrome отвалились оба**,
   мерили headless Chromium; демо `github.io` из браузера не открыть. Код — в ГРАБЛЯХ.
-- **Тесты:** на `origin/main` = `2b3b67c` прогнано 02.09: `npm test` → **88/0**,
-  `python -m pytest` → **39 passed**. Прежняя запись «86/0 и 37» относилась к состоянию
-  до мержа #7; расхождение снято прогоном, а не редактурой.
+- **Тесты:** на коде волны 4 прогнано 02.09: `npm test` → **89/0**,
+  `python -m pytest` → **39 passed**. (+1 к прежним 88 дал сторож `tests/ExitButton.test.js`.)
+  Числа сверяются прогоном, а не редактурой.
   Гонять набор целиком, иначе провал сбора не виден.
   Рантайм-хуки: `window.__jetronApp`, `window.__jetronEditor` (при `?zones=edit`).
 - **Ключевые файлы:** `src/js/ui/` — `app.browser.js` (панель, рендер, плашка, `gridForAge`),
