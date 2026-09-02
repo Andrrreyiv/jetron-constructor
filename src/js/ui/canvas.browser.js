@@ -2,9 +2,9 @@
 // Только браузерный слой (DOM + canvas) — не покрывается node:test, поэтому суффикс .browser.js.
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
-import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX } from '../core/ZoneManager.js?v=20260831b';
-import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260831b';
-import { capWidthByHeight } from '../core/CanvasFit.js?v=20260831b';
+import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX } from '../core/ZoneManager.js?v=20260901a';
+import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260901a';
+import { capWidthByHeight } from '../core/CanvasFit.js?v=20260901a';
 
 export class CanvasView {
   constructor(canvasEl, canvasCfg) {
