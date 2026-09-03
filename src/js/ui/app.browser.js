@@ -2,15 +2,15 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260902a';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260902a';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260902a';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260902a';
-import { buildOrder } from '../core/OrderSummary.js?v=20260902a';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260902a';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260902a';
-import { productLink } from '../core/ProductLink.js?v=20260902a';
-import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать } from '../core/TextColor.js?v=20260902a';
+import { CanvasView } from './canvas.browser.js?v=20260902b';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260902b';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260902b';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260902b';
+import { buildOrder } from '../core/OrderSummary.js?v=20260902b';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260902b';
+import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260902b';
+import { productLink } from '../core/ProductLink.js?v=20260902b';
+import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать } from '../core/TextColor.js?v=20260902b';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (

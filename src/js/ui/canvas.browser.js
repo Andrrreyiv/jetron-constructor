@@ -2,9 +2,9 @@
 // Только браузерный слой (DOM + canvas) — не покрывается node:test, поэтому суффикс .browser.js.
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
-import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX } from '../core/ZoneManager.js?v=20260902a';
-import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260902a';
-import { capWidthByHeight, fitCanvasInCard, FRAME_ASPECT } from '../core/CanvasFit.js?v=20260902a';
+import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX } from '../core/ZoneManager.js?v=20260902b';
+import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260902b';
+import { capWidthByHeight, fitCanvasInCard, FRAME_ASPECT } from '../core/CanvasFit.js?v=20260902b';
 
 export class CanvasView {
   constructor(canvasEl, canvasCfg) {
@@ -33,10 +33,31 @@ export class CanvasView {
     this.staticObjects = [];       // служебные надписи бренда (Jetron.ru) — не редактируются покупателем
     this.onChange = () => {};
     this.canvas.on('object:modified', () => this.onChange());
+    // Карточка должна иметь размер с первого кадра, до всякой картинки: иначе первый показ
+    // и каждая пересборка холста дают проблеск по дефолтной пропорции 1200/900.
+    this._applyCardSize();
   }
 
   get el() {
     return this.canvas;
+  }
+
+  // Размер белой карточки. Зависит ТОЛЬКО от выбранной ширины, бюджета высоты и постоянной
+  // FRAME_ASPECT — от картинки не зависит вовсе (сторож: тест «размер карточки не зависит от
+  // картинки» в tests/CanvasFit.test.js). Поэтому ставится СРАЗУ, не дожидаясь загрузки WebP.
+  // Замер живого демо 02.09: пока это делалось после `await` в setBackground, карточка на смене
+  // расцветки оставалась без инлайнового размера и обтягивала свежесозданный холст
+  // displayWidth × (1200/900) — на телефоне 351×468 вместо 351×326, по 200-950 мс на КАЖДОМ
+  // клике по цвету. Клиент 02.09: «главное, чтобы белая рамка не гуляла».
+  _applyCardSize() {
+    const base = this.displayWidth || this.canvas.getWidth();
+    const cardWidth = this.maxHeight > 0 ? capWidthByHeight(base, FRAME_ASPECT, this.maxHeight) : base;
+    const fit = fitCanvasInCard(cardWidth);
+    if (this.wrapEl) {
+      this.wrapEl.style.width = `${fit.cardWidth}px`;
+      this.wrapEl.style.height = `${fit.cardHeight}px`;
+    }
+    return fit.cardWidth;
   }
 
   _rect(box) {
@@ -46,6 +67,8 @@ export class CanvasView {
   // crop — per-form кадрирование фона (доля исходника, которую оставляем), режет серые поля мокапа.
   // null/полный кадр → показываем изображение целиком, как раньше.
   async setBackground(url, crop = null) {
+    // ДО загрузки WebP: карточка от картинки не зависит, а её отсутствие видно глазом.
+    const cardWidth = this._applyCardSize();
     const img = await fabric.FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
     img.set({ selectable: false, evented: false });
     const rect = cropToImageRect(crop, img.width, img.height);
@@ -65,16 +88,11 @@ export class CanvasView {
     // карточки (FRAME_ASPECT), а не по пропорции текущего мокапа: раньше карточка меняла размер
     // на каждой линейке (ПК 439…501 по ширине, телефон 360…411 по высоте). Разбор — CanvasFit.js.
     const imgAspect = img.height / img.width;
-    const base = this.displayWidth || this.canvas.getWidth();
-    const cardWidth = this.maxHeight > 0 ? capWidthByHeight(base, FRAME_ASPECT, this.maxHeight) : base;
+    // Карточка уже выставлена выше, до загрузки, и от imgAspect не зависит — здесь картинка
+    // влияет только на размер ХОЛСТА внутри карточки («внутри пускай плавают как хотят»).
     const fit = fitCanvasInCard(cardWidth, imgAspect);
     if (Math.abs(this.canvas.getWidth() - fit.canvasWidth) > 0.5) {
       this.canvas.setDimensions({ width: fit.canvasWidth });
-    }
-    // Размер карточки задаём в пикселях, иначе она обтянет холст и снова «загуляет».
-    if (this.wrapEl) {
-      this.wrapEl.style.width = `${fit.cardWidth}px`;
-      this.wrapEl.style.height = `${fit.cardHeight}px`;
     }
     const scale = this.canvas.getWidth() / img.width;
     img.set({ scaleX: scale, scaleY: scale });
