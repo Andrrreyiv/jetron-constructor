@@ -4,7 +4,7 @@
 // только для залогиненного администратора). Покупатель этот режим не видит.
 //
 // Браузерный слой (Fabric + DOM), вне node:test. Чистая математика границ — в core/ZoneOverrides.js.
-import { clampBox, brandBoxFromObject } from '../core/ZoneOverrides.js?v=20260902b';
+import { clampBox, brandBoxFromObject, brandEntryFromBox, resolveBrandColor } from '../core/ZoneOverrides.js?v=20260902b';
 import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260902b';
 
 // Служебные origin-константы Fabric: фон рендерится от левого-верхнего угла (0,0).
@@ -49,9 +49,11 @@ class ZoneEditor {
 
   mount() {
     this.buildBar();
-    // После каждой перерисовки стенда заново вооружаем рамки (renderZones их пересоздаёт).
-    this.app._afterRender = () => this.armAll();
+    // После каждой перерисовки стенда заново вооружаем рамки (renderZones их пересоздаёт)
+    // и подтягиваем палитру: админ мог переключить расцветку, у неё свой цвет знака.
+    this.app._afterRender = () => { this.armAll(); this._обновитьПалитру(); };
     this.armAll();
+    this._обновитьПалитру();
     this.fetchNonce();
   }
 
@@ -97,7 +99,11 @@ class ZoneEditor {
     this.cropBtn = cropBtn;
     cropRow.append(cropBtn);
 
-    bar.append(title, hint, status, row, cropRow);
+    // Третья строка: цвет бренд-знака для ТЕКУЩЕЙ расцветки (клиент 04.09 просил палитру).
+    // По умолчанию цвет считается автоматически по яркости ткани; выбор из палитры это
+    // переопределяет, кнопка «авто» — снимает. Правка попадает в zones.json вместе с позицией.
+    bar.append(title, hint, status, row, cropRow, this._строкаЦветаЗнака('chest_brand', 'Знак на груди'),
+      this._строкаЦветаЗнака('shorts_brand', 'Знак на шортах'));
     document.body.appendChild(bar);
     this.bar = bar;
   }
@@ -194,8 +200,82 @@ class ZoneEditor {
     const box = brandBoxFromObject(img, canvas.getWidth(), canvas.getHeight());
     const fid = this.app.formId;
     if (!this.session[fid]) this.session[fid] = {};
-    this.session[fid][img.brandKey] = box;
+    // Запись заменяется ЦЕЛИКОМ, а в ней рядом с позицией лежит выбранный цвет знака —
+    // без brandEntryFromBox админ, подвинув знак после выбора цвета, молча терял бы цвет.
+    this.session[fid][img.brandKey] = brandEntryFromBox(this._записьЗнака(img.brandKey), box);
     this.setStatus(`Изменён логотип: ${img.brandKey}`);
+  }
+
+  // Текущая запись знака: сначала правки этой сессии, затем то, что пришло из zones.json.
+  _записьЗнака(brandKey) {
+    const fid = this.app.formId;
+    const своё = this.session[fid] && this.session[fid][brandKey];
+    if (своё) return своё;
+    const база = this.app.config.zoneOverrides || {};
+    return база[fid] && база[fid][brandKey];
+  }
+
+  // Палитра цвета знака (клиент 04.09: «давайте вручную настройку сделаем с выбором цвета из
+  // палитры»). Цвет привязан к РАСЦВЕТКЕ и к конкретному знаку, живёт в той же записи, что и
+  // позиция. «Авто» снимает ручной выбор и возвращает расчёт по яркости ткани.
+  _задатьЦветЗнака(brandKey, цвет) {
+    const fid = this.app.formId;
+    if (!this.session[fid]) this.session[fid] = {};
+    const прежняя = this._записьЗнака(brandKey);
+    const view = this._видСоЗнаком(brandKey);
+    const box = прежняя
+      ? { x: прежняя.x, y: прежняя.y, w: прежняя.w, h: прежняя.h }
+      : (view && view.brandObjects && view.brandObjects.get(brandKey)
+        ? brandBoxFromObject(view.brandObjects.get(brandKey), view.canvas.getWidth(), view.canvas.getHeight())
+        : null);
+    if (!box) { this.setStatus(`Знак ${brandKey} не найден на холсте`); return; }
+    this.session[fid][brandKey] = цвет ? { ...box, color: цвет } : { ...box };
+    // Показываем результат сразу: renderAll пересобирает стенд и знак приходит уже в новом цвете.
+    this.app.config.zoneOverrides = this.mergedOverrides();
+    this.app.renderAll({ keepCards: true });
+    this.setStatus(цвет ? `Цвет знака ${brandKey}: ${цвет}` : `Цвет знака ${brandKey}: авто`);
+  }
+
+  // Одна строка палитры: подпись, выбор цвета и возврат к автоматике. Значение в поле —
+  // текущий ручной цвет расцветки, а если его нет, чёрный как нейтральная отправная точка
+  // (само поле цвета не умеет показывать «не задано»).
+  _строкаЦветаЗнака(brandKey, подпись) {
+    const строка = document.createElement('div');
+    Object.assign(строка.style, { display: 'flex', gap: '8px', alignItems: 'center', fontSize: '12px' });
+
+    const имя = document.createElement('span');
+    имя.textContent = подпись;
+    Object.assign(имя.style, { flex: '1' });
+
+    const поле = document.createElement('input');
+    поле.type = 'color';
+    Object.assign(поле.style, { width: '38px', height: '24px', padding: '0', border: 'none', background: 'none', cursor: 'pointer' });
+    поле.oninput = () => this._задатьЦветЗнака(brandKey, поле.value);
+
+    const авто = this.mkButton('авто', 'rgba(255,255,255,0.18)');
+    авто.onclick = () => { this._задатьЦветЗнака(brandKey, null); this._обновитьПалитру(); };
+
+    строка.append(имя, поле, авто);
+    if (!this._поляЦвета) this._поляЦвета = new Map();
+    this._поляЦвета.set(brandKey, поле);
+    return строка;
+  }
+
+  // Подтягивает поля палитры под текущую расцветку: админ переключает форму, и в полях должен
+  // стоять её цвет, а не цвет предыдущей.
+  _обновитьПалитру() {
+    if (!this._поляЦвета) return;
+    const карта = this.mergedOverrides();
+    for (const [brandKey, поле] of this._поляЦвета) {
+      поле.value = resolveBrandColor(карта, this.app.formId, brandKey) || '#111111';
+    }
+  }
+
+  _видСоЗнаком(brandKey) {
+    for (const view of this.app.views.values()) {
+      if (view.brandObjects && view.brandObjects.get(brandKey)) return view;
+    }
+    return null;
   }
 
   // Ищет CanvasView по его Fabric-холсту (onModified/moving/scaling дают только canvas).
