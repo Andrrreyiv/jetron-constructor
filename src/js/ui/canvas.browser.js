@@ -4,6 +4,7 @@
 import * as fabric from 'fabric';
 import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX } from '../core/ZoneManager.js?v=20260902b';
 import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260902b';
+import { создатьСчётчикЗагрузок } from '../core/LatestLoad.js?v=20260902b';
 import { capWidthByHeight, fitCanvasInCard, FRAME_ASPECT } from '../core/CanvasFit.js?v=20260902b';
 
 export class CanvasView {
@@ -31,6 +32,7 @@ export class CanvasView {
     this.zoneOverlays = new Map(); // key -> fabric.Rect (пунктирная рамка зоны)
     this.userObjects = new Map();  // key -> объект, помещённый покупателем
     this.staticObjects = [];       // служебные надписи бренда (Jetron.ru) — не редактируются покупателем
+    this._загрузки = создатьСчётчикЗагрузок(); // свой у каждого холста: перёд и спина грузятся врозь
     this.onChange = () => {};
     this.canvas.on('object:modified', () => this.onChange());
     // Карточка должна иметь размер с первого кадра, до всякой картинки: иначе первый показ
@@ -69,7 +71,13 @@ export class CanvasView {
   async setBackground(url, crop = null) {
     // ДО загрузки WebP: карточка от картинки не зависит, а её отсутствие видно глазом.
     const cardWidth = this._applyCardSize();
+    // Номер загрузки. Покупатель кликает по цветам быстрее, чем грузятся мокапы, и порядок
+    // ответов не гарантирован ничем — файлы разного веса. Замер 04.09: без этого 5 переключений
+    // из 10 оставляли на холсте ЧУЖУЮ расцветку (разбор — core/LatestLoad.js).
+    const загрузка = this._загрузки.начать();
     const img = await fabric.FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
+    // Пока грузились, покупатель выбрал другой цвет — эта картинка уже никому не нужна.
+    if (!this._загрузки.актуальна(загрузка)) return;
     img.set({ selectable: false, evented: false });
     const rect = cropToImageRect(crop, img.width, img.height);
     if (rect) {
