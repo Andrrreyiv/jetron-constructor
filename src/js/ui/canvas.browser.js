@@ -4,6 +4,8 @@
 import * as fabric from 'fabric';
 import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX } from '../core/ZoneManager.js?v=20260902b';
 import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260902b';
+import { яркостьТкани } from '../core/TextColor.js?v=20260902b';
+import { создатьСчётчикЗагрузок } from '../core/LatestLoad.js?v=20260902b';
 import { capWidthByHeight, fitCanvasInCard, FRAME_ASPECT } from '../core/CanvasFit.js?v=20260902b';
 
 export class CanvasView {
@@ -31,6 +33,7 @@ export class CanvasView {
     this.zoneOverlays = new Map(); // key -> fabric.Rect (пунктирная рамка зоны)
     this.userObjects = new Map();  // key -> объект, помещённый покупателем
     this.staticObjects = [];       // служебные надписи бренда (Jetron.ru) — не редактируются покупателем
+    this._загрузки = создатьСчётчикЗагрузок(); // свой у каждого холста: перёд и спина грузятся врозь
     this.onChange = () => {};
     this.canvas.on('object:modified', () => this.onChange());
     // Карточка должна иметь размер с первого кадра, до всякой картинки: иначе первый показ
@@ -69,7 +72,13 @@ export class CanvasView {
   async setBackground(url, crop = null) {
     // ДО загрузки WebP: карточка от картинки не зависит, а её отсутствие видно глазом.
     const cardWidth = this._applyCardSize();
+    // Номер загрузки. Покупатель кликает по цветам быстрее, чем грузятся мокапы, и порядок
+    // ответов не гарантирован ничем — файлы разного веса. Замер 04.09: без этого 5 переключений
+    // из 10 оставляли на холсте ЧУЖУЮ расцветку (разбор — core/LatestLoad.js).
+    const загрузка = this._загрузки.начать();
     const img = await fabric.FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
+    // Пока грузились, покупатель выбрал другой цвет — эта картинка уже никому не нужна.
+    if (!this._загрузки.актуальна(загрузка)) return;
     img.set({ selectable: false, evented: false });
     const rect = cropToImageRect(crop, img.width, img.height);
     if (rect) {
@@ -109,8 +118,31 @@ export class CanvasView {
     this.canvas.requestRenderAll();
   }
 
-  // Средняя яркость (0..255) фона-мокапа под боксом-зоной (доли 0..1 холста). Нужна, чтобы выбрать
-  // цвет бренд-монограммы под ткань: тёмная ткань → белый знак, светлая → чёрный. null, если фона нет.
+  // Яркость ТКАНИ (0..255) под боксом-зоной (доли 0..1 холста). Нужна, чтобы выбрать цвет
+  // бренд-монограммы: тёмная ткань → белый знак, светлая → чёрный. null, если фона нет.
+  //
+  // 🔴 Клиент 04.09: «логотип на груди чёрный, предвижу необходимость настройки цвета».
+  // Замер по всем 15 расцветкам показал ДВЕ причины, обе лечатся здесь, и обе — про то,
+  // ЧТО попадает в выборку, а не про порог 128:
+  //   1) Мокап лежит на ЧИСТО БЕЛОМ листе, и бокс знака часто свисает за силуэт формы.
+  //      На красной (winner-red) 36 % выборки были белым фоном, среднее выходило 156.5
+  //      вместо 102 по самой ткани → «светлая» → ЧЁРНЫЙ знак на красной футболке.
+  //      Худшие: жёлтые шорты 178 вместо 37, сиреневые 168 вместо 36, лаймовые 184 вместо 40 —
+  //      везде ЧЁРНЫЙ знак на ЧЁРНЫХ шортах. Лечение: пиксели чистого фона (все каналы ≥ 250)
+  //      в расчёт не берём.
+  //   2) Среднее врёт на ДВУХЦВЕТНОЙ ткани. На champion-white знак стоит ровно на границе
+  //      бордовой вставки и белого поля: среднее 128.8 при пороге 128 — монетка. Медиана
+  //      берёт цвет БОЛЬШИНСТВА ткани под знаком (198 → чёрный) и не зависит от того,
+  //      сколько процентов занял второй цвет.
+  // Прогон обоих правил по 30 боксам (15 расцветок × грудь/шорты): совпало с глазом везде,
+  // где знак хотя бы на четверть стоит на ткани.
+  //
+  // ⚠️ Даунсэмпл ОБЯЗАН быть без сглаживания: при `imageSmoothingEnabled = true` браузер
+  // усредняет соседей ещё до нас и подмешивает белый фон обратно в пиксели ткани — тогда
+  // отбраковка по «≥ 250» уже ничего не находит.
+  // ⚠️ Мало ткани (< 25 % выборки) — это НЕ вопрос цвета, а знак, стоящий мимо формы
+  // (позиция по умолчанию одна на все 44 расцветки, своя есть только у champion-white).
+  // Чинится расстановкой в редакторе зон, здесь честно отдаём медиану всей выборки.
   bgLuminanceAt(box) {
     const bg = this.canvas.backgroundImage;
     if (!bg) return null;
@@ -122,19 +154,16 @@ export class CanvasView {
     const sy = Math.round(cropY + box.y * h);
     const sw = Math.max(1, Math.round(box.w * w));
     const sh = Math.max(1, Math.round(box.h * h));
-    const S = 8; // даунсэмпл региона в 8x8 — усредняем цвет ткани
+    const S = 16; // сетка выборки 16x16 = 256 точек: медиане нужно больше двух десятков значений
     const off = document.createElement('canvas');
     off.width = S; off.height = S;
     const ctx = off.getContext('2d', { willReadFrequently: true });
     try {
+      ctx.imageSmoothingEnabled = false;
       ctx.drawImage(el, sx, sy, sw, sh, 0, 0, S, S);
-      const data = ctx.getImageData(0, 0, S, S).data;
-      let sum = 0, n = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-        n++;
-      }
-      return n ? sum / n : null;
+      // Сама статистика (отбраковка фона + медиана) живёт в core/TextColor.js под тестами:
+      // вёрстку и Fabric тесты не стерегут, а числа выше стеречь обязаны.
+      return яркостьТкани(ctx.getImageData(0, 0, S, S).data);
     } catch {
       return null; // taint/CORS — не критично, вызывающий возьмёт цвет по умолчанию
     }

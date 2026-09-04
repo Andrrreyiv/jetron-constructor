@@ -10,7 +10,7 @@ import { buildOrder } from '../core/OrderSummary.js?v=20260902b';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260902b';
 import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260902b';
 import { productLink } from '../core/ProductLink.js?v=20260902b';
-import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать } from '../core/TextColor.js?v=20260902b';
+import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, знакБелый } from '../core/TextColor.js?v=20260902b';
 import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260902b';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
@@ -1262,8 +1262,7 @@ export class UniformApp {
     const view = zone && this.targetView(zone);
     if (!zone || !view) return;
     const box = resolveBrandBox(this.config.zoneOverrides, this.formId, brandKey, zone.box);
-    const lum = view.bgLuminanceAt(box);
-    const dark = lum != null && lum < 128;
+    const dark = знакБелый(view.bgLuminanceAt(box));
     const logo = dark ? (this.brandingImgWhite || this.brandingImg) : this.brandingImg;
     // clip:false — бренд подгоняется в бокс точно, а в редакторе его двигают за пределы исходного
     // бокса; фиксированный clipPath обрезал бы сдвинутый знак. Покупателю знак неподвижен (evented:false).
