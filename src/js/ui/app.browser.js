@@ -11,6 +11,7 @@ import { createState, setPlacement, removePlacement } from '../core/EditHistory.
 import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260902b';
 import { productLink } from '../core/ProductLink.js?v=20260902b';
 import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать } from '../core/TextColor.js?v=20260902b';
+import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260902b';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -387,14 +388,22 @@ export class UniformApp {
   }
 
   buildViews() {
+    const list = this.viewList();
+    const base = this.config.canvas || { width: 900, height: 1200, displayWidth: 450 };
+    const displayWidth = this._displayWidth(list.length);
+    const maxHeight = this._availHeight();
+    const план = { key: list.map((v) => v.id).join('|'), displayWidth, maxHeight };
+
+    // Смена расцветки НЕ повод сносить холсты: состав видов и размеры те же. Снос давал
+    // клиентские «блоки скачут» — плашка линейки пропадала, карточка пустела, а новый холст
+    // рождался 600×800 и тянул раскладку. Подробности — в `core/ViewsRebuild.js`.
+    if (this.views.size === list.length && !needsViewsRebuild(this._viewsPlan, план)) return;
+    this._viewsPlan = план;
+
     // Пересоздаём канвасы (модель могла смениться → появилось/пропало плечо).
     for (const v of this.views.values()) v.dispose();
     this.views.clear();
     this.viewsEl.innerHTML = '';
-
-    const list = this.viewList();
-    const base = this.config.canvas || { width: 900, height: 1200, displayWidth: 450 };
-    const displayWidth = this._displayWidth(list.length);
     this._lastDisplayWidth = displayWidth;
 
     for (const v of list) {
@@ -414,7 +423,7 @@ export class UniformApp {
       col.appendChild(wrap);
       this.viewsEl.appendChild(col);
 
-      const view = new CanvasView(canvasEl, { ...base, displayWidth, maxHeight: this._availHeight() });
+      const view = new CanvasView(canvasEl, { ...base, displayWidth, maxHeight });
       view.onChange = () => this.updatePrice();
       view.onZoneClick((key) => this.selectZone(key));
       this.views.set(v.id, view);
