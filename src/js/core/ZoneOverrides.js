@@ -1,6 +1,24 @@
 // Ядро редактора зон: чистые функции (тестируются в node, без DOM/Fabric).
 // Админ двигает/тянет зоны на холсте → сохраняем per-form переопределения box в zones.json.
 
+import { корректныйЦвет } from './TextColor.js';
+
+// Ручной цвет знака (клиент 04.09). Живёт в ТОЙ ЖЕ записи, что и позиция знака: отдельный файл
+// потребовал бы второго эндпоинта в mu-плагине, а эту карту редактор уже умеет сохранять.
+// Нет цвета или мусор вместо него — null, то есть «решай автоматикой по яркости ткани».
+export function resolveBrandColor(overrides, formId, brandKey) {
+  const saved = overrides && overrides[formId] && overrides[formId][brandKey];
+  return saved && корректныйЦвет(saved.color) ? saved.color.toLowerCase() : null;
+}
+
+// Новая позиция знака поверх прежней записи. Существует ровно затем, чтобы перетаскивание знака
+// не стирало выбранный цвет: редактор заменяет запись целиком, и без этого админ, подвинув знак
+// после выбора цвета, молча терял бы цвет.
+export function brandEntryFromBox(prev, box) {
+  const цвет = prev && корректныйЦвет(prev.color) ? prev.color.toLowerCase() : null;
+  return цвет ? { ...box, color: цвет } : { ...box };
+}
+
 const MIN = 0.02; // минимальный размер зоны в долях холста (чтобы не схлопнуть в точку)
 const r4 = (v) => Math.round(v * 1e4) / 1e4; // чистим floating-point хвост для zones.json
 
@@ -35,6 +53,9 @@ export function validateOverrides(obj) {
       if (!box || typeof box !== 'object') return { ok: false };
       const bad = ['x', 'y', 'w', 'h'].some((k) => typeof box[k] !== 'number');
       if (bad) return { ok: false };
+      // Цвет знака необязателен, но если он есть — обязан быть #rrggbb: иначе файл испорчен,
+      // и красить знак наугад хуже, чем откатиться на базовый конфиг целиком.
+      if (box.color !== undefined && !корректныйЦвет(box.color)) return { ok: false };
     }
   }
   return { ok: true };

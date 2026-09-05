@@ -8,9 +8,9 @@ import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSize
 import { filterGridBySizes } from '../core/SizeMatch.js?v=20260902b';
 import { buildOrder } from '../core/OrderSummary.js?v=20260902b';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260902b';
-import { applyZoneOverrides, resolveBrandBox } from '../core/ZoneOverrides.js?v=20260902b';
+import { applyZoneOverrides, resolveBrandBox, resolveBrandColor } from '../core/ZoneOverrides.js?v=20260902b';
 import { productLink } from '../core/ProductLink.js?v=20260902b';
-import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, знакБелый } from '../core/TextColor.js?v=20260902b';
+import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260902b';
 import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260902b';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
@@ -1254,24 +1254,52 @@ export class UniformApp {
   }
 
   // Ставит бренд-монограмму. Бокс: сохранённая админом позиция (zoneOverrides[form][brandKey]) либо
-  // по умолчанию центрирован на зоне-якоре. Цвет знака выбираем по яркости ткани под зоной: тёмная
-  // ткань → белая монограмма, светлая → чёрная (иначе «JS» на чёрных шортах сливается). Картинку
-  // помечаем brandKey и регистрируем в view.brandObjects — редактор зон делает её перетаскиваемой.
+  // по умолчанию центрирован на зоне-якоре. Цвет: по умолчанию считается по яркости ткани под зоной
+  // (тёмная → белый знак, светлая → чёрный), но админ может задать СВОЙ цвет для расцветки —
+  // клиент 04.09 просил палитру, потому что «что-нибудь заглючит, а нужно будет синий».
+  // Картинку помечаем brandKey и регистрируем в view.brandObjects — редактор делает её перетаскиваемой.
   _placeBrand(anchorKey, brandKey) {
     const zone = this.formZones.find((z) => z.key === anchorKey);
     const view = zone && this.targetView(zone);
     if (!zone || !view) return;
     const box = resolveBrandBox(this.config.zoneOverrides, this.formId, brandKey, zone.box);
-    const dark = знакБелый(view.bgLuminanceAt(box));
-    const logo = dark ? (this.brandingImgWhite || this.brandingImg) : this.brandingImg;
+    const ручной = resolveBrandColor(this.config.zoneOverrides, this.formId, brandKey);
+    const цвет = цветЗнака(view.bgLuminanceAt(box), ручной);
+    const { файл, перекрасить } = источникЗнака(цвет);
+    const готовый = файл === 'white' ? (this.brandingImgWhite || this.brandingImg) : this.brandingImg;
+    const logo = перекрасить && готовый ? this._перекраситьЗнак(готовый, перекрасить) : готовый;
     // clip:false — бренд подгоняется в бокс точно, а в редакторе его двигают за пределы исходного
     // бокса; фиксированный clipPath обрезал бы сдвинутый знак. Покупателю знак неподвижен (evented:false).
     const obj = logo
       ? view.placeStaticImage(box, logo, { clip: false })
-      : view.placeStaticText(box, 'JS', dark ? '#ffffff' : '#111111');
+      : view.placeStaticText(box, 'JS', цвет);
     obj.brandKey = brandKey;
     if (!view.brandObjects) view.brandObjects = new Map();
     view.brandObjects.set(brandKey, obj);
+  }
+
+  // Перекраска знака в произвольный цвет из палитры. Знак — плоский силуэт с ЖЁСТКОЙ альфой
+  // (замерено 04.09: 109 283 непрозрачных пикселя, все одного цвета, полупрозрачных ноль),
+  // поэтому хватает заливки с composite 'source-in': цвет останется ровно там, где у исходника
+  // непрозрачные пиксели, а на краях не будет цветной каймы. Ни SVG, ни лишних файлов не нужно.
+  // Результат кэшируем: смена расцветки зовёт _placeBrand заново, а перерисовывать 779×311
+  // на каждый клик по палитре незачем.
+  _перекраситьЗнак(imgEl, цвет) {
+    if (!this._кэшЗнака) this._кэшЗнака = new Map();
+    const готово = this._кэшЗнака.get(цвет);
+    if (готово) return готово;
+    const w = imgEl.naturalWidth || imgEl.width;
+    const h = imgEl.naturalHeight || imgEl.height;
+    if (!w || !h) return imgEl; // картинка ещё не догрузилась — лучше исходник, чем пустой холст
+    const холст = document.createElement('canvas');
+    холст.width = w; холст.height = h;
+    const ctx = холст.getContext('2d');
+    ctx.drawImage(imgEl, 0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = цвет;
+    ctx.fillRect(0, 0, w, h);
+    this._кэшЗнака.set(цвет, холст);
+    return холст;
   }
 
   // Дубль номера со спины на шортах (клиент 2026-07-23): «номер на шортах включён в стоимость».
