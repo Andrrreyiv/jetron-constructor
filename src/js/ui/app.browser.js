@@ -12,6 +12,7 @@ import { applyZoneOverrides, resolveBrandBox, resolveBrandColor } from '../core/
 import { productLink } from '../core/ProductLink.js?v=20260902b';
 import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260902b';
 import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260902b';
+import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260906a';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -532,7 +533,11 @@ export class UniformApp {
   // Кнопка «Скачать макет» уехала на плашку внутрь картинки (`_renderLineBadge`).
   buildColorPicker() {
     const palHost = document.getElementById('colorpick');
-    const modHost = document.getElementById('modelpick');
+    // ⚠️ Узел эскизов НЕ требуем, а обеспечиваем. Раньше здесь стоял ранний выход по его
+    // отсутствию, и он молча гасил палитру целиком: замер на боевом 06.09 дал 0 свотчей
+    // вместо 15 у покупателя со старой разметкой в кэше и свежим скриптом. Разбор — в
+    // шапке `core/ModelHost.js`.
+    const modHost = обеспечитьУзелМоделей(palHost);
     if (!palHost || !modHost) return;
     const colors = this.config.colors || [];
     palHost.innerHTML = `
