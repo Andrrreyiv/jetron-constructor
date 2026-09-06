@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jetron — конструктор формы (стенд v1, mock)</title>
+  <!-- ⚠️ Заголовок видит ПОИСК, а не покупатель: страница живёт в iframe на WP 3443, там свой
+       title «Онлайн-конструктор формы | JetronSport». Но /constructor/ отдаётся без noindex
+       (замер 07.09: мета-robots нет, X-Robots-Tag пуст, robots.txt не закрывает), поэтому слова
+       «стенд» и «mock» из прежнего заголовка могли уйти в выдачу. Дубль title обёртки не ставим —
+       две страницы конкурировали бы в поиске. -->
+  <title>Конструктор формы — JetronSport</title>
   <link rel="stylesheet" href="src/css/stand.css?v=20260902b">
   <script type="importmap">
   {
