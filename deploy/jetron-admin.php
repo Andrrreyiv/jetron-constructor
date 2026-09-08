@@ -354,6 +354,52 @@ function jetron_admin_handle_models($data, $action) {
                 . ' ВАЖНО: зоны нанесения пока общие — откройте редактор зон и поправьте рамки под это фото, иначе номер и фамилия сядут мимо.');
     }
 
+    // Оттенок кружка у УЖЕ СУЩЕСТВУЮЩЕЙ расцветки. Через «Добавить модель» его не поменять:
+    // там цвет пишется, только если id новый (см. $has_color ниже) — на это клиент и жаловался 07.09.
+    if ($action === 'colors') {
+        $colors  = isset($data['colors']) && is_array($data['colors']) ? $data['colors'] : jetron_admin_base_colors();
+        $sent    = (array) ($_POST['hex'] ?? array());
+        $changed = 0;
+        foreach ($colors as &$c) {
+            $id = $c['id'] ?? '';
+            if ($id === '' || !isset($sent[$id]) || !is_scalar($sent[$id])) {
+                continue;
+            }
+            $hex = sanitize_hex_color(wp_unslash($sent[$id]));
+            if (!$hex || strtolower($hex) === strtolower((string) ($c['hex'] ?? ''))) {
+                continue;
+            }
+            $c['hex'] = $hex;
+            $changed++;
+        }
+        unset($c);
+        if ($changed === 0) {
+            return array('ok', 'Цвета не изменились.');
+        }
+        $data['colors'] = $colors;
+        // Записи моделей хранят свой снимок оттенка. Правим его ТОЛЬКО если каталог уже переопределён:
+        // иначе в admin.json лёг бы весь список форм, которого там не было.
+        if (isset($data['forms']) && is_array($data['forms'])) {
+            $by_id = array();
+            foreach ($colors as $c2) {
+                if (($c2['id'] ?? '') !== '' && !empty($c2['hex'])) {
+                    $by_id[$c2['id']] = $c2['hex'];
+                }
+            }
+            foreach ($data['forms'] as &$f) {
+                $cid = $f['colorId'] ?? '';
+                if ($cid !== '' && isset($by_id[$cid])) {
+                    $f['colorHex'] = $by_id[$cid];
+                }
+            }
+            unset($f);
+        }
+        return jetron_admin_save($data) === false
+            ? array('error', 'Не удалось записать настройки.')
+            : array('ok', 'Палитра обновлена, изменено кружков: ' . $changed
+                . '. Покупатель увидит новый оттенок после обновления страницы конструктора.');
+    }
+
     if ($action === 'model_del') {
         $id    = sanitize_text_field(wp_unslash($_POST['form_id'] ?? ''));
         $forms = isset($data['forms']) && is_array($data['forms']) ? $data['forms'] : jetron_admin_base_forms();
@@ -634,6 +680,17 @@ function jetron_admin_tab_fonts($data, $nonce) {
 function jetron_admin_tab_models($data, $nonce) {
     $forms = jetron_admin_value($data, array('forms'), array());
     $editor = home_url('/constructor/?zones=edit');
+    // Оттенок берём из палитры: правится он там, а в записи модели лежит снимок на момент добавления.
+    $colors = jetron_admin_value($data, array('colors'), array());
+    if (!is_array($colors) || !$colors) {
+        $colors = jetron_admin_base_colors();
+    }
+    $palette = array();
+    foreach ((array) $colors as $c) {
+        if (($c['id'] ?? '') !== '') {
+            $palette[$c['id']] = $c['hex'] ?? '';
+        }
+    }
 
     echo '<h3>Каталог моделей <span style="font-weight:400;color:#50575e">(' . count((array) $forms) . ')</span></h3>';
     $mapped = jetron_admin_mapped_forms();
@@ -643,8 +700,12 @@ function jetron_admin_tab_models($data, $nonce) {
         $img = home_url('/constructor/' . ($f['images']['front'] ?? ''));
         echo '<tr><td><img src="' . esc_url($img) . '" alt="" style="width:70px;height:70px;object-fit:contain"></td>';
         echo '<td>' . esc_html($f['line'] ?? '') . '</td>';
+        $swatch = $palette[$f['colorId'] ?? ''] ?? '';
+        if ($swatch === '') {
+            $swatch = $f['colorHex'] ?? '#fff';
+        }
         echo '<td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #ccc;'
-           . 'vertical-align:middle;background:' . esc_attr($f['colorHex'] ?? '#fff') . '"></span> '
+           . 'vertical-align:middle;background:' . esc_attr($swatch) . '"></span> '
            . esc_html($f['color'] ?? '') . '</td>';
         // Новая модель наследует ОБЩИЕ зоны: если их не поправить, номер и фамилия сядут мимо.
         $is_mapped = in_array(($f['id'] ?? ''), $mapped, true);
@@ -661,6 +722,32 @@ function jetron_admin_tab_models($data, $nonce) {
         echo '<button class="button-link" style="color:#b32d2e">убрать</button></form></td></tr>';
     }
     echo '</tbody></table>';
+
+    // Клиент 07.09: «поменял салатовый в админке, а квадратик не поменялся». Менять оттенок
+    // существующей расцветки было негде — форма ниже заводит цвет только вместе с новой моделью.
+    echo '<h3 style="margin-top:26px">Цвета кружков в фильтре</h3>';
+    echo '<p class="description" style="max-width:900px">Это те кружки, по которым покупатель выбирает расцветку. '
+       . 'Меняется только оттенок кружка: названия, модели и фотографии остаются как есть.</p>';
+    echo '<form method="post">';
+    echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
+    echo '<input type="hidden" name="jetron_admin_action" value="colors">';
+    echo '<table class="widefat striped" style="max-width:520px"><thead><tr>'
+       . '<th>Название</th><th style="width:130px">Кружок</th></tr></thead><tbody>';
+    foreach ((array) $colors as $c) {
+        $cid = $c['id'] ?? '';
+        if ($cid === '') {
+            continue;
+        }
+        $chex = sanitize_hex_color($c['hex'] ?? '');
+        if (!$chex) {
+            $chex = '#ffffff';
+        }
+        echo '<tr><td>' . esc_html($c['name'] ?? $cid) . '</td>'
+           . '<td><input type="color" name="hex[' . esc_attr($cid) . ']" value="' . esc_attr($chex) . '"></td></tr>';
+    }
+    echo '</tbody></table>';
+    submit_button('Сохранить цвета', 'primary', 'save_colors', false);
+    echo '</form>';
 
     echo '<h3 style="margin-top:26px">Добавить модель</h3>';
     echo '<form method="post" enctype="multipart/form-data">';

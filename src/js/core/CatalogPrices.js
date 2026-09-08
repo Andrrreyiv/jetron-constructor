@@ -40,9 +40,28 @@ export function indexCatalogPrices(items) {
   return index;
 }
 
+// Написание расходится не только регистром — замер живого каталога 2026-09-07 (91 позиция)
+// показал расхождение по СЛОВУ, которого нормализация не берёт: линейка Legend заведена
+// в WooCommerce как «Легенда». Из-за этого шесть расцветок не находили свою карточку,
+// и кнопка уводила на несуществующий раздел (клиент 2026-09-07: «перейти в карточку —
+// пишет, что страница не найдена»). Замена пробуется ТОЛЬКО после точного совпадения.
+// Тем же замером у трёх расцветок атрибут цвета разошёлся с самим товаром: «Легенда Голубой»
+// лежит по адресу …sinyaya-legenda, «Фаворит Зелёный» и «Space Зелёный» — по …salatovaya.
+const ЗАМЕНЫ_ЛИНЕЕК = { legend: ['Легенда'] };
+// «Лаймовая Легенда» заведена как жёлтая — доказано картинкой её карточки
+// (…/detskaya-igrovaya-futbolnaya-forma-lajm-l.png), а не догадкой по остатку.
+const ЗАМЕНЫ_ЦВЕТОВ = { синий: ['Голубой'], салатовый: ['Зелёный'], лаймовый: ['Жёлтый'] };
+
 function hit(index, line, color, ageCategory) {
   if (!index || typeof index.get !== 'function') return null;
-  const found = index.get(keyOf(line, color, ageCategory));
+  let found = null;
+  for (const l of [line, ...(ЗАМЕНЫ_ЛИНЕЕК[norm(line)] || [])]) {
+    for (const c of [color, ...(ЗАМЕНЫ_ЦВЕТОВ[norm(color)] || [])]) {
+      found = index.get(keyOf(l, c, ageCategory));
+      if (found) break;
+    }
+    if (found) break;
+  }
   if (!found) return null;
   // Индекс старого формата (только число) — поддерживаем, чтобы ничего не отвалилось.
   return typeof found === 'number' ? { price: found, sizes: [] } : found;

@@ -308,9 +308,14 @@ body {
 }
 
 /* ── Панель управления ───────────────────────────────────── */
+/* min-width: 0 у панели, списка и карточки — иначе flex-умолчание min-width:auto
+   не даёт им стать уже содержимого, и самая длинная строка в списке шрифтов
+   («Germany Euro 2024 · лат.», 162 px + отступы) задирает минимум страницы до 381 px.
+   Клиент 2026-09-07: «когда на шрифт и цвет нажимаешь, смещается всё вправо». */
 .panel {
   display: flex; flex-direction: column; gap: 10px;
   counter-reset: step;
+  min-width: 0;
 }
 .panel > section {
   background: var(--surface);
@@ -600,13 +605,14 @@ body {
 .panel > section h3::before { content: none !important; }
 
 /* ── Карточки опций (аккордеон + тумблер + крестик) ───────── */
-.opt-list { display: flex; flex-direction: column; gap: 10px; }
+.opt-list { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .opt-card {
   background: var(--surface);
   border: 1.5px solid var(--line);
   border-radius: var(--r-lg);
   box-shadow: var(--sh-sm);
   overflow: hidden;
+  min-width: 0;
   transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
 }
 .opt-card:hover { box-shadow: var(--sh-md); }
