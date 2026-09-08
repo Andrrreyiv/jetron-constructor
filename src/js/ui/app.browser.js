@@ -13,6 +13,11 @@ import { productLink } from '../core/ProductLink.js?v=20260902b';
 import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260902b';
 import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260902b';
 import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260906a';
+// `clearDraft` намеренно НЕ импортируется: чистить черновик в конструкторе нечем и незачем.
+// Клиент просил обратного — «зашёл в корзину, оформил, обновил страницу», то есть черновик
+// обязан пережить и корзину, и оформление. Умирает он сам, по сроку в 24 часа.
+import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260907a';
+import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260907a';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -130,9 +135,17 @@ export class UniformApp {
         error: `Файл больше ${cfg.maxUploadMB} МБ. Загрузите изображение поменьше.`,
       });
     }
-    // Лёгкие файлы вставляем как есть.
+    // Лёгкие файлы вставляем как есть — но data: URL, а не blob:. Разница видна только
+    // после перезагрузки страницы: blob: живёт ровно до закрытия вкладки, и черновик
+    // покупателя (п. 7 клиента 07.09) вернул бы битую картинку вместо логотипа.
+    // Байты не трогаем: пережатие в jpeg убило бы прозрачный фон логотипа.
     if (file.size <= cfg.compressOverMB * MB) {
-      return Promise.resolve({ url: URL.createObjectURL(file) });
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ url: String(reader.result) });
+        reader.onerror = () => resolve({ error: 'Не удалось прочитать изображение. Попробуйте другой файл.' });
+        reader.readAsDataURL(file);
+      });
     }
     // Тяжёлые — вписываем в maxDimension и пережимаем в web-формат.
     return new Promise((resolve) => {
@@ -200,14 +213,74 @@ export class UniformApp {
     return this.views.get(zone.view) || this.soleView();
   }
 
+  // Хранилище может быть запрещено целиком (приватный режим, строгий iframe, старый браузер):
+  // обращение к самому `localStorage` бросает ДО первого вызова. Конструктор от этого не падает,
+  // он просто работает без черновика.
+  _storage() {
+    try {
+      return window.localStorage || null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Черновик покупателя (п. 7 клиента 07.09): «навставлял логотипов… обновил страницу — всё
+  // сбросилось». Восстанавливаем ТОЛЬКО введённое, всё остальное конструктор досчитает сам.
+  _restoreDraft() {
+    const storage = this._storage();
+    const safe = storage ? sanitizeDraft(loadDraft(storage), this.config) : null;
+    if (safe) Object.assign(this, safe);
+    // Флаг ставится в самом конце: до него запись черновика запрещена, иначе первая же
+    // отрисовка пустого конструктора затёрла бы хорошую запись прошлого захода.
+    this._draftReady = true;
+  }
+
+  // Пишем на каждое изменение: покупатель не жмёт «сохранить», он просто работает.
+  // Потеря логотипа считается вслух (`droppedImages`) — молчать о ней нельзя.
+  _saveDraft() {
+    if (!this._draftReady) return;
+    const storage = this._storage();
+    if (!storage) return;
+    const res = saveDraft(storage, snapshotOf(this));
+    this._draftLostImages = res.droppedImages || 0;
+    this._renderDraftNote(res);
+    return res;
+  }
+
+  // Одно предложение под «Итого» и только по делу: пока всё сохранилось — места не занимает.
+  _renderDraftNote(res) {
+    const el = this.panelEl && this.panelEl.querySelector('#draft-note');
+    if (!el) return;
+    let текст = '';
+    if (res.droppedImages > 0) {
+      текст = res.droppedImages === 1
+        ? 'Логотип слишком тяжёлый, чтобы сохранить его до следующего захода: после перезагрузки страницы загрузите его заново.'
+        : `Логотипы (${res.droppedImages}) слишком тяжёлые, чтобы сохранить их до следующего захода: после перезагрузки страницы загрузите их заново.`;
+    } else if (!res.saved) {
+      текст = 'Настройки не сохраняются в этом браузере: после перезагрузки страницы их придётся ввести заново.';
+    }
+    el.textContent = текст;
+    el.hidden = !текст;
+  }
+
+  // Восстановление идёт тем же путём, что и обычный ввод: кэш опций → applyOption().
+  // Второго способа «оживить» черновик в коде нет и не заводим — он разъехался бы с первым.
+  _applyRestoredOptions() {
+    for (const opt of this.config.placementOptions || []) {
+      if (this.optionActive(opt)) this.applyOption(opt);
+    }
+  }
+
   async start() {
     await this.loadCatalogPrices();
     await this.loadFonts();
     await this.loadBranding();
+    this._restoreDraft();
     this.buildPanel();
     this.buildColorPicker();
     this.buildViews();
     await this.renderAll();
+    this._applyRestoredOptions();
     this._installResizeRefit();
   }
 
@@ -450,16 +523,16 @@ export class UniformApp {
           <div class="extra-block">
             <span class="extra-label">Размерная категория</span>
             <div class="seg" id="age-seg">
-              <button class="seg-btn active" data-age="adult">Взрослая · ${money(p.form.adult)}</button>
-              <button class="seg-btn" data-age="child">Детская · ${money(p.form.child)}</button>
+              <button class="seg-btn ${this.ageCategory === 'child' ? '' : 'active'}" data-age="adult">Взрослая · ${money(p.form.adult)}</button>
+              <button class="seg-btn ${this.ageCategory === 'child' ? 'active' : ''}" data-age="child">Детская · ${money(p.form.child)}</button>
             </div>
           </div>
-          <label class="extra-check"><input type="checkbox" id="opt-gaiters"> <span>Гетры <em>+${money(p.gaiters)}</em></span></label>
+          <label class="extra-check"><input type="checkbox" id="opt-gaiters" ${this.gaiters ? 'checked' : ''}> <span>Гетры <em>+${money(p.gaiters)}</em></span></label>
           <div class="extra-block qty-block">
             <span class="extra-label">Комплектов</span>
             <div class="qty-stepper">
               <button type="button" id="qty-minus" aria-label="Меньше">−</button>
-              <input type="number" id="opt-qty" min="1" value="1" inputmode="numeric">
+              <input type="number" id="opt-qty" min="1" value="${this.quantity}" inputmode="numeric">
               <button type="button" id="qty-plus" aria-label="Больше">+</button>
             </div>
           </div>
@@ -478,6 +551,7 @@ export class UniformApp {
           <span class="price-foot-label">Итого</span>
           <span id="price-total" class="price-total"></span>
         </div>
+        <p id="draft-note" class="hint draft-note" hidden></p>
         <button id="order-btn" class="cta">Оформить заказ</button>
       </section>
     `;
@@ -1171,11 +1245,13 @@ export class UniformApp {
   _specText(o) {
     if (!o) return '';
     const money = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' \u20bd';
-    const age = o.ageCategory === 'child' ? 'Детская' : 'Взрослая';
     const L = [];
-    L.push(`Модель: ${o.formName} (цвет: ${o.color})`);
-    L.push(`Размерная категория: ${age}`);
-    if (this.size) L.push(`Размер: ${this.size}`);
+    // Клиент 07.09 вычеркнул из корзины «(цвет: …)», «Размерная категория» и строку про логотип
+    // Jetron. Проверено, что смысл не теряется: formName это «Champion Белый», то есть цвет в нём
+    // уже есть; сетки не пересекаются по написанию (детские 4XS…L против взрослых «44 RU (XS)»…),
+    // поэтому возраст читается из самого размера, а размер обязателен — без него корзина не примет.
+    L.push(`Модель: ${o.formName}`);
+    L.push(`Размер: ${this.size}`);
     L.push(`Комплектов: ${o.quantity}`);
     if (o.items && o.items.length) {
       L.push('Нанесения:');
@@ -1187,7 +1263,6 @@ export class UniformApp {
       L.push('Нанесения: нет');
     }
     L.push(`Гетры: ${o.gaiters ? 'да' : 'нет'}`);
-    L.push('Логотип Jetron: грудь + шорты (стандартно)');
     const p = o.price;
     const parts = [`форма ${money(p.formPrice)}`];
     if (p.placementTotal) parts.push(`нанесение ${money(p.placementTotal)}`);
@@ -1348,8 +1423,8 @@ export class UniformApp {
   // Куда ведёт кнопка на плашке. Клиент 2026-08-28: она должна открывать карточку ИМЕННО той
   // расцветки, что на экране, а не раздел каталога по линейке. Адрес берём из того же каталога,
   // что уже отдал цену и сетку размеров — просить у клиента 45 ссылок не нужно. Каталога нет
-  // (демо-стенд, WooCommerce выключен) или позиция не сопоставилась — остаёмся на прежней
-  // ссылке в раздел линейки с прежней подписью. Вся развилка в ProductLink.js.
+  // (демо-стенд, WooCommerce выключен) или позиция не сопоставилась — ссылки нет, и кнопки
+  // тоже нет: раздела каталога по линейке на сайте не существует. Развилка в ProductLink.js.
   _productLink() {
     const form = this.form;
     if (!form) return null;
@@ -1360,7 +1435,7 @@ export class UniformApp {
         ageCategory: this.ageCategory,
       })
       : '');
-    return productLink({ ...form, productUrl: url }, this.config.catalog || {});
+    return productLink({ ...form, productUrl: url });
   }
 
   // Строка над макетом: слева ярлык линейки, справа кнопка перехода.
@@ -1381,7 +1456,10 @@ export class UniformApp {
     if (!host) return;
     let badge = host.querySelector('.line-badge');
     const link = this._productLink();
-    if (!line || !link) { if (badge) badge.remove(); return; }
+    // Плашка держится на линейке, а не на ссылке: с 2026-09-07 адреса карточки может не быть
+    // вовсе (у девяти пар из 90 товара в WooCommerce не существует), и уронив всю плашку
+    // мы унесли бы вместе с ней «Скачать макет» — кнопку, к ссылке отношения не имеющую.
+    if (!line) { if (badge) badge.remove(); return; }
     // Прежняя версия плашки была <button>; при обновлении с неё элемент надо заменить, иначе
     // на странице останется кнопка-обёртка со старым onclick на всю строку.
     if (badge && badge.tagName !== 'DIV') { badge.remove(); badge = null; }
@@ -1391,24 +1469,25 @@ export class UniformApp {
     }
     if (host.firstChild !== badge) host.insertBefore(badge, host.firstChild);
 
-    const title = link.isCard
-      ? `Открыть карточку: ${line}, ${this.form.color || ''}`.replace(/,\s*$/, '')
-      : `Открыть каталог линейки ${line}`;
-    badge.classList.toggle('line-badge--card', link.isCard);
+    const title = `Открыть карточку: ${line}, ${this.form.color || ''}`.replace(/,\s*$/, '');
+    badge.classList.toggle('line-badge--card', !!link);
     // Три пилюли: ярлык линейки слева, «Скачать макет» по центру, переход в карточку справа.
     // Клиент 31.08 (11:11): «кнопку „Скачать макет“ перекинем в саму фотографию, между
     // кнопками названия линейки и „в карточку“, по середине сверху». Центрирование держит
     // grid `1fr auto 1fr` в CSS, а не space-between: иначе середина съезжала бы вслед за
-    // разной шириной боковых пилюль.
+    // разной шириной боковых пилюль. Третьей пилюли может не быть — колонка под неё в сетке
+    // остаётся, и «Скачать макет» не съезжает вбок.
     badge.innerHTML = `<span class="line-badge-pill line-badge-name">${escapeHtml(line)}</span>`
       + `<button type="button" id="download-btn" class="line-badge-pill line-badge-dl"`
       + ` title="Скачать макет" aria-label="Скачать макет">Скачать макет</button>`
-      + `<button type="button" class="line-badge-pill line-badge-cta" title="${escapeHtml(title)}"`
-      + ` aria-label="${escapeHtml(title)}">${escapeHtml(link.label)}</button>`;
+      + (link
+        ? `<button type="button" class="line-badge-pill line-badge-cta" title="${escapeHtml(title)}"`
+          + ` aria-label="${escapeHtml(title)}">${escapeHtml(link.label)}</button>`
+        : '');
     // ⚠️ Обработчики вешаются при КАЖДОЙ перерисовке намеренно: `_renderLineBadge()` живёт
     // внутри `updatePrice()` (ссылка на карточку зависит от возраста), и innerHTML выше
     // каждый раз выбрасывает прежние узлы вместе с их onclick.
-    badge.querySelector('.line-badge-cta').onclick = () => this._goToLineCatalog();
+    if (link) badge.querySelector('.line-badge-cta').onclick = () => this._goToLineCatalog();
     badge.querySelector('.line-badge-dl').onclick = () => this.downloadImage();
   }
 
@@ -1784,6 +1863,8 @@ export class UniformApp {
     // вместе. Переключатель «Взрослый/Детский» звал только updatePrice — кнопка осталась бы
     // на карточке прежнего возраста, и человек увидел бы на макете одну цену, а в карточке другую.
     this._renderLineBadge();
+    // Черновик пишется здесь, потому что updatePrice зовут ВСЕ изменения покупателя.
+    this._saveDraft();
     const r = calculatePrice({
       formPrice: this.currentFormPrice(),
       prices: this.config.prices,

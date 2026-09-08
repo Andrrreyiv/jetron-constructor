@@ -98,3 +98,31 @@ test('buildOrder считает по цене из каталога, если о
   assert.equal(order.price.perKit, 777);
   assert.equal(order.price.grandTotal, 1554);
 });
+
+// Клиент 07.09: «поменял салатовый в админке — квадратик не поменялся». Оттенок покупатель видит
+// в ДВУХ местах: кружок выбора расцветки (берёт config.colors) и кружок «Модель» в сводке заказа.
+// Второй брал снимок form.colorHex, записанный в каталог при заведении модели, и после правки
+// палитры в админке два кружка расходились. Палитра — единственный источник правды по оттенку.
+test('кружок «Модель» берёт оттенок из палитры, а не из снимка в записи модели', () => {
+  const stale = {
+    colors: [{ id: 'lightgreen', name: 'Салатовый', hex: '#7CFC00' }],
+    prices: config.prices,
+    zoneTemplate: config.zoneTemplate,
+    forms: [{ id: 'x', line: 'Легенда', color: 'Салатовый', colorId: 'lightgreen', colorHex: '#8bc34a' }]
+  };
+  const order = buildOrder({ config: stale, formId: 'x', ageCategory: 'adult', quantity: 1, placements: [] });
+  assert.equal(order.colorHex, '#7CFC00');
+});
+
+// Обратная сторона: палитра не обязана знать про каждую модель. Нет расцветки с таким id —
+// остаётся снимок, иначе кружок пропал бы вовсе.
+test('без совпадения по палитре кружок остаётся на снимке модели', () => {
+  const orphan = {
+    colors: [{ id: 'green', name: 'Зелёный', hex: '#1a9c5b' }],
+    prices: config.prices,
+    zoneTemplate: config.zoneTemplate,
+    forms: [{ id: 'x', line: 'Легенда', color: 'Салатовый', colorId: 'lightgreen', colorHex: '#8bc34a' }]
+  };
+  const order = buildOrder({ config: orphan, formId: 'x', ageCategory: 'adult', quantity: 1, placements: [] });
+  assert.equal(order.colorHex, '#8bc34a');
+});

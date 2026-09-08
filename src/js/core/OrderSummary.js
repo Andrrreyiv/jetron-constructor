@@ -30,11 +30,16 @@ export function buildOrder({ config, formId, ageCategory = 'adult', gaiters = fa
     })
     .filter(Boolean);
 
+  // Оттенок берём из палитры по colorId: form.colorHex — снимок на момент заведения модели,
+  // и после правки цвета в админке (клиент 07.09) он разошёлся бы с кружком выбора расцветки.
+  // Нет расцветки с таким id — остаётся снимок, иначе кружок пропал бы вовсе.
+  const paletteHex = (config.colors || []).find((c) => c && c.id === form.colorId)?.hex;
+
   return {
     formId,
     formName: form.name || `${form.line} ${form.color}`,
     color: form.color,
-    colorHex: form.colorHex,
+    colorHex: paletteHex || form.colorHex,
     ageCategory,
     gaiters,
     jetron: { chest: !!jetron.chest, back: !!jetron.back },

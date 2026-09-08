@@ -18,6 +18,7 @@ add_action('plugins_loaded', function () {
     add_action('init', 'jetron_ensure_product', 20);
     add_filter('woocommerce_add_cart_item_data', 'jetron_add_cart_item_data', 10, 2);
     add_filter('woocommerce_get_item_data', 'jetron_display_cart_item_data', 10, 2);
+    add_filter('woocommerce_cart_item_thumbnail', 'jetron_cart_item_thumbnail', 10, 3);
     add_action('woocommerce_checkout_create_order_line_item', 'jetron_add_order_line_meta', 10, 4);
     add_filter('woocommerce_add_to_cart_validation', 'jetron_force_valid', 99, 3);
     add_filter('woocommerce_is_purchasable', 'jetron_force_purchasable', 99, 2);
@@ -83,42 +84,74 @@ function jetron_add_cart_item_data($cart_item_data, $product_id) {
         $cart_item_data['jetron_total'] = (int) $_POST['jetron_total'];
     }
     if (!empty($_POST['jetron_png'])) {
-        $url = jetron_save_png_dataurl(wp_unslash($_POST['jetron_png']), $uid);
-        if ($url) { $cart_item_data['jetron_png'] = $url; }
+        $saved = jetron_save_png_dataurl(wp_unslash($_POST['jetron_png']), $uid);
+        if (!empty($saved['url']))   { $cart_item_data['jetron_png']   = $saved['url']; }
+        if (!empty($saved['thumb'])) { $cart_item_data['jetron_thumb'] = $saved['thumb']; }
     }
     return $cart_item_data;
 }
 
 function jetron_save_png_dataurl($dataurl, $uid) {
-    if (!preg_match('#^data:image/(png|jpe?g);base64,#i', $dataurl, $m)) { return ''; }
+    if (!preg_match('#^data:image/(png|jpe?g);base64,#i', $dataurl, $m)) { return array(); }
     $ext = strtolower($m[1]) === 'png' ? 'png' : 'jpg';
     $b64 = substr($dataurl, strpos($dataurl, ',') + 1);
     $bytes = base64_decode($b64, true);
-    if ($bytes === false || strlen($bytes) < 32 || strlen($bytes) > 8 * 1024 * 1024) { return ''; }
+    if ($bytes === false || strlen($bytes) < 32 || strlen($bytes) > 8 * 1024 * 1024) { return array(); }
 
     $up = wp_upload_dir();
     $dir = trailingslashit($up['basedir']) . JETRON_UPLOAD_SUBDIR;
     if (!is_dir($dir)) { wp_mkdir_p($dir); }
-    $name = 'jetron-' . preg_replace('/[^a-z0-9]/i', '', $uid) . '.' . $ext;
-    $path = trailingslashit($dir) . $name;
-    if (file_put_contents($path, $bytes) === false) { return ''; }
-    return trailingslashit($up['baseurl']) . JETRON_UPLOAD_SUBDIR . '/' . $name;
+    $base = 'jetron-' . preg_replace('/[^a-z0-9]/i', '', $uid);
+    $path = trailingslashit($dir) . $base . '.' . $ext;
+    if (file_put_contents($path, $bytes) === false) { return array(); }
+
+    $baseurl = trailingslashit($up['baseurl']) . JETRON_UPLOAD_SUBDIR . '/';
+    return array(
+        'url'   => $baseurl . $base . '.' . $ext,
+        'thumb' => jetron_make_thumb($path, $dir, $baseurl, $base, $ext),
+    );
 }
 
+// Макет весит до 8 МБ, а в корзине он показывается картинкой ~100 px. Уменьшенная копия
+// делается один раз при добавлении в корзину; если редактор изображений в WP недоступен,
+// возвращается пустая строка и корзина показывает полный файл.
+function jetron_make_thumb($path, $dir, $baseurl, $base, $ext) {
+    $editor = wp_get_image_editor($path);
+    if (is_wp_error($editor)) { return ''; }
+    $editor->resize(300, 300, false);
+    $saved = $editor->save(trailingslashit($dir) . $base . '-thumb.' . $ext);
+    if (is_wp_error($saved) || empty($saved['file'])) { return ''; }
+    return $baseurl . basename($saved['file']);
+}
+
+// Кириллица здесь и ниже записана байтами \xNN намеренно: файл едет на боевой через elFinder,
+// и литералы в нём уже один раз приезжали побитой кодировкой — отсюда прежний транслит.
 function jetron_display_cart_item_data($item_data, $cart_item) {
     if (!empty($cart_item['jetron_spec'])) {
         $item_data[] = array(
-            'key'   => 'Konfiguratsiya',
+            'key'   => "\xd0\x9a\xd0\xbe\xd0\xbd\xd1\x84\xd0\xb8\xd0\xb3\xd1\x83\xd1\x80\xd0\xb0\xd1\x86\xd0\xb8\xd1\x8f",
             'value' => nl2br(esc_html($cart_item['jetron_spec'])),
         );
     }
     if (!empty($cart_item['jetron_png'])) {
         $item_data[] = array(
-            'key'   => 'Maket',
-            'value' => '<a href="' . esc_url($cart_item['jetron_png']) . '" target="_blank" rel="noopener">otkryt izobrazhenie</a>',
+            'key'   => "\xd0\x9c\xd0\xb0\xd0\xba\xd0\xb5\xd1\x82",
+            'value' => '<a href="' . esc_url($cart_item['jetron_png']) . '" target="_blank" rel="noopener">'
+                . "\xd0\xbe\xd1\x82\xd0\xba\xd1\x80\xd1\x8b\xd1\x82\xd1\x8c \xd0\xb8\xd0\xb7\xd0\xbe\xd0\xb1\xd1\x80\xd0\xb0\xd0\xb6\xd0\xb5\xd0\xbd\xd0\xb8\xd0\xb5"
+                . '</a>',
         );
     }
     return $item_data;
+}
+
+// Картинка позиции в корзине: у товара-заглушки «Индивидуальная форма» изображения нет вовсе,
+// поэтому покупатель видел пустое место. Показываем сам макет — он и есть то, что заказано.
+function jetron_cart_item_thumbnail($thumbnail, $cart_item, $cart_item_key) {
+    if (empty($cart_item['jetron_png'])) { return $thumbnail; }
+    $src = !empty($cart_item['jetron_thumb']) ? $cart_item['jetron_thumb'] : $cart_item['jetron_png'];
+    return '<img src="' . esc_url($src) . '" alt="'
+        . esc_attr("\xd0\x9c\xd0\xb0\xd0\xba\xd0\xb5\xd1\x82 \xd0\xb7\xd0\xb0\xd0\xba\xd0\xb0\xd0\xb7\xd0\xb0")
+        . '" class="attachment-woocommerce_thumbnail size-woocommerce_thumbnail" loading="lazy" />';
 }
 
 function jetron_add_order_line_meta($item, $cart_item_key, $values, $order) {

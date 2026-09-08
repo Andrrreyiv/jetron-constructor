@@ -82,3 +82,16 @@ test('базовый конфиг не мутируется', () => {
   applyAdminOverrides(base, { prices: { gaiters: 999 } });
   assert.equal(base.prices.gaiters, before);
 });
+
+// Клиент 07.09: «поменял салатовый в админке — квадратик не поменялся, сделайте связку».
+// Правка палитры в админке уходит в admin.json списком colors, и покупательский свотч обязан
+// взять оттенок ОТТУДА. Это последнее звено связки; до 07.09 оно не было закреплено тестом,
+// а сама правка была невозможна — форма админки умела только ДОБАВИТЬ новый id, не изменить hex.
+test('новый оттенок из admin.json доезжает до палитры покупателя', () => {
+  const colors = base.colors.map((c) => (c.id === 'lightgreen' ? { ...c, hex: '#7CFC00' } : c));
+  const r = applyAdminOverrides(base, { colors });
+  const got = r.colors.find((c) => c.id === 'lightgreen');
+  assert.equal(got.hex, '#7CFC00');
+  assert.equal(got.name, base.colors.find((c) => c.id === 'lightgreen').name, 'название менять не должно');
+  assert.equal(r.colors.length, base.colors.length, 'палитра не должна расти или худеть');
+});
