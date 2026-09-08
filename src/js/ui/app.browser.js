@@ -4,12 +4,12 @@
 // Цена считается тестируемой calculatePrice из core/.
 import { CanvasView } from './canvas.browser.js?v=20260902b';
 import { calculatePrice } from '../core/PriceCalculator.js?v=20260902b';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260902b';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260908a';
 import { filterGridBySizes } from '../core/SizeMatch.js?v=20260902b';
-import { buildOrder } from '../core/OrderSummary.js?v=20260902b';
+import { buildOrder } from '../core/OrderSummary.js?v=20260908a';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260902b';
 import { applyZoneOverrides, resolveBrandBox, resolveBrandColor } from '../core/ZoneOverrides.js?v=20260902b';
-import { productLink } from '../core/ProductLink.js?v=20260902b';
+import { productLink } from '../core/ProductLink.js?v=20260908a';
 import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260902b';
 import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260902b';
 import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260906a';
