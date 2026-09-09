@@ -1273,15 +1273,24 @@ export class UniformApp {
   }
 
   // Конфиг WooCommerce отдаётся статикой woo.json (пишется mu-плагином) — минуя антибот.
+  /**
+   * Настройки WooCommerce для «в корзину». Успех запоминаем, сорванный запрос — нет.
+   *
+   * Раньше кэшировался ЛЮБОЙ исход, включая `null` от оборвавшейся сети: одна потерянная
+   * секунда на первом «Оформить заказ» — и покупатель до перезагрузки страницы видел
+   * «Заказ собран» вместо корзины, хотя заказа не было. Два разных `null` теперь
+   * различаются: ответ сервера «файла нет» (404 — стенд без WooCommerce, ответ
+   * стабильный, его помним) и несостоявшийся запрос (помнить нечего).
+   */
   async _wooConfig() {
     if (this._woo !== undefined) return this._woo;
     try {
       const r = await fetch('woo.json', { cache: 'no-store' });
       this._woo = r.ok ? await r.json() : null;
+      return this._woo;
     } catch {
-      this._woo = null;
+      return null;
     }
-    return this._woo;
   }
 
   async renderAll({ keepCards = false } = {}) {
