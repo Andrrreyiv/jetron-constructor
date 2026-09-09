@@ -4,7 +4,7 @@
 // Цена считается тестируемой calculatePrice из core/.
 import { CanvasView } from './canvas.browser.js?v=20260902b';
 import { calculatePrice } from '../core/PriceCalculator.js?v=20260902b';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../core/CatalogPrices.js?v=20260908a';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260909a';
 import { filterGridBySizes } from '../core/SizeMatch.js?v=20260902b';
 import { buildOrder } from '../core/OrderSummary.js?v=20260908a';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260902b';
@@ -1840,6 +1840,13 @@ export class UniformApp {
       const data = await res.json();
       const items = data && data.data && data.data.items;
       if (Array.isArray(items) && items.length) this.catalogPrices = indexCatalogPrices(items);
+      // Оттенки кружков палитры — из фильтра каталога (клиент 09.09: «привяжи автоматически»).
+      // Тем же ответом, тем же сопоставлением по имени. Вызов стоит ДО buildColorPicker()
+      // в boot(), поэтому перерисовывать палитру отдельно не нужно.
+      const colors = data && data.data && data.data.colors;
+      if (Array.isArray(colors) && colors.length) {
+        applyColorHexes(this.config.colors, indexColorHexes(colors));
+      }
     } catch {
       // тишина: запасной прайс уже в конфиге
     }

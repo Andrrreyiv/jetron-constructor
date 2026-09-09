@@ -50,6 +50,9 @@ export function indexCatalogPrices(items) {
 const ЗАМЕНЫ_ЛИНЕЕК = { legend: ['Легенда'] };
 // «Лаймовая Легенда» заведена как жёлтая — доказано картинкой её карточки
 // (…/detskaya-igrovaya-futbolnaya-forma-lajm-l.png), а не догадкой по остатку.
+// 2026-09-08: в конфиге эта расцветка переименована в «Жёлтый», и совпадение стало прямым.
+// Строку «лаймовый» всё равно НЕ убираем: на боевом лежит свой `admin.json`, он замещает
+// список форм целиком (см. AdminOverrides.listOr) и до его перевыкладки шлёт сюда «Лаймовый».
 const ЗАМЕНЫ_ЦВЕТОВ = { синий: ['Голубой'], салатовый: ['Зелёный'], лаймовый: ['Жёлтый'] };
 
 function hit(index, line, color, ageCategory) {
@@ -99,4 +102,50 @@ export function resolveFormSizeGrid(index, { line, color, ageCategory } = {}) {
 export function resolveFormProductUrl(index, { line, color, ageCategory } = {}) {
   const found = hit(index, line, color, ageCategory);
   return found && typeof found.url === 'string' ? found.url : '';
+}
+
+/**
+ * Оттенки кружков расцветок из фильтра каталога: [{name, hex}, …] → Map по имени.
+ *
+ * Клиент 09.09: «цвет в конструкторе нужно самому выставлять? автоматически привязать нельзя?».
+ * Можно: он ведёт эти оттенки у себя в поле «Цвет для иконки» расцветки, замер боевого 09.09
+ * показал их заполненными у 14 расцветок из 14. По ИМЕНИ палитра сходится 14 из 14, а по коду
+ * не совпал ни один; сильнее всего расходятся Салатовый и Розовый — ровно те два, что он и
+ * сфотографировал. Мусор (пустой или неполный код) отбрасываем на индексации, чтобы расцветка
+ * осталась со своим оттенком, а не с кружком неизвестного цвета.
+ */
+export function indexColorHexes(colors) {
+  const index = new Map();
+  for (const c of Array.isArray(colors) ? colors : []) {
+    if (!c || typeof c.name !== 'string') continue;
+    const hex = typeof c.hex === 'string' ? c.hex.trim().toLowerCase() : '';
+    if (!/^#[0-9a-f]{6}$/.test(hex)) continue;
+    index.set(norm(c.name), hex);
+  }
+  return index;
+}
+
+/** Оттенок нашей расцветки по её названию; не нашли — остаёмся на своём. */
+export function resolveColorHex(index, name, fallback) {
+  if (!index || typeof index.get !== 'function') return fallback;
+  return index.get(norm(name)) || fallback;
+}
+
+/**
+ * Подтягивает оттенки палитры с сайта. Правит список НА МЕСТЕ и возвращает число изменённых.
+ *
+ * `hexManual` — метка «оттенок задан руками» из раздела «Цвета кружков в фильтре»: такую
+ * расцветку не трогаем, иначе ручная правка молча вернулась бы к значению каталога (жалоба
+ * клиента 07.09 «поменял салатовый, а квадратик не поменялся», только с другой стороны).
+ */
+export function applyColorHexes(colors, index) {
+  let changed = 0;
+  for (const c of Array.isArray(colors) ? colors : []) {
+    if (!c || c.hexManual) continue;
+    const hex = resolveColorHex(index, c.name, '');
+    if (!hex || hex === String(c.hex || '').toLowerCase()) continue;
+    c.hex = hex;
+    changed++;
+  }
+  return changed;
 }

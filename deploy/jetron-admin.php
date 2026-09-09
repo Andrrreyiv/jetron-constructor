@@ -366,10 +366,27 @@ function jetron_admin_handle_models($data, $action) {
                 continue;
             }
             $hex = sanitize_hex_color(wp_unslash($sent[$id]));
-            if (!$hex || strtolower($hex) === strtolower((string) ($c['hex'] ?? ''))) {
+            if (!$hex) {
+                continue;
+            }
+            // Сравнивать надо с тем, что человек ВИДЕЛ в поле, а не с записанным: с 09.09
+            // конструктор берёт кружки из фильтра каталога, и форма показывает именно их.
+            // Иначе нажатие «Сохранить цвета» без единой правки записало бы все 14 оттенков
+            // как ручные и молча выключило бы привязку целиком.
+            $site      = jetron_admin_site_hex($c['name'] ?? '');
+            $effective = !empty($c['hexManual']) || $site === '' ? (string) ($c['hex'] ?? '') : $site;
+            if (strtolower($hex) === strtolower($effective)) {
                 continue;
             }
             $c['hex'] = $hex;
+            // Метка «оттенок задан руками» — без неё ручная правка молча вернулась бы к значению
+            // сайта, ровно та жалоба 07.09 («поменял салатовый, а квадратик не поменялся»),
+            // только с другой стороны. Поставил ровно сайтовый оттенок — привязка включается назад.
+            if ($site !== '' && strtolower($hex) === strtolower($site)) {
+                unset($c['hexManual']);
+            } else {
+                $c['hexManual'] = true;
+            }
             $changed++;
         }
         unset($c);
@@ -480,6 +497,38 @@ function jetron_admin_base_colors() {
 function jetron_admin_base_forms() {
     $c = jetron_admin_base_config();
     return isset($c['forms']) && is_array($c['forms']) ? $c['forms'] : array();
+}
+
+/**
+ * Оттенок кружка этой расцветки, взятый с самого сайта — поле «Цвет для иконки» у термина
+ * «Цвет» (клиент 09.09: «привяжи автоматически»). Список отдаёт jetron-zones.php, он же
+ * кормит им конструктор; здесь он нужен, чтобы форма показывала то же, что видит покупатель.
+ * '' = функции нет (плагин зон выключен) или оттенок у расцветки не заведён.
+ */
+function jetron_admin_site_hex($name) {
+    static $map = null;
+    if ($map === null) {
+        $map = array();
+        if (function_exists('jetron_color_icons')) {
+            foreach (jetron_color_icons() as $row) {
+                if (isset($row['name'], $row['hex'])) {
+                    $map[jetron_admin_color_key($row['name'])] = $row['hex'];
+                }
+            }
+        }
+    }
+    $key = jetron_admin_color_key($name);
+    return $key !== '' && isset($map[$key]) ? $map[$key] : '';
+}
+
+/** Ключ сравнения названий расцветок: регистр, лишние пробелы и ё/е не должны мешать. */
+function jetron_admin_color_key($name) {
+    $s = trim((string) $name);
+    if ($s === '') {
+        return '';
+    }
+    $s = function_exists('mb_strtolower') ? mb_strtolower($s, 'UTF-8') : strtolower($s);
+    return str_replace('ё', 'е', $s);
 }
 
 /** Текущее значение: из админки, иначе из базового конфига. */
@@ -727,23 +776,37 @@ function jetron_admin_tab_models($data, $nonce) {
     // существующей расцветки было негде — форма ниже заводит цвет только вместе с новой моделью.
     echo '<h3 style="margin-top:26px">Цвета кружков в фильтре</h3>';
     echo '<p class="description" style="max-width:900px">Это те кружки, по которым покупатель выбирает расцветку. '
-       . 'Меняется только оттенок кружка: названия, модели и фотографии остаются как есть.</p>';
+       . 'Меняется только оттенок кружка: названия, модели и фотографии остаются как есть.<br>'
+       . 'По умолчанию оттенок берётся с сайта — из поля «Цвет для иконки» у расцветки '
+       . '(<em>Товары → Атрибуты → Цвет → Настроить термины</em>), чтобы кружок в конструкторе '
+       . 'совпадал с кружком в фильтре каталога. Если поставить оттенок здесь, он станет '
+       . 'сильнее сайта и больше меняться сам не будет — в столбце справа видно, где как. '
+       . 'Чтобы вернуть расцветку на автоматический оттенок, поставьте ей ровно тот же цвет, '
+       . 'что на сайте.</p>';
     echo '<form method="post">';
     echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
     echo '<input type="hidden" name="jetron_admin_action" value="colors">';
     echo '<table class="widefat striped" style="max-width:520px"><thead><tr>'
-       . '<th>Название</th><th style="width:130px">Кружок</th></tr></thead><tbody>';
+       . '<th>Название</th><th style="width:130px">Кружок</th><th>Откуда оттенок</th></tr></thead><tbody>';
     foreach ((array) $colors as $c) {
         $cid = $c['id'] ?? '';
         if ($cid === '') {
             continue;
         }
-        $chex = sanitize_hex_color($c['hex'] ?? '');
+        // Показываем ДЕЙСТВУЮЩИЙ оттенок, тот же, что видит покупатель. Записанный показывать
+        // нельзя: с 09.09 кружок берётся с сайта, и форма врала бы про цвет, а сохранение
+        // без правок записало бы все 14 как ручные и выключило бы привязку.
+        $site = jetron_admin_site_hex($c['name'] ?? '');
+        $chex = sanitize_hex_color(!empty($c['hexManual']) || $site === '' ? ($c['hex'] ?? '') : $site);
         if (!$chex) {
             $chex = '#ffffff';
         }
+        $src = !empty($c['hexManual'])
+            ? 'задан здесь руками'
+            : ($site !== '' ? 'с сайта, из фильтра каталога' : 'свой, на сайте не задан');
         echo '<tr><td>' . esc_html($c['name'] ?? $cid) . '</td>'
-           . '<td><input type="color" name="hex[' . esc_attr($cid) . ']" value="' . esc_attr($chex) . '"></td></tr>';
+           . '<td><input type="color" name="hex[' . esc_attr($cid) . ']" value="' . esc_attr($chex) . '"></td>'
+           . '<td class="description">' . esc_html($src) . '</td></tr>';
     }
     echo '</tbody></table>';
     submit_button('Сохранить цвета', 'primary', 'save_colors', false);
