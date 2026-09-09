@@ -230,6 +230,33 @@ function jetron_model_size_grid($term_id, $age) {
 }
 
 /**
+ * Оттенок кружка расцветки из ACF-поля термина «Цвет» (pa_color), поле `color`,
+ * подпись в админке «Цвет для иконки» — тем же приёмом, что сетки размеров выше.
+ *
+ * Клиент 09.09: «цвет в конструкторе нужно самому выставлять? автоматически привязать нельзя?».
+ * Можно: он уже ведёт эти оттенки у себя — замер боевого 09.09 показал поле заполненным
+ * у 14 расцветок из 14. По именам палитра сходится 14 из 14, а вот по коду не совпал НИ ОДИН,
+ * и сильнее всего расходятся ровно те два, что он и сфотографировал (Салатовый, Розовый).
+ *
+ * ⚠️ Поле берём ПО ИМЕНИ (`color`), а не по ключу `field_685d3097fc10b`: имя переживает
+ * пересоздание поля в админке, ключ — нет (та же грабля, что убила подполя сеток, см. выше).
+ * ⚠️ Ссылка на термин у ACF бывает в двух видах: старый `<taxonomy>_<id>` и новый `term_<id>`
+ * (форма самой админки отдаёт `_acf_post_id = term_52`). Пробуем оба, иначе молчаливый null.
+ */
+function jetron_color_icon_hex($term_id) {
+    if (!function_exists('get_field') || !$term_id) {
+        return '';
+    }
+    foreach (array('pa_color_' . $term_id, 'term_' . $term_id) as $ref) {
+        $v = get_field('color', $ref);
+        if (is_string($v) && preg_match('/^#[0-9a-fA-F]{6}$/', trim($v))) {
+            return strtolower(trim($v));
+        }
+    }
+    return ''; // оттенок у расцветки не заведён — конструктор останется на своём
+}
+
+/**
  * Цены изделий из карточек товаров (клиент 2026-07-27: «не подтягивается цена из карточки товара»).
  *
  * Отдаёт плоский список позиций каталога: атрибуты товара «Модель» и «Цвет» совпадают с line/color
@@ -326,8 +353,41 @@ function jetron_catalog_prices() {
     return $items;
 }
 
+/**
+ * Все расцветки каталога с их оттенками кружка: [{name, hex}, …].
+ *
+ * Берём ТЕРМИНЫ таксономии, а не цвета найденных товаров: расцветка может быть заведена
+ * в фильтре, но временно не иметь опубликованной карточки, а кружок в конструкторе ей всё
+ * равно нужен. Пустой hex не отдаём — конструктор тогда оставляет собственный оттенок.
+ * Кеш свой, на те же 10 минут, что и цены.
+ */
+function jetron_color_icons() {
+    $cached = get_transient('jetron_color_icons');
+    if (is_array($cached)) {
+        return $cached;
+    }
+    $out = array();
+    $terms = get_terms(array('taxonomy' => 'pa_color', 'hide_empty' => false));
+    if (is_array($terms)) {
+        foreach ($terms as $term) {
+            if (!is_object($term) || !isset($term->term_id)) {
+                continue;
+            }
+            $hex = jetron_color_icon_hex((int) $term->term_id);
+            if ($hex !== '') {
+                $out[] = array('name' => $term->name, 'hex' => $hex);
+            }
+        }
+    }
+    set_transient('jetron_color_icons', $out, 10 * MINUTE_IN_SECONDS);
+    return $out;
+}
+
 add_action('wp_ajax_jetron_prices', 'jetron_prices_respond');
 add_action('wp_ajax_nopriv_jetron_prices', 'jetron_prices_respond');
 function jetron_prices_respond() {
-    wp_send_json_success(array('items' => jetron_catalog_prices()));
+    wp_send_json_success(array(
+        'items'  => jetron_catalog_prices(),
+        'colors' => jetron_color_icons(),
+    ));
 }

@@ -117,11 +117,6 @@
       "hex": "#7a1f3d"
     },
     {
-      "id": "lime",
-      "name": "Лаймовый",
-      "hex": "#a4c639"
-    },
-    {
       "id": "lilac",
       "name": "Сиреневый",
       "hex": "#b57edc"
@@ -2152,6 +2147,19 @@
       "zoneSet": "Space"
     },
     {
+      "id": "legend-yellow",
+      "line": "Legend",
+      "colorId": "yellow",
+      "color": "Жёлтый",
+      "colorHex": "#ffd400",
+      "images": {
+        "front": "assets/mockups/Legend лайм.webp",
+        "back": "assets/mockups/Legend лайм.webp",
+        "shoulder": null
+      },
+      "zoneSet": "Legend"
+    },
+    {
       "id": "champion-purple",
       "line": "Champion",
       "colorId": "purple",
@@ -2254,19 +2262,6 @@
         "shoulder": null
       },
       "zoneSet": "Champion"
-    },
-    {
-      "id": "legend-lime",
-      "line": "Legend",
-      "colorId": "lime",
-      "color": "Лаймовый",
-      "colorHex": "#a4c639",
-      "images": {
-        "front": "assets/mockups/Legend лайм.webp",
-        "back": "assets/mockups/Legend лайм.webp",
-        "shoulder": null
-      },
-      "zoneSet": "Legend"
     },
     {
       "id": "favorit-lilac",

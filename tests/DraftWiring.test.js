@@ -82,8 +82,19 @@ test('восстановленные возраст, гетры и количе�
   const панель = код.match(/\n  buildPanel\(\)\s*\{([\s\S]*?)\n  \}/);
   assert.ok(панель, 'метод buildPanel() должен существовать');
   const тело = панель[1];
-  assert.doesNotMatch(тело, /class="seg-btn active" data-age="adult"/, 'взрослая не всегда активна');
-  assert.match(тело, /data-age="adult"[\s\S]*?this\.ageCategory|this\.ageCategory[\s\S]*?data-age="adult"/);
+  // Сами кнопки возраста с 09.09 живут в renderAgeSeg(): состав зависит от расцветки, а
+  // buildPanel() зовут ровно один раз за жизнь страницы. Панель дотягивается до них через
+  // верхний блок размера — он же переехал наверх по голосовому 09.09. Требование то же:
+  // рисовать ИЗ состояния, а не из умолчаний.
+  assert.match(тело, /this\.renderSizeBar\(\)/, 'панель обязана отрисовать верхний блок размера');
+  const бар = код.match(/\n  renderSizeBar\(\)\s*\{([\s\S]*?)\n  \}/);
+  assert.ok(бар, 'метод renderSizeBar() должен существовать');
+  assert.match(бар[1], /this\.renderAgeSeg\(\)/, 'а он — сегмент возраста');
+  const сегмент = код.match(/\n  renderAgeSeg\(\)\s*\{([\s\S]*?)\n  \}/);
+  assert.ok(сегмент, 'метод renderAgeSeg() должен существовать');
+  assert.doesNotMatch(сегмент[1], /class="seg-btn active" data-age="adult"/, 'взрослая не всегда активна');
+  assert.match(сегмент[1], /data-age="\$\{age\}"/, 'кнопка помечена своим возрастом');
+  assert.match(сегмент[1], /age === this\.ageCategory \? 'active'/, 'активна та, что в состоянии');
   assert.match(тело, /id="opt-gaiters"[^>]*\$\{this\.gaiters/, 'галочка гетр идёт из состояния');
   assert.match(тело, /id="opt-qty"[^>]*value="\$\{this\.quantity\}"/, 'количество идёт из состояния');
 });

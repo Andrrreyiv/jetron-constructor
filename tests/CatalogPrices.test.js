@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl } from '../src/js/core/CatalogPrices.js';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, resolveColorHex, applyColorHexes } from '../src/js/core/CatalogPrices.js';
 
 const items = [
   { model: 'Champion', color: 'Белый', age: 'adult', price: 1280 },
@@ -95,4 +95,90 @@ test('адрес карточки расцветки берётся из кат�
     resolveFormProductUrl(index, { line: 'Волна', color: 'Синий', ageCategory: 'adult' }),
     'https://jetronsport.ru/product/volna-blue/'
   );
+});
+
+// Клиент 09.09: «цвет в конструкторе нужно самому выставлять? автоматически привязать нельзя?».
+// Можно: оттенки кружков он уже ведёт у себя в поле «Цвет для иконки» расцветки, каталог отдаёт
+// их тем же ответом. Ключ — имя расцветки, с той же терпимостью к ё/е и регистру, что и у цены.
+test('оттенок кружка находится по имени расцветки', () => {
+  const hexes = indexColorHexes([
+    { name: 'Салатовый', hex: '#00FF00' },
+    { name: 'Жёлтый', hex: '#ffde00' },
+  ]);
+  assert.equal(resolveColorHex(hexes, 'Салатовый', '#a4c639'), '#00ff00');
+  assert.equal(resolveColorHex(hexes, ' желтый ', '#ffd400'), '#ffde00', 'ё/е и регистр не должны мешать');
+});
+
+// 🔴 Здесь ЗАМЕНЫ_ЦВЕТОВ применять НЕЛЬЗЯ, хотя для цены они и нужны. Замены существуют потому,
+// что у части товаров атрибут разошёлся с адресом карточки («Легенда Голубой» лежит по
+// …sinyaya-legenda). Но в фильтре каталога «Синий» и «Голубой» — две РАЗНЫЕ расцветки с разными
+// оттенками (#213faa против #42d9ff), и по замене наш синий кружок стал бы голубым: привязка
+// не починила бы цвет, а испортила. Совпадение по имени только точное.
+test('оттенок не подменяется по заменам цветов: синий не берёт голубой', () => {
+  const hexes = indexColorHexes([{ name: 'Голубой', hex: '#42d9ff' }]);
+  assert.equal(resolveColorHex(hexes, 'Синий', '#213faa'), '#213faa');
+});
+
+// Расцветка без заполненного поля и вовсе неотвечающий каталог не должны оставить кружок пустым.
+test('без оттенка на сайте и на пустом каталоге остаётся свой оттенок', () => {
+  const hexes = indexColorHexes([{ name: 'Розовый', hex: '' }, null, { hex: '#123456' }]);
+  assert.equal(resolveColorHex(hexes, 'Розовый', '#ff69b4'), '#ff69b4');
+  assert.equal(resolveColorHex(indexColorHexes(null), 'Белый', '#ffffff'), '#ffffff');
+  assert.equal(resolveColorHex(undefined, 'Белый', '#ffffff'), '#ffffff');
+});
+
+// Ручная правка оттенка в админке («Цвета кружков в фильтре») обязана быть СИЛЬНЕЕ сайта:
+// иначе она молча вернулась бы к значению каталога — та же жалоба клиента 07.09 («поменял
+// салатовый, а квадратик не поменялся»), только с другой стороны. Метку ставит сам сохраняющий
+// обработчик admin.php, поэтому здесь достаточно её уважать.
+test('привязка палитры: сайт побеждает, но не трогает оттенки, заданные руками', () => {
+  const hexes = indexColorHexes([
+    { name: 'Салатовый', hex: '#00ff00' },
+    { name: 'Розовый', hex: '#ff007f' },
+    { name: 'Белый', hex: '#ffffff' },
+  ]);
+  const palette = [
+    { id: 'lightgreen', name: 'Салатовый', hex: '#7ac943' },
+    { id: 'pink', name: 'Розовый', hex: '#ff69b4', hexManual: true },
+    { id: 'white', name: 'Белый', hex: '#ffffff' },
+    { id: 'gold', name: 'Золотой', hex: '#d4af37' },
+  ];
+  const changed = applyColorHexes(palette, hexes);
+  assert.equal(changed, 1, 'меняется только салатовый: розовый закреплён руками, белый совпал, золотого на сайте нет');
+  assert.equal(palette[0].hex, '#00ff00');
+  assert.equal(palette[1].hex, '#ff69b4');
+  assert.equal(palette[3].hex, '#d4af37');
+});
+
+// Клиент 09.09, голосовое: «ну тогда и ставим запасные взрослые 1680, детские 1480, как бы
+// здесь без вариантов, это все игровые формы, и мы цены приравниваем к фактическим».
+// Общий запасной прайс конфига (1280/1090) не годится ни одной линейке разом: New стоит 780,
+// Легенда и Фаворит 1680/1480. Руками таблицу цен вести не нужно — настоящую цену линейки
+// знают её же соседние расцветки в каталоге. Заодно это ответ «есть ли такой возраст вообще»:
+// взрослого Чемпиона нет ни в одной расцветке, а взрослый Фаворит есть, просто не у всех.
+test('цена возраста по линейке берётся у соседних расцветок', () => {
+  const idx = indexCatalogPrices([
+    { model: 'Фаворит', color: 'Зелёный', age: 'adult', price: 1680 },
+    { model: 'Фаворит', color: 'Сиреневый', age: 'adult', price: 1680 },
+    { model: 'Фаворит', color: 'Белый', age: 'child', price: 1480 },
+    { model: 'Champion', color: 'Белый', age: 'child', price: 1090 },
+  ]);
+  assert.equal(resolveLinePrice(idx, { line: 'Фаворит', ageCategory: 'adult' }), 1680);
+  assert.equal(resolveLinePrice(idx, { line: 'Фаворит', ageCategory: 'child' }), 1480);
+  assert.equal(resolveLinePrice(idx, { line: 'Champion', ageCategory: 'adult' }), null,
+    'взрослого Чемпиона нет ни в одной расцветке — придумывать цену нечем');
+  assert.equal(resolveLinePrice(idx, { line: 'Волна', ageCategory: 'child' }), null,
+    'линейки нет в каталоге вовсе');
+  assert.equal(resolveLinePrice(null, { line: 'Фаворит', ageCategory: 'adult' }), null,
+    'каталога нет — цену линейки взять неоткуда');
+});
+
+// Та же подмена, что и в точечном поиске: линейка Legend заведена в WooCommerce как «Легенда».
+// Без неё шесть расцветок Легенды остались бы на общем запасном прайсе 1280 вместо 1680.
+test('цена по линейке знает про подмену Legend → Легенда', () => {
+  const idx = indexCatalogPrices([
+    { model: 'Легенда', color: 'Белый', age: 'adult', price: 1680 },
+    { model: 'Легенда', color: 'Синий', age: 'adult', price: 1680 },
+  ]);
+  assert.equal(resolveLinePrice(idx, { line: 'Legend', ageCategory: 'adult' }), 1680);
 });
