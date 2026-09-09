@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, indexColorHexes, resolveColorHex, applyColorHexes } from '../src/js/core/CatalogPrices.js';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, resolveColorHex, applyColorHexes } from '../src/js/core/CatalogPrices.js';
 
 const items = [
   { model: 'Champion', color: 'Белый', age: 'adult', price: 1280 },
@@ -148,4 +148,37 @@ test('привязка палитры: сайт побеждает, но не т
   assert.equal(palette[0].hex, '#00ff00');
   assert.equal(palette[1].hex, '#ff69b4');
   assert.equal(palette[3].hex, '#d4af37');
+});
+
+// Клиент 09.09, голосовое: «ну тогда и ставим запасные взрослые 1680, детские 1480, как бы
+// здесь без вариантов, это все игровые формы, и мы цены приравниваем к фактическим».
+// Общий запасной прайс конфига (1280/1090) не годится ни одной линейке разом: New стоит 780,
+// Легенда и Фаворит 1680/1480. Руками таблицу цен вести не нужно — настоящую цену линейки
+// знают её же соседние расцветки в каталоге. Заодно это ответ «есть ли такой возраст вообще»:
+// взрослого Чемпиона нет ни в одной расцветке, а взрослый Фаворит есть, просто не у всех.
+test('цена возраста по линейке берётся у соседних расцветок', () => {
+  const idx = indexCatalogPrices([
+    { model: 'Фаворит', color: 'Зелёный', age: 'adult', price: 1680 },
+    { model: 'Фаворит', color: 'Сиреневый', age: 'adult', price: 1680 },
+    { model: 'Фаворит', color: 'Белый', age: 'child', price: 1480 },
+    { model: 'Champion', color: 'Белый', age: 'child', price: 1090 },
+  ]);
+  assert.equal(resolveLinePrice(idx, { line: 'Фаворит', ageCategory: 'adult' }), 1680);
+  assert.equal(resolveLinePrice(idx, { line: 'Фаворит', ageCategory: 'child' }), 1480);
+  assert.equal(resolveLinePrice(idx, { line: 'Champion', ageCategory: 'adult' }), null,
+    'взрослого Чемпиона нет ни в одной расцветке — придумывать цену нечем');
+  assert.equal(resolveLinePrice(idx, { line: 'Волна', ageCategory: 'child' }), null,
+    'линейки нет в каталоге вовсе');
+  assert.equal(resolveLinePrice(null, { line: 'Фаворит', ageCategory: 'adult' }), null,
+    'каталога нет — цену линейки взять неоткуда');
+});
+
+// Та же подмена, что и в точечном поиске: линейка Legend заведена в WooCommerce как «Легенда».
+// Без неё шесть расцветок Легенды остались бы на общем запасном прайсе 1280 вместо 1680.
+test('цена по линейке знает про подмену Legend → Легенда', () => {
+  const idx = indexCatalogPrices([
+    { model: 'Легенда', color: 'Белый', age: 'adult', price: 1680 },
+    { model: 'Легенда', color: 'Синий', age: 'adult', price: 1680 },
+  ]);
+  assert.equal(resolveLinePrice(idx, { line: 'Legend', ageCategory: 'adult' }), 1680);
 });

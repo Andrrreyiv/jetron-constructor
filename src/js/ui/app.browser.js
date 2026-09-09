@@ -4,7 +4,8 @@
 // Цена считается тестируемой calculatePrice из core/.
 import { CanvasView } from './canvas.browser.js?v=20260902b';
 import { calculatePrice } from '../core/PriceCalculator.js?v=20260902b';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260909a';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260909b';
+import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260909b';
 import { filterGridBySizes } from '../core/SizeMatch.js?v=20260902b';
 import { buildOrder } from '../core/OrderSummary.js?v=20260908a';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260902b';
@@ -45,7 +46,9 @@ export class UniformApp {
     this.views = new Map(); // viewName -> CanvasView
     this.formId = config.forms[0].id;
     this.colorId = config.forms[0].colorId; // выбор идёт от цвета (ТЗ §2.1): цвет → карусель форм
-    this.ageCategory = 'adult';
+    // Клиент 09.09: «90% покупателей берут детскую форму, зачем им сразу показывать завышенную
+    // цену». Открываемся на детской — см. AgeOptions.ВОЗРАСТ_ПО_УМОЛЧАНИЮ.
+    this.ageCategory = ВОЗРАСТ_ПО_УМОЛЧАНИЮ;
     this.size = ''; // конкретный размер (клиент 2026-07-15: «размеры не могу выбрать»)
     this.gaiters = false;
     this.quantity = 1;
@@ -509,9 +512,7 @@ export class UniformApp {
   buildPanel() {
     const p = this.config.prices;
     this.panelEl.innerHTML = `
-      <div class="panel-title">
-        <h2>Соберите форму</h2>
-      </div>
+      <div id="size-first" class="size-first"></div>
 
       <div id="opt-list" class="opt-list"></div>
 
@@ -520,13 +521,6 @@ export class UniformApp {
           <span>Комплектация</span><span class="chev">▾</span>
         </button>
         <div id="extra-body" class="extra-body" ${this.extraOpen ? '' : 'hidden'}>
-          <div class="extra-block">
-            <span class="extra-label">Размерная категория</span>
-            <div class="seg" id="age-seg">
-              <button class="seg-btn ${this.ageCategory === 'child' ? '' : 'active'}" data-age="adult">Взрослая · ${money(p.form.adult)}</button>
-              <button class="seg-btn ${this.ageCategory === 'child' ? 'active' : ''}" data-age="child">Детская · ${money(p.form.child)}</button>
-            </div>
-          </div>
           <label class="extra-check"><input type="checkbox" id="opt-gaiters" ${this.gaiters ? 'checked' : ''}> <span>Гетры <em>+${money(p.gaiters)}</em></span></label>
           <div class="extra-block qty-block">
             <span class="extra-label">Комплектов</span>
@@ -535,9 +529,6 @@ export class UniformApp {
               <input type="number" id="opt-qty" min="1" value="${this.quantity}" inputmode="numeric">
               <button type="button" id="qty-plus" aria-label="Больше">+</button>
             </div>
-          </div>
-          <div class="extra-links">
-            <button id="size-btn" class="linkbtn" type="button">Таблица размеров</button>
           </div>
         </div>
       </section>
@@ -565,14 +556,9 @@ export class UniformApp {
       extraToggle.setAttribute('aria-expanded', this.extraOpen ? 'true' : 'false');
     };
 
-    // Размерная категория — сегмент-переключатель.
-    this.panelEl.querySelectorAll('#age-seg .seg-btn').forEach((b) => {
-      b.onclick = () => {
-        this.ageCategory = b.dataset.age;
-        this.panelEl.querySelectorAll('#age-seg .seg-btn').forEach((x) => x.classList.toggle('active', x === b));
-        this.updatePrice();
-      };
-    });
+    // Верхний блок «сначала размер» рисуется отдельно и ПЕРЕрисовывается: buildPanel зовут
+    // ровно один раз, а состав кнопок, подписи и выбранный размер меняются по ходу.
+    this.renderSizeBar();
     this.panelEl.querySelector('#opt-gaiters').onchange = (e) => { this.gaiters = e.target.checked; this.updatePrice(); };
 
     const qty = this.panelEl.querySelector('#opt-qty');
@@ -581,7 +567,6 @@ export class UniformApp {
     this.panelEl.querySelector('#qty-minus').onclick = () => setQty(this.quantity - 1);
     this.panelEl.querySelector('#qty-plus').onclick = () => setQty(this.quantity + 1);
 
-    this.panelEl.querySelector('#size-btn').onclick = () => this.showSizes();
     this.panelEl.querySelector('#order-btn').onclick = () => this.showOrder();
     const linesToggle = this.panelEl.querySelector('#price-lines-toggle');
     linesToggle.onclick = () => {
@@ -925,28 +910,6 @@ export class UniformApp {
     const close = () => overlay.remove();
     overlay.onclick = (e) => { if (e.target === overlay) close(); };
 
-    // Размер выбирается кликом по строке (клиент 2026-07-15: «размеры не могу выбрать»).
-    const sizeTable = (cat) => {
-      // Клиент 30.07: набор размеров у линеек разный, показываем ровно тот, что в карточке.
-      const grid = this.gridForAge(cat);
-      if (!grid) return '';
-      return `<table class="order-items size-select">
-        <thead><tr><th aria-label="Выбор"></th>${grid.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
-        <tbody>${grid.rows.map((row) => {
-          // В заказ уходит однозначная подпись: у формы бирочный размер и российский —
-          // РАЗНЫЕ шкалы (бирка L это 46 (S) RU), одна буква без пояснения путает менеджера.
-          const второй = row.length > 1 && row[1] && row[1] !== '—' ? ` (${row[1]})` : '';
-          const sz = String(row[0]) + второй;
-          const on = this.size === sz;
-          return `<tr class="size-row${on ? ' sel' : ''}" data-size="${escapeHtml(sz)}">
-            <td class="pick"><input type="radio" name="ord-size" value="${escapeHtml(sz)}" ${on ? 'checked' : ''}></td>
-            ${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join('')}
-          </tr>`;
-        }).join('')}</tbody>
-      </table>
-      <p class="size-hint">${this.size ? `Выбран размер: <b>${escapeHtml(this.size)}</b>` : 'Выберите размер из таблицы выше'}</p>`;
-    };
-
     const render = () => {
       const order = buildOrder({
         formPrice: this.currentFormPrice(),
@@ -1005,10 +968,11 @@ export class UniformApp {
 
           <h3 style="margin:14px 0 6px">1. Размер</h3>
           <div class="row">
-            <label><input type="radio" name="ord-age" value="adult" ${this.ageCategory === 'adult' ? 'checked' : ''}> Взрослый (${money(this.formPriceFor('adult'))})</label>
-            <label><input type="radio" name="ord-age" value="child" ${this.ageCategory === 'child' ? 'checked' : ''}> Детский (${money(this.formPriceFor('child'))})</label>
+            ${this.ageOptionsNow().map((age) => (
+    `<label><input type="radio" name="ord-age" value="${age}" ${this.ageCategory === age ? 'checked' : ''}> ${age === 'adult' ? 'Взрослый' : 'Детский'} (${money(this.formPriceFor(age))})</label>`
+  )).join('')}
           </div>
-          ${sizeTable(this.ageCategory)}
+          ${this.sizeTableHtml(this.ageCategory)}
 
           <h3 style="margin:14px 0 6px">2. Гетры</h3>
           <label><input type="checkbox" id="ord-gaiters" ${this.gaiters ? 'checked' : ''}> Добавить гетры (+${money(this.config.prices.gaiters)})</label>
@@ -1119,11 +1083,75 @@ export class UniformApp {
     render();
   }
 
+  /**
+   * Верхний блок панели: размерная категория, таблица размеров и выбранный размер.
+   *
+   * Клиент 09.09 голосовым: «переносим вот эти кнопки из комплектации, детская и взрослая,
+   * в самый верх… по умолчанию стоит детская… а внизу кнопка таблица размеров, человек её
+   * открывает, видит, какие есть размеры, сразу выбирает размер, а дальше уже пошёл по
+   * конструктору рисовать. Потому что, допустим, какого-то размера не будет, чтобы он лишнее
+   * время своё не тратил на заполнение этого конструктора». До этого размер прятался в
+   * свёрнутой «Комплектации», а выбрать его можно было только в модалке заказа — то есть
+   * ПОСЛЕ всей работы над макетом.
+   */
+  renderSizeBar() {
+    const box = this.panelEl && this.panelEl.querySelector('#size-first');
+    if (!box) return;
+    box.innerHTML = `
+      <div class="seg" id="age-seg"></div>
+      <div class="size-first-row">
+        <button id="size-btn" class="linkbtn" type="button">Таблица размеров</button>
+        <span class="size-chosen">${this.size ? `Размер: <b>${escapeHtml(this.size)}</b>` : 'Размер не выбран'}</span>
+      </div>`;
+    this.renderAgeSeg();
+    box.querySelector('#size-btn').onclick = () => this.showSizes();
+  }
+
+  /**
+   * Размерные категории, которые можно предложить на текущей расцветке.
+   * Клиент 09.09: «если он нажал на чемпион, зачем показывать взрослую цену, если её у нас
+   * в природе нет». Каталог знает ответ, конфиг — нет.
+   */
+  ageOptionsNow() {
+    return ageOptions(this.catalogPrices, {
+      line: this.form && this.form.line,
+      color: this.form && this.form.color,
+    });
+  }
+
+  /**
+   * Перерисовать сегмент «Детская | Взрослая».
+   *
+   * Цены на кнопках больше НЕТ. Клиент 09.09 (голосовое 08:42) по собственному скриншоту:
+   * «я открыл форму New, цена внизу итого стоит правильно, 780, а взрослая-детская стоит
+   * 1090 и 1280… предлагаю взрослая-детская цены там убрать, пускай внизу она стоит и всё…
+   * просто надпись взрослая и детская, покрупнее сделаем». Расхождение было настоящим:
+   * подписи брались из запасного прайса конфига, а «Итого» — из каталога, и на New они
+   * расходились втрое. Цена на экране теперь одна, внизу.
+   *
+   * Рисуем отдельным методом, а не в `buildPanel()`: ту зовут ровно один раз за жизнь
+   * страницы, а состав кнопок зависит от расцветки — на Чемпионе взрослой нет вовсе.
+   */
+  renderAgeSeg() {
+    const box = this.panelEl && this.panelEl.querySelector('#age-seg');
+    if (!box) return;
+    const ПОДПИСЬ = { adult: 'Взрослая', child: 'Детская' };
+    const опции = this.ageOptionsNow();
+    box.innerHTML = опции.map((age) => (
+      `<button class="seg-btn ${age === this.ageCategory ? 'active' : ''}" data-age="${age}">${ПОДПИСЬ[age]}</button>`
+    )).join('');
+    box.querySelectorAll('.seg-btn').forEach((b) => {
+      b.onclick = () => {
+        this.ageCategory = b.dataset.age;
+        this.size = ''; // размерные ряды детской и взрослой различаются — выбор сбрасываем
+        this.updatePrice();
+      };
+    });
+  }
+
   // Синхронизировать контролы левой панели с состоянием, изменённым внутри модалки заказа.
   syncPanelControls() {
-    this.panelEl.querySelectorAll('#age-seg .seg-btn').forEach((b) => {
-      b.classList.toggle('active', b.dataset.age === this.ageCategory);
-    });
+    this.renderSizeBar();
     const g = this.panelEl.querySelector('#opt-gaiters');
     if (g) g.checked = this.gaiters;
   }
@@ -1155,16 +1183,42 @@ export class UniformApp {
     return filterGridBySizes(grid, sizes);
   }
 
+  /**
+   * Таблица размеров, в которой размер ВЫБИРАЕТСЯ. Одна на два места — верхний блок панели
+   * и модалку заказа.
+   *
+   * Клиент 09.09: «у нас в конструкторе две таблицы размеров, в комплектации и в заказе.
+   * В комплектации нельзя выбрать размер, а в заказе можно». Две разных таблицы и были
+   * причиной: справочная в «Комплектации» и выбирающая в заказе. Теперь разметка общая,
+   * а обработчики свои у каждого места.
+   */
+  sizeTableHtml(cat) {
+    // Клиент 30.07: набор размеров у линеек разный, показываем ровно тот, что в карточке.
+    const grid = this.gridForAge(cat);
+    if (!grid) return '';
+    return `<table class="order-items size-select">
+      <thead><tr><th aria-label="Выбор"></th>${grid.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
+      <tbody>${grid.rows.map((row) => {
+    // В заказ уходит однозначная подпись: у формы бирочный размер и российский —
+    // РАЗНЫЕ шкалы (бирка L это 46 (S) RU), одна буква без пояснения путает менеджера.
+    const второй = row.length > 1 && row[1] && row[1] !== '—' ? ` (${row[1]})` : '';
+    const sz = String(row[0]) + второй;
+    const on = this.size === sz;
+    return `<tr class="size-row${on ? ' sel' : ''}" data-size="${escapeHtml(sz)}">
+          <td class="pick"><input type="radio" name="ord-size" value="${escapeHtml(sz)}" ${on ? 'checked' : ''}></td>
+          ${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join('')}
+        </tr>`;
+  }).join('')}</tbody>
+    </table>
+    <p class="size-hint">${this.size ? `Выбран размер: <b>${escapeHtml(this.size)}</b>` : 'Выберите размер из таблицы выше'}</p>`;
+  }
+
   showSizes() {
     // Раньше показывали ОБЕ сетки сразу: клиент 30.07 попросил только ту, что относится к выбору.
+    // С 09.09 таблица не справочная, а выбирающая: покупатель узнаёт про размер ДО того, как
+    // потратит время на макет («допустим, какого-то размера не будет… чтобы он лишнее время
+    // своё не тратил на заполнение этого конструктора»).
     const grid = this.gridForAge(this.ageCategory);
-    const tables = (grid ? [grid] : []).map((grid) => `
-      <h3 style="margin:14px 0 6px">${grid.title}</h3>
-      <table class="order-items">
-        <thead><tr>${grid.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
-        <tbody>${grid.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join('')}</tr>`).join('')}</tbody>
-      </table>`).join('');
-
     const overlay = document.createElement('div');
     overlay.className = 'order-overlay';
     overlay.innerHTML = `
@@ -1174,7 +1228,8 @@ export class UniformApp {
           <button class="order-close" aria-label="Закрыть">×</button>
         </div>
         <div class="order-body">
-          ${tables}
+          ${grid ? `<h3 style="margin:14px 0 6px">${escapeHtml(grid.title || 'Размеры')}</h3>` : ''}
+          ${this.sizeTableHtml(this.ageCategory)}
           <p class="hint">Замеряйте по росту/обхвату груди. При сомнении между размерами берите больший.</p>
         </div>
       </div>`;
@@ -1182,6 +1237,15 @@ export class UniformApp {
     const close = () => overlay.remove();
     overlay.querySelectorAll('.order-close').forEach((b) => { b.onclick = close; });
     overlay.onclick = (e) => { if (e.target === overlay) close(); };
+    // Клик по строке — это и есть выбор: закрываем сразу, чтобы человек вернулся к макету.
+    overlay.querySelectorAll('.size-row').forEach((tr) => {
+      tr.onclick = () => {
+        this.size = tr.dataset.size;
+        this.renderSizeBar();
+        this._saveDraft();
+        close();
+      };
+    });
   }
 
   // Собрать все виды (перёд/спина/плечо) в один canvas без служебных рамок.
@@ -1852,20 +1916,32 @@ export class UniformApp {
     }
   }
 
-  // Цена текущей формы: карточка товара, иначе прайс конфига.
+  // Цена текущей формы: карточка товара → цена линейки → прайс конфига.
+  //
+  // Средняя ступень появилась 09.09 по голосовому клиента («цены приравниваем к фактическим»):
+  // у трёх расцветок Фаворита взрослой карточки в каталоге нет, и общий запасной прайс конфига
+  // продавал их за 1280 вместо 1680. Цену линейки берём у её же соседних расцветок, чтобы
+  // не заводить вторую таблицу цен, которая разъедется с WooCommerce.
   formPriceFor(ageCategory) {
-    const fallback = this.config.prices.form[ageCategory];
-    if (!this.catalogPrices) return fallback;
+    const конфиг = this.config.prices.form[ageCategory];
+    if (!this.catalogPrices) return конфиг;
+    const line = this.form && this.form.line;
+    const поЛинейке = resolveLinePrice(this.catalogPrices, { line, ageCategory });
     return resolveFormPrice(this.catalogPrices, {
-      line: this.form && this.form.line,
+      line,
       color: this.form && this.form.color,
       ageCategory
-    }, fallback);
+    }, поЛинейке == null ? конфиг : поЛинейке);
   }
 
   currentFormPrice() { return this.formPriceFor(this.ageCategory); }
 
   updatePrice() {
+    // Расцветка могла смениться под ногами (карусель форм, палитра). Взрослого Чемпиона
+    // в природе нет — значит выбор возраста подтягиваем в границы доступного ДО расчёта,
+    // иначе посчитаем цену несуществующей позиции по запасному прайсу конфига.
+    this.ageCategory = normalizeAge(this.ageCategory, this.ageOptionsNow());
+    this.renderSizeBar();
     // Цена и адрес карточки берутся по ОДНОМУ ключу «линейка + цвет + возраст», значит меняются
     // вместе. Переключатель «Взрослый/Детский» звал только updatePrice — кнопка осталась бы
     // на карточке прежнего возраста, и человек увидел бы на макете одну цену, а в карточке другую.

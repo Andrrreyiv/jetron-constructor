@@ -492,6 +492,19 @@ body {
 .panel .seg-btn:hover { color: var(--ink); }
 .panel .seg-btn.active { background: #fff; color: var(--brand-strong); box-shadow: var(--sh-sm); }
 
+/* ── Размер выбирается первым ────────────────────────────── */
+/* Клиент 09.09: «переносим кнопки из комплектации, детская и взрослая, в самый верх… а внизу
+   кнопка таблица размеров, человек её открывает, видит какие есть размеры, сразу выбирает
+   размер, а дальше уже пошёл по конструктору рисовать» — блок стоит НАД конструктором опций. */
+.size-first { margin: 0 0 14px; }
+.size-first .seg { margin: 0 0 8px; }
+/* «Просто надпись взрослая и детская, покрупнее сделаем» (голосовое 08:42): этот сегмент
+   крупнее, чем сегмент «текст / логотип» ниже по панели, — он первое, что видит покупатель. */
+.panel .size-first .seg-btn { padding: 11px 0; font-size: 16px; }
+.size-first-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.size-chosen { font-size: 13px; color: var(--muted); }
+.size-chosen b { color: var(--ink); font-weight: 700; }
+
 /* ── Кнопки ──────────────────────────────────────────────── */
 .row { display: flex; gap: 8px; flex-wrap: wrap; }
 
