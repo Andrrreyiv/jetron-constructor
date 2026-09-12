@@ -5,7 +5,7 @@
 //
 // Браузерный слой (Fabric + DOM), вне node:test. Чистая математика границ — в core/ZoneOverrides.js.
 import { clampBox, brandBoxFromObject, brandEntryFromBox, resolveBrandColor, zonesSaveGuard } from '../core/ZoneOverrides.js?v=20260912a';
-import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260902b';
+import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260912a';
 
 // Служебные origin-константы Fabric: фон рендерится от левого-верхнего угла (0,0).
 
