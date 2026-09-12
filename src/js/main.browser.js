@@ -42,13 +42,19 @@ async function boot() {
     // Координаты зон нанесения правятся из редактора зон (zones.json пишет mu-плагин
     // jetron-zones.php, как colors.json). Формат: { <formId>: { <zoneKey>: {x,y,w,h} } }.
     // Битый файл не должен ронять стенд — при ошибке остаёмся на зонах из mock-config.json.
+    // ⚠️ Статус загрузки запоминаем отдельно: сохранение из редактора пишет zones.json ЦЕЛИКОМ,
+    // и если файл ЕСТЬ, но не разобрался, пустая база затрёт разметку всех форм. Различаем
+    // «прочитан» / «файла нет» (первый запуск — законно) / «есть, но не разобран» (опасно).
+    config.zonesLoad = 'failed';
     try {
       const zr = await fetch('zones.json', { cache: 'no-store' });
-      if (zr.ok) {
+      if (zr.status === 404) {
+        config.zonesLoad = 'missing';
+      } else if (zr.ok) {
         const ov = await zr.json();
-        if (validateOverrides(ov).ok) config.zoneOverrides = ov;
+        if (validateOverrides(ov).ok) { config.zoneOverrides = ov; config.zonesLoad = 'ok'; }
       }
-    } catch { /* остаёмся на зонах из mock-config.json */ }
+    } catch { /* остаёмся на зонах из mock-config.json, статус остаётся failed */ }
 
     // Кадрирование фона по формам (crops.json пишет тот же mu-плагин jetron-zones.php).
     // Формат тот же { <formId>: {x,y,w,h} }, поэтому валидируем тем же validateOverrides.

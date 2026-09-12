@@ -2,7 +2,7 @@
 // Только браузерный слой (DOM + canvas) — не покрывается node:test, поэтому суффикс .browser.js.
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
-import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX } from '../core/ZoneManager.js?v=20260902b';
+import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX, clipRect} from '../core/ZoneManager.js?v=20260902b';
 import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260902b';
 import { яркостьТкани } from '../core/TextColor.js?v=20260902b';
 import { создатьСчётчикЗагрузок } from '../core/LatestLoad.js?v=20260902b';
@@ -33,6 +33,9 @@ export class CanvasView {
     this.zoneOverlays = new Map(); // key -> fabric.Rect (пунктирная рамка зоны)
     this.userObjects = new Map();  // key -> объект, помещённый покупателем
     this.staticObjects = [];       // служебные надписи бренда (Jetron.ru) — не редактируются покупателем
+    // Содержимое редакторских рамок (дубли на шортах): key -> статический объект. Отдельно от
+    // brandObjects, потому что двигают их РАМКОЙ, а не за сам объект (клиент 12.09).
+    this.frameContent = new Map();
     this._загрузки = создатьСчётчикЗагрузок(); // свой у каждого холста: перёд и спина грузятся врозь
     this.onChange = () => {};
     this.canvas.on('object:modified', () => this.onChange());
@@ -196,6 +199,26 @@ export class CanvasView {
     this.canvas.requestRenderAll();
   }
 
+  // Рамка для дубля на шортах. Покупательской зоны под дубли нет (их ключей нет в
+  // placementOptions, поэтому renderZones их не рисует), а тянуть за сам объект — ровно та
+  // беда, на которую жаловался клиент 12.09. Рамка добавляется ПОСЛЕ renderZones: тот
+  // начинается с clearAll и снёс бы её. Внешне — обычный оверлей зоны, поэтому редактор
+  // вооружает её теми же синими ручками, а toDataURL гасит вместе с остальными.
+  addEditorFrame(key, box) {
+    const r = this._rect(box);
+    const overlay = new fabric.Rect({
+      left: r.left, top: r.top, width: r.width, height: r.height,
+      fill: 'transparent', stroke: null, strokeWidth: 0,
+      selectable: false, evented: true, hoverCursor: 'pointer',
+      objectCaching: false
+    });
+    overlay.zoneKey = key;
+    this.zoneOverlays.set(key, overlay);
+    this.canvas.add(overlay);
+    this.canvas.requestRenderAll();
+    return overlay;
+  }
+
   onZoneClick(handler) {
     this.canvas.on('mouse:down', (opt) => {
       const t = opt.target;
@@ -248,7 +271,9 @@ export class CanvasView {
   }
 
   _clipFor(zone) {
-    const r = this._rect(zone.box);
+    // Запас со всех сторон: чернила номера садятся в кромку зоны край-в-край (так просил клиент),
+    // и клип без запаса срезал их сглаженный край — «цифры обрезаются», замер 12.09.
+    const r = clipRect(this._rect(zone.box));
     return new fabric.Rect({
       left: r.left, top: r.top, width: r.width, height: r.height,
       absolutePositioned: true
@@ -390,6 +415,7 @@ export class CanvasView {
     for (const o of this.staticObjects) this.canvas.remove(o);
     this.staticObjects = [];
     if (this.brandObjects) this.brandObjects.clear(); // бренд-монограммы редактора зон — те же объекты
+    if (this.frameContent) this.frameContent.clear(); // содержимое редакторских рамок — тоже статика
     this.canvas.requestRenderAll();
   }
 
@@ -421,6 +447,7 @@ export class CanvasView {
     this.zoneOverlays.clear();
     this.userObjects.clear();
     this.staticObjects = [];
+    if (this.frameContent) this.frameContent.clear();
     this.canvas.requestRenderAll();
   }
 

@@ -4,7 +4,7 @@
 // только для залогиненного администратора). Покупатель этот режим не видит.
 //
 // Браузерный слой (Fabric + DOM), вне node:test. Чистая математика границ — в core/ZoneOverrides.js.
-import { clampBox, brandBoxFromObject, brandEntryFromBox, resolveBrandColor } from '../core/ZoneOverrides.js?v=20260902b';
+import { clampBox, brandBoxFromObject, brandEntryFromBox, resolveBrandColor, zonesSaveGuard } from '../core/ZoneOverrides.js?v=20260912a';
 import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260902b';
 
 // Служебные origin-константы Fabric: фон рендерится от левого-верхнего угла (0,0).
@@ -292,7 +292,9 @@ class ZoneEditor {
     if (!overlay || !overlay.zoneKey) return;
     const view = this._viewFor(canvas);
     if (!view) return;
-    const obj = view.userObjects.get(overlay.zoneKey);
+    // Содержимое зоны — покупательский объект, либо дубль на шортах в своей рамке (клиент 12.09).
+    const obj = view.userObjects.get(overlay.zoneKey)
+      || (view.frameContent && view.frameContent.get(overlay.zoneKey));
     if (!obj) return;
     // Эффективный бокс в пикселях холста: во время scaling у рамки scaleX/Y ≠ 1.
     const left = overlay.left;
@@ -451,6 +453,10 @@ class ZoneEditor {
   }
 
   async save() {
+    // Сервер перезаписывает zones.json целиком, мерж — только здесь. Если база не загрузилась,
+    // сохранение затрёт разметку ВСЕХ форм, а это дни работы по расстановке зон.
+    const страж = zonesSaveGuard(this.app.config.zonesLoad);
+    if (!страж.ok) { this.setStatus(страж.reason, false); return; }
     if (this.cropMode) this.applyCrop(); // не терять неприменённый кадр при сохранении
     if (!this.nonce) { await this.fetchNonce(); }
     if (!this.nonce) { this.setStatus('Нет доступа: войдите в админку WordPress.', false); return; }

@@ -9,7 +9,7 @@ import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from
 import { filterGridBySizes } from '../core/SizeMatch.js?v=20260902b';
 import { buildOrder } from '../core/OrderSummary.js?v=20260908a';
 import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260902b';
-import { applyZoneOverrides, resolveBrandBox, resolveBrandColor } from '../core/ZoneOverrides.js?v=20260902b';
+import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260912a';
 import { productLink } from '../core/ProductLink.js?v=20260908a';
 import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260902b';
 import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260902b';
@@ -1404,6 +1404,7 @@ export class UniformApp {
     this._placeBrand('shorts_number', 'shorts_brand');   // шорты слева
     this._placeShortsNumber();                           // дубль номера со спины на шортах (белым)
     this._placeShortsLogo();                             // дубль клубного лого с груди слева на шортах
+    if (this._afterRender) this._placeEditorFrames();    // рамки дублей — только в режиме ?zones=edit
   }
 
   // Ставит бренд-монограмму. Бокс: сохранённая админом позиция (zoneOverrides[form][brandKey]) либо
@@ -1466,12 +1467,15 @@ export class UniformApp {
     const zone = this.formZones.find((z) => z.key === 'shorts_number');
     const view = zone && this.targetView(zone);
     if (!zone || !view) return;
-    const box = resolveBrandBox(this.config.zoneOverrides, this.formId, 'shorts_number_dup', zone.box);
+    // Клиент 12.09: «номер на спине — рамка, ты её двигаешь, и номер внутри пропорционально
+    // изменяется, так же бы на шортах». Поэтому бокс читается как РАМКА (resolveFrameBox), а не
+    // как габарит знака: placeStaticNumber сажает цифру внутрь по чернилам тем же _seatNumber,
+    // что и спину, и «7» с «22» вписываются в одну и ту же рамку.
+    const box = resolveFrameBox(this.config.zoneOverrides, this.formId, 'shorts_number_dup', zone.box);
     const font = this.resolveFont(p.fontId, value);
     const obj = view.placeStaticNumber(box, value, '#ffffff', font);
-    obj.brandKey = 'shorts_number_dup';
-    if (!view.brandObjects) view.brandObjects = new Map();
-    view.brandObjects.set('shorts_number_dup', obj);
+    // В brandObjects НЕ кладём: там живут объекты, которые тянут за сам объект. Дубль двигают рамкой.
+    view.frameContent.set('shorts_number_dup', obj);
   }
 
   // Дубль клубного логотипа на шортах (клиент 2026-07-23): «логотип на шортах включён в стоимость».
@@ -1486,11 +1490,25 @@ export class UniformApp {
     if (!src) return;
     const imgEl = src.getElement ? src.getElement() : src._element;
     if (!imgEl || !imgEl.complete || !imgEl.naturalWidth) return; // ещё грузится — покажем на следующем рендере
-    const box = resolveBrandBox(this.config.zoneOverrides, this.formId, 'shorts_logo_dup', zone.box);
+    // Как и у номера: бокс — это РАМКА, а не габарит картинки. Двигают рамку, лого вписывается.
+    const box = resolveFrameBox(this.config.zoneOverrides, this.formId, 'shorts_logo_dup', zone.box);
     const obj = view.placeStaticImage(box, imgEl, { clip: false });
-    obj.brandKey = 'shorts_logo_dup';
-    if (!view.brandObjects) view.brandObjects = new Map();
-    view.brandObjects.set('shorts_logo_dup', obj);
+    view.frameContent.set('shorts_logo_dup', obj);
+  }
+
+  // Рамки дублей на шортах — ТОЛЬКО для редактора зон. Покупателю их нет: ключей дублей нет
+  // в placementOptions, поэтому обычный renderZones рамку не создаёт, и раньше админу
+  // приходилось тянуть сам объект. Признак редактора — установленный им хук _afterRender.
+  // Рамка ставится даже когда содержимого нет (номер не введён): админ размечает макет заранее.
+  _placeEditorFrames() {
+    const ЯКОРЬ = { shorts_number_dup: 'shorts_number', shorts_logo_dup: 'shorts_logo' };
+    for (const key of EDITOR_FRAME_KEYS) {
+      const zone = this.formZones.find((z) => z.key === ЯКОРЬ[key]);
+      const view = zone && this.targetView(zone);
+      if (!zone || !view) continue;
+      const box = resolveFrameBox(this.config.zoneOverrides, this.formId, key, zone.box);
+      view.addEditorFrame(key, box);
+    }
   }
 
   // Куда ведёт кнопка на плашке. Клиент 2026-08-28: она должна открывать карточку ИМЕННО той

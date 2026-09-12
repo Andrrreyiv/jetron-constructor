@@ -85,6 +85,41 @@ export function resolveBrandBox(overrides, formId, brandKey, anchorBox, size = {
   return { x: cx - size.w / 2, y: cy - size.h / 2, w: size.w, h: size.h };
 }
 
+// Можно ли сохранять zones.json. Сервер пишет файл ЦЕЛИКОМ и старый не читает
+// (jetron-zones.php: jetron_zones_write), весь мерж — на клиенте поверх config.zoneOverrides.
+// Если файл на сервере ЕСТЬ, но не прочитался или не прошёл validateOverrides (а одна битая
+// запись отвергает его целиком), то база пуста, и первое же «Сохранить» затрёт разметку всех
+// форм. Поэтому в таком состоянии сохранять запрещаем: пропустить правку дешевле, чем потерять
+// день работы по расстановке зон.
+export function zonesSaveGuard(состояние) {
+  if (состояние === 'ok' || состояние === 'missing') return { ok: true };
+  return {
+    ok: false,
+    reason: 'Разметка зон не загрузилась — сохранять нельзя, иначе затрёт разметку всех форм. Обновите страницу.'
+  };
+}
+
+// Дубли на шортах (номер со спины и клубное лого с груди) рисуются статикой, и покупательской
+// зоны под них нет: в `config.placementOptions` шесть опций, `shorts_number`/`shorts_logo` в них
+// не входят, поэтому `renderZones` рамку для них не создаёт (app.browser.js, фильтр `usable`).
+// Раньше из-за этого их двигали как бренд-знак — за сам объект. Теперь редактор рисует им
+// СОБСТВЕННУЮ рамку: покупателю её нет, а админ тянет рамку, а не содержимое.
+export const EDITOR_FRAME_KEYS = Object.freeze(['shorts_number_dup', 'shorts_logo_dup']);
+
+export function isEditorFrameKey(key) {
+  return EDITOR_FRAME_KEYS.includes(String(key || ''));
+}
+
+// Бокс рамки дубля. В отличие от resolveBrandBox здесь НЕТ бренд-размера по умолчанию
+// (0.09×0.033 — это мелкая монограмма Jetron): без сохранённой записи рамка открывается
+// во всю зону-якорь, иначе админ получил бы полоску, в которую цифра не помещается.
+// Отдаём только геометрию: `color` из той же записи zones.json в бокс попасть не должен.
+export function resolveFrameBox(overrides, formId, key, anchorBox) {
+  const saved = overrides && overrides[formId] && overrides[formId][key];
+  const src = saved || anchorBox;
+  return { x: src.x, y: src.y, w: src.w, h: src.h };
+}
+
 // Обратный перевод: из Fabric-объекта бренда (originX/Y = center, масштаб scaleX/Y) в долевой
 // bounding-box холста (top-left + размеры) для сохранения. Храним фактический размер картинки на
 // экране — её аспект, поэтому resolveBrandBox+placeStaticImage воспроизводят её один-в-один.
