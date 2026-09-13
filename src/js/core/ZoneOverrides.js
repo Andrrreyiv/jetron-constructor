@@ -85,6 +85,55 @@ export function resolveBrandBox(overrides, formId, brandKey, anchorBox, size = {
   return { x: cx - size.w / 2, y: cy - size.h / 2, w: size.w, h: size.h };
 }
 
+// Размножение разметки донор → вся линейка (клиент 12.09: «зоны по остальным картинкам
+// раскидайте»). `formId` — это линейка И расцветка, а applyZoneOverrides ищет строго по нему,
+// поэтому размеченный `champion-white` ничего не даёт `champion-blue`.
+//
+// Переносить внутри линейки можно БЕЗ пересчёта: кадр мокапа там один. Это держит сторож
+// tests/test_zonesets_sync.py — он читает пиксели реальных файлов и падает, если кадры
+// разъехались. Между линейками нельзя: кадры разные (836 у Champion против 937 у New).
+//
+// Донором считается любая уже размеченная расцветка линейки (не обязательно белая).
+// Своя разметка расцветки НИКОГДА не затирается: ручная правка ценнее копии.
+// Возвращается ПОЛНАЯ карта, включая доноров и записи неизвестных форм, — сервер
+// перезаписывает zones.json целиком, и всё, чего не будет в ответе, пропадёт.
+export function propagateZonesToLines(overrides, forms) {
+  const исход = overrides || {};
+  const out = {};
+  for (const [fid, zones] of Object.entries(исход)) out[fid] = zones;
+
+  const поЛинейке = new Map();
+  for (const f of (forms || [])) {
+    if (!f || !f.id || !f.line) continue;
+    if (!поЛинейке.has(f.line)) поЛинейке.set(f.line, []);
+    поЛинейке.get(f.line).push(f.id);
+  }
+
+  const отчёт = [];
+  let добавлено = 0;
+  for (const [линейка, ids] of поЛинейке) {
+    const донор = ids.find((id) => исход[id]);
+    if (!донор) continue;
+    const получили = [];
+    for (const id of ids) {
+      if (исход[id]) continue; // своя разметка сильнее копии
+      out[id] = копияЗон(исход[донор]);
+      получили.push(id);
+      добавлено += 1;
+    }
+    if (получили.length) отчёт.push({ линейка, донор, получили });
+  }
+  return { overrides: out, добавлено, поЛинейкам: отчёт };
+}
+
+// Глубокая копия боксов: правка донора потом не должна молча уезжать в расцветки.
+// Копируем и `color` у бренд-ключей — он лежит в той же записи, что координаты.
+function копияЗон(zones) {
+  const out = {};
+  for (const [key, box] of Object.entries(zones || {})) out[key] = { ...box };
+  return out;
+}
+
 // Можно ли сохранять zones.json. Сервер пишет файл ЦЕЛИКОМ и старый не читает
 // (jetron-zones.php: jetron_zones_write), весь мерж — на клиенте поверх config.zoneOverrides.
 // Если файл на сервере ЕСТЬ, но не прочитался или не прошёл validateOverrides (а одна битая

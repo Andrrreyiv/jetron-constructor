@@ -4,7 +4,7 @@
 // только для залогиненного администратора). Покупатель этот режим не видит.
 //
 // Браузерный слой (Fabric + DOM), вне node:test. Чистая математика границ — в core/ZoneOverrides.js.
-import { clampBox, brandBoxFromObject, brandEntryFromBox, resolveBrandColor, zonesSaveGuard } from '../core/ZoneOverrides.js?v=20260912a';
+import { clampBox, brandBoxFromObject, brandEntryFromBox, resolveBrandColor, zonesSaveGuard, propagateZonesToLines } from '../core/ZoneOverrides.js?v=20260913a';
 import { fitTextToRect, isNumberZone } from '../core/ZoneManager.js?v=20260912a';
 
 // Служебные origin-константы Fabric: фон рендерится от левого-верхнего угла (0,0).
@@ -99,10 +99,19 @@ class ZoneEditor {
     this.cropBtn = cropBtn;
     cropRow.append(cropBtn);
 
+    // Клиент 12.09: «зоны по остальным картинкам раскидайте». Размечает он по одной расцветке
+    // на линейку, а formId — это линейка И цвет, поэтому остальные 37 форм из 45 разметки
+    // не видят. Кнопка разносит её на всю линейку; внутри линейки кадр один, пересчёт не нужен.
+    const spreadRow = document.createElement('div');
+    Object.assign(spreadRow.style, { display: 'flex', gap: '8px' });
+    const spreadBtn = this.mkButton('Разнести по линейкам', 'rgba(46,139,87,0.95)');
+    spreadBtn.onclick = () => this.размножить();
+    spreadRow.append(spreadBtn);
+
     // Третья строка: цвет бренд-знака для ТЕКУЩЕЙ расцветки (клиент 04.09 просил палитру).
     // По умолчанию цвет считается автоматически по яркости ткани; выбор из палитры это
     // переопределяет, кнопка «авто» — снимает. Правка попадает в zones.json вместе с позицией.
-    bar.append(title, hint, status, row, cropRow, this._строкаЦветаЗнака('chest_brand', 'Знак на груди'),
+    bar.append(title, hint, status, row, cropRow, spreadRow, this._строкаЦветаЗнака('chest_brand', 'Знак на груди'),
       this._строкаЦветаЗнака('shorts_brand', 'Знак на шортах'));
     document.body.appendChild(bar);
     this.bar = bar;
@@ -450,6 +459,25 @@ class ZoneEditor {
     const ok = !!(data && data.success);
     const message = (data && data.data && data.data.message) ? data.data.message : (ok ? '' : 'сервер отклонил запрос');
     return { ok, message };
+  }
+
+  /**
+   * Разносит разметку каждой размеченной расцветки на остальные расцветки ЕЁ линейки.
+   * Своя разметка расцветки не затирается. Результат кладётся в сессию — на боевой уезжает
+   * обычной кнопкой «Сохранить», чтобы админ успел посмотреть, что получилось.
+   */
+  размножить() {
+    const страж = zonesSaveGuard(this.app.config.zonesLoad);
+    if (!страж.ok) { this.setStatus(страж.reason, false); return; }
+    const было = this.mergedOverrides();
+    const res = propagateZonesToLines(было, this.app.config.forms || []);
+    if (!res.добавлено) { this.setStatus('Переносить нечего: все расцветки уже размечены.'); return; }
+    for (const [fid, zones] of Object.entries(res.overrides)) {
+      if (!было[fid]) this.session[fid] = zones;
+    }
+    const линеек = res.поЛинейкам.length;
+    this.setStatus(`Разнесено на ${res.добавлено} расцветок (линеек: ${линеек}). Проверьте и нажмите «Сохранить».`);
+    Promise.resolve(this.app.renderAll()).catch(() => {});
   }
 
   async save() {
