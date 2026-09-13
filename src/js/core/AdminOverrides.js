@@ -1,3 +1,5 @@
+import { проверитьВид } from './Appearance.js';
+
 // Настройки из админки поверх базового конфига (admin.json ← страница «Конструктор формы» в WP).
 // Правило: битые или неполные данные НЕ должны ронять конструктор — такой раздел просто игнорируем
 // и остаёмся на базовом конфиге. Цена ИЗДЕЛИЯ здесь не участвует: она идёт из карточки товара
@@ -12,6 +14,9 @@ export function applyAdminOverrides(config, admin) {
   out.fonts = listOr(out.fonts, admin.fonts, isFont);
   out.colors = listOr(out.colors, admin.colors, isColor);
   out.forms = listOr(out.forms, admin.forms, isForm);
+  // Внешний вид сцены (раздел «Внешний вид» в админке). Поля чистятся поштучно в Appearance.js;
+  // сюда попадает только то, что можно применить, поэтому раздел не может уронить вёрстку.
+  out.appearance = проверитьВид(admin.appearance);
   return out;
 }
 

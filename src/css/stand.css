@@ -32,8 +32,14 @@
   --navy: #14294c;
   --navy-strong: #0c1c39;
 
-  /* Светлая тёплая сцена (макет-панель) */
-  --stage-bg: #fdf9ef;
+  /* Светлая тёплая сцена (макет-панель).
+     ⚠️ Фон сцены БЕЛЫЙ с 13.09 и это не вкусовщина: мокапы отрисованы на чистом белом листе
+     (см. `яркостьТкани` в core/TextColor.js — она этот лист специально отбрасывает при замере).
+     Пока сцена была кремовой #fdf9ef, лист мокапа читался прямоугольником вокруг формы.
+     Клиент голосовым 13.09: «не ограничивать её какими-то полями, сделать более воздушной,
+     как будто она висит в пространстве». Совпадение с белым листом и даёт этот эффект —
+     прозрачной карточки (--card-bg ниже) для него НЕ ХВАТАЕТ, проверено замером. */
+  --stage-bg: #ffffff;
   --stage-card: #ffffff;
   --stage-border: #ece3d0;
   --stage-text: #8b8578;
@@ -167,7 +173,12 @@ body {
   background: var(--stage-bg);
   border: 1px solid var(--stage-border);
   border-radius: var(--r-xl);
-  padding: 40px 32px 28px;
+  /* Отступы вынесены в токены: ими управляет раздел «Внешний вид» в админке (клиент 13.09:
+     «скажите, где настраиваются эти параметры, я попробую сам подвигать»). Верхний отступ —
+     это и есть «поднять форму повыше» из его же голосового.
+     ⚠️ На узких экранах отступы ПЕРЕОПРЕДЕЛЯЮТСЯ медиазапросами ниже (1162 и 1251): там свои
+     константы, вымеренные на 320/360/414, и настройка из админки их НЕ трогает намеренно. */
+  padding: var(--stage-pad-top) var(--stage-pad-side) var(--stage-pad-bottom);
   position: relative;
   overflow: hidden;
   box-shadow: var(--sh-stage), inset 0 1px 0 #fff;
@@ -271,9 +282,27 @@ body {
   outline: 2px solid var(--navy);
   outline-offset: 2px;
 }
+/* Вид карточки под формой. Клиент 13.09 голосовым: «убрал фон, на белый поменял, чтобы форму
+   не ограничивать какими-то полями, а сделать более воздушной, как будто она висит в пространстве».
+   Вынесено в отдельные токены, а не вписано значениями: это единственное место, где вид карточки
+   настраивается, и следующий шаг — вывести их в админку, чтобы клиент играл сам.
+   ⚠️ `--card-border` меняет только ЦВЕТ: сама рамка в 1px остаётся всегда, иначе поедет
+   геометрия (её ширину держит JS, см. content-box ниже). Вернуть прежний вид: --card-bg
+   на var(--stage-card), --card-border на var(--stage-border), --card-shadow на var(--sh-md). */
+:root {
+  --card-bg: transparent;
+  --card-border: transparent;
+  --card-shadow: none;
+  --card-shadow-hover: none;
+  /* Отступы сцены на ШИРОКОМ экране. Значения те же, что стояли числами в `#stage` до 13.09. */
+  --stage-pad-top: 40px;
+  --stage-pad-side: 32px;
+  --stage-pad-bottom: 28px;
+}
+
 .canvas-wrap {
-  background: var(--stage-card);
-  border: 1px solid var(--stage-border);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: var(--r-md);
   padding: 12px;
   /* Клиент 02.09 (волна 5): «белая рамка одна, намертво зафиксирована, не гуляет вверх-вниз,
@@ -283,9 +312,10 @@ body {
   align-items: center;
   justify-content: center;
   /* ⚠️ Обязательно content-box: глобальное `* { box-sizing: border-box }` (строка 72) съело бы
-     padding 12px и рамку 1px внутрь ширины, которую ставит JS, и картинка стала бы на 26 px уже. */
+     padding 12px и рамку 1px внутрь ширины, которую ставит JS, и картинка стала бы на 26 px уже.
+     ⚠️ По той же причине рамку нельзя убирать через `border: none` — только красить прозрачным. */
   box-sizing: content-box;
-  box-shadow: var(--sh-md);
+  box-shadow: var(--card-shadow);
   transition: box-shadow .25s var(--ease), transform .25s var(--ease), border-color .25s var(--ease);
 }
 /* ⚫ `transform: translateY(-4px)` убран 04.09 (клиент 03.09: «ролик мышку подвожу рамка
@@ -297,7 +327,10 @@ body {
    Тень оставлена намеренно: она не двигает геометрию, отклик на курсор сохраняется.
    Сторож — `tests/FrameStill.test.js`. */
 .canvas-wrap:hover {
-  box-shadow: 0 16px 44px rgba(90, 70, 30, .16), 0 0 0 1px rgba(47, 111, 224, .3);
+  /* Тень на наведении ходит через тот же токен: при прозрачной карточке подсвечивать нечего,
+     кольцо висело бы вокруг пустоты. Блок оставлен намеренно — на нём стоит сторож
+     `tests/FrameStill.test.js`, он проверяет, что сюда не вернули `transform`. */
+  box-shadow: var(--card-shadow-hover);
 }
 .canvas-wrap canvas { display: block; border-radius: 6px; }
 

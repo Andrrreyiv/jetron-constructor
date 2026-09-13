@@ -1,11 +1,12 @@
 // Точка входа стенда: грузим конфиг → валидируем на границе → запускаем приложение.
-import { validateConfig } from './core/ConfigLoader.js?v=20260902b';
-import { validateOverrides, validateCrops } from './core/ZoneOverrides.js?v=20260902b';
-import { applyAdminOverrides } from './core/AdminOverrides.js?v=20260902b';
+import { validateConfig } from './core/ConfigLoader.js?v=20260913g';
+import { validateOverrides, validateCrops } from './core/ZoneOverrides.js?v=20260913g';
+import { applyAdminOverrides } from './core/AdminOverrides.js?v=20260913g';
+import { применитьВид } from './core/Appearance.js?v=20260913g';
 // Версионируем импорты изменённых модулей, чтобы обычная перезагрузка (не только Cmd+Shift+R)
 // подтягивала свежий файл: ESM кешируется по URL, а ?v на index.html не бустит вложенные импорты.
-import { UniformApp } from './ui/app.browser.js?v=20260909c';
-import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260902b';
+import { UniformApp } from './ui/app.browser.js?v=20260913g';
+import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260913g';
 
 async function boot() {
   const statusEl = document.getElementById('status');
@@ -42,13 +43,19 @@ async function boot() {
     // Координаты зон нанесения правятся из редактора зон (zones.json пишет mu-плагин
     // jetron-zones.php, как colors.json). Формат: { <formId>: { <zoneKey>: {x,y,w,h} } }.
     // Битый файл не должен ронять стенд — при ошибке остаёмся на зонах из mock-config.json.
+    // ⚠️ Статус загрузки запоминаем отдельно: сохранение из редактора пишет zones.json ЦЕЛИКОМ,
+    // и если файл ЕСТЬ, но не разобрался, пустая база затрёт разметку всех форм. Различаем
+    // «прочитан» / «файла нет» (первый запуск — законно) / «есть, но не разобран» (опасно).
+    config.zonesLoad = 'failed';
     try {
       const zr = await fetch('zones.json', { cache: 'no-store' });
-      if (zr.ok) {
+      if (zr.status === 404) {
+        config.zonesLoad = 'missing';
+      } else if (zr.ok) {
         const ov = await zr.json();
-        if (validateOverrides(ov).ok) config.zoneOverrides = ov;
+        if (validateOverrides(ov).ok) { config.zoneOverrides = ov; config.zonesLoad = 'ok'; }
       }
-    } catch { /* остаёмся на зонах из mock-config.json */ }
+    } catch { /* остаёмся на зонах из mock-config.json, статус остаётся failed */ }
 
     // Кадрирование фона по формам (crops.json пишет тот же mu-плагин jetron-zones.php).
     // Формат тот же { <formId>: {x,y,w,h} }, поэтому валидируем тем же validateOverrides.
@@ -61,6 +68,12 @@ async function boot() {
         if (validateCrops(cr).ok) config.bgCrops = cr;
       }
     } catch { /* остаёмся на нетронутых мокапах из mock-config.json */ }
+
+    // Внешний вид сцены из админки (раздел «Внешний вид»). Ставим ДО создания приложения:
+    // отступы сцены влияют на доступную ширину, а её JS читает при подгонке холста под карточку.
+    // Не заданные поля остаются на умолчаниях `stand.css` — админка диктует только то, что в ней
+    // трогали. Раздел уже вычищен в applyAdminOverrides, битым значениям сюда не дойти.
+    применитьВид(config.appearance);
 
     const app = new UniformApp({
       config,

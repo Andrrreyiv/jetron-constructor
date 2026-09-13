@@ -2,29 +2,41 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260902b';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260902b';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260909b';
-import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260909b';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260902b';
-import { buildOrder } from '../core/OrderSummary.js?v=20260908a';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260902b';
-import { applyZoneOverrides, resolveBrandBox, resolveBrandColor } from '../core/ZoneOverrides.js?v=20260902b';
-import { productLink } from '../core/ProductLink.js?v=20260908a';
-import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260902b';
-import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260902b';
-import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260906a';
+import { CanvasView } from './canvas.browser.js?v=20260913g';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260913g';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260913g';
+import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260913g';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260913g';
+import { buildOrder } from '../core/OrderSummary.js?v=20260913g';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260913g';
+import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260913g';
+import { productLink } from '../core/ProductLink.js?v=20260913g';
+import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260913g';
+import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260913g';
+import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260913g';
 // `clearDraft` намеренно НЕ импортируется: чистить черновик в конструкторе нечем и незачем.
 // Клиент просил обратного — «зашёл в корзину, оформил, обновил страницу», то есть черновик
 // обязан пережить и корзину, и оформление. Умирает он сам, по сроку в 24 часа.
-import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260907a';
-import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260907a';
+import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260913g';
+import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260913g';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 const VIEW_LABEL = { front: 'Перед', back: 'Спина', shoulder: 'Плечо' };
+
+// Что пускаем в загрузку логотипа.
+//
+// Клиент 13.09 прислал снимок выборщика файлов: его логотип в `.webp` показан СЕРЫМ, то есть
+// выбрать его нельзя. Запрета в коде нет — `prepareImage()` не смотрит на MIME вообще и webp
+// прочитал бы. Виноват был один `accept="image/*"`: мобильные выборщики раскрывают его в свой
+// жёсткий список типов, и webp в него попадает не всегда. Поэтому рядом с `image/*` перечислены
+// РАСШИРЕНИЯ: выборщики, которые не понимают групповую маску, сопоставляют по ним.
+// ⚠️ Список расширений и поведение `prepareImage()` держать согласованными: добавишь формат
+// сюда — убедись, что браузер умеет его декодировать в <img>, иначе выбор пройдёт,
+// а в макет попадёт пустота.
+const UPLOAD_ACCEPT = 'image/*,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg';
 
 // Иконка «волшебная палочка» для кнопки «Удалить фон» (по эскизу клиента: чёрная палочка + жёлтые искры).
 // Инлайн-SVG вместо картинки: масштабируется, без лишнего запроса, легко перекрасить.
@@ -239,7 +251,8 @@ export class UniformApp {
   }
 
   // Пишем на каждое изменение: покупатель не жмёт «сохранить», он просто работает.
-  // Потеря логотипа считается вслух (`droppedImages`) — молчать о ней нельзя.
+  // Счётчик `droppedImages` продолжаем получать: он нужен для решения, сохранился черновик
+  // или нет, даже теперь, когда покупателю о потере логотипа не сообщают (см. ниже).
   _saveDraft() {
     if (!this._draftReady) return;
     const storage = this._storage();
@@ -251,17 +264,24 @@ export class UniformApp {
   }
 
   // Одно предложение под «Итого» и только по делу: пока всё сохранилось — места не занимает.
+  //
+  // 🔴 Решение клиента 13.09 (снимок с телефона, «уберите пожалуйста эту надпись»): о том, что
+  // тяжёлый логотип не влез в черновик, покупателю БОЛЬШЕ НЕ СООБЩАЕМ. Прежде здесь стоял текст
+  // «Логотип слишком тяжёлый…», и он говорил правду: черновик ограничен 3 МБ (DRAFT_MAX_BYTES),
+  // логотипы лежат в `optCache` исходными байтами (пережимать нельзя — прозрачный фон), и со
+  // второго тяжёлого логотипа они из черновика выбрасываются. Теперь это происходит МОЛЧА:
+  // покупатель обновит страницу и увидит форму без логотипов. Владелец о цене предупреждён
+  // и выбрал так. ⚠️ Не возвращать «по здравому смыслу» — решение владельца, а не недосмотр.
+  // Причину можно убрать по-настоящему: класть в черновик уменьшенную копию логотипа
+  // (PNG с прозрачностью), тогда надпись не понадобилась бы вовсе. Не делалось сознательно.
   _renderDraftNote(res) {
     const el = this.panelEl && this.panelEl.querySelector('#draft-note');
     if (!el) return;
-    let текст = '';
-    if (res.droppedImages > 0) {
-      текст = res.droppedImages === 1
-        ? 'Логотип слишком тяжёлый, чтобы сохранить его до следующего захода: после перезагрузки страницы загрузите его заново.'
-        : `Логотипы (${res.droppedImages}) слишком тяжёлые, чтобы сохранить их до следующего захода: после перезагрузки страницы загрузите их заново.`;
-    } else if (!res.saved) {
-      текст = 'Настройки не сохраняются в этом браузере: после перезагрузки страницы их придётся ввести заново.';
-    }
+    // Остаётся единственный случай: браузер вообще не даёт хранить (приватный режим, запрет
+    // site data). Тут молчать нельзя — покупатель потеряет ВЕСЬ набор, а не одну картинку.
+    const текст = res.saved
+      ? ''
+      : 'Настройки не сохраняются в этом браузере: после перезагрузки страницы их придётся ввести заново.';
     el.textContent = текст;
     el.hidden = !текст;
   }
@@ -745,9 +765,25 @@ export class UniformApp {
       const fontId = linkedNumberFont(this.config.placementOptions, this.optCache, this.defaultFontId());
       if (c.number) draw(opt.zone, { type: 'text', value: c.number, fontId, color });
     } else { // text_or_upload
+      // Клиент 13.09 голосовым: «логотип на груди большой и логотип на спине под номером —
+      // их шрифты, ну и цвет тоже… нужно привязать к шрифту фамилии и номера». Раньше оба
+      // брали общий дефолт, и «ФК ПРАГМА» выходила чужим шрифтом рядом с «MATVEEV 7».
+      // Привязка идёт ДЕФОЛТОМ, а не жёстко: свой выбор покупателя в карточке сильнее —
+      // иначе выбор шрифта в этой опции перестал бы что-либо значить.
+      const вед = this._ведомыеОтСпины();
       if (c.image) draw(opt.zone, { type: 'image', value: c.image });
-      else if (c.text) draw(opt.zone, { type: 'text', value: c.text, fontId: c.fontId || this.defaultFontId(), color: c.color || this.textColor });
+      else if (c.text) draw(opt.zone, { type: 'text', value: c.text, fontId: c.fontId || вед.fontId, color: c.color || вед.color });
     }
+  }
+
+  // Шрифт и цвет, которые ведомая надпись берёт со спины, пока покупатель не выбрал свои.
+  // Одно место на отрисовку и на карточку опции: разъехавшись, они дали бы подсвеченный
+  // в карточке шрифт, не совпадающий с тем, что нарисовано на макете.
+  _ведомыеОтСпины() {
+    return {
+      fontId: linkedNumberFont(this.config.placementOptions, this.optCache, this.defaultFontId()),
+      color: linkedNumberColor(this.config.placementOptions, this.optCache, this.textColor)
+    };
   }
 
   removePk(pkey) {
@@ -814,7 +850,13 @@ export class UniformApp {
     // в значения 31.08, а сюда забыли, и на экране грудь оставалась прежним шрифтом.
     if (opt.kind === 'name_number' && ведомыеПерерисовать(patch)) {
       for (const o of this.availableOptions()) {
-        if (o.kind === 'number' && this.optionActive(o)) this.applyOption(o);
+        if (!this.optionActive(o)) continue;
+        // Текстовые «логотипы» ведомые с 13.09 — но только пока это ТЕКСТ: загруженную
+        // картинку перерисовывать незачем, шрифт и цвет её не касаются. Свой выбор
+        // покупателя переживёт перерисовку, его держит `c.fontId ||` в applyOption().
+        const свой = this.optCache[o.id] || {};
+        const ведомый = o.kind === 'number' || (o.kind === 'text_or_upload' && !свой.image);
+        if (ведомый) this.applyOption(o);
       }
     }
     this.renderJetron();
@@ -1404,6 +1446,7 @@ export class UniformApp {
     this._placeBrand('shorts_number', 'shorts_brand');   // шорты слева
     this._placeShortsNumber();                           // дубль номера со спины на шортах (белым)
     this._placeShortsLogo();                             // дубль клубного лого с груди слева на шортах
+    if (this._afterRender) this._placeEditorFrames();    // рамки дублей — только в режиме ?zones=edit
   }
 
   // Ставит бренд-монограмму. Бокс: сохранённая админом позиция (zoneOverrides[form][brandKey]) либо
@@ -1466,12 +1509,15 @@ export class UniformApp {
     const zone = this.formZones.find((z) => z.key === 'shorts_number');
     const view = zone && this.targetView(zone);
     if (!zone || !view) return;
-    const box = resolveBrandBox(this.config.zoneOverrides, this.formId, 'shorts_number_dup', zone.box);
+    // Клиент 12.09: «номер на спине — рамка, ты её двигаешь, и номер внутри пропорционально
+    // изменяется, так же бы на шортах». Поэтому бокс читается как РАМКА (resolveFrameBox), а не
+    // как габарит знака: placeStaticNumber сажает цифру внутрь по чернилам тем же _seatNumber,
+    // что и спину, и «7» с «22» вписываются в одну и ту же рамку.
+    const box = resolveFrameBox(this.config.zoneOverrides, this.formId, 'shorts_number_dup', zone.box);
     const font = this.resolveFont(p.fontId, value);
     const obj = view.placeStaticNumber(box, value, '#ffffff', font);
-    obj.brandKey = 'shorts_number_dup';
-    if (!view.brandObjects) view.brandObjects = new Map();
-    view.brandObjects.set('shorts_number_dup', obj);
+    // В brandObjects НЕ кладём: там живут объекты, которые тянут за сам объект. Дубль двигают рамкой.
+    view.frameContent.set('shorts_number_dup', obj);
   }
 
   // Дубль клубного логотипа на шортах (клиент 2026-07-23): «логотип на шортах включён в стоимость».
@@ -1486,11 +1532,25 @@ export class UniformApp {
     if (!src) return;
     const imgEl = src.getElement ? src.getElement() : src._element;
     if (!imgEl || !imgEl.complete || !imgEl.naturalWidth) return; // ещё грузится — покажем на следующем рендере
-    const box = resolveBrandBox(this.config.zoneOverrides, this.formId, 'shorts_logo_dup', zone.box);
+    // Как и у номера: бокс — это РАМКА, а не габарит картинки. Двигают рамку, лого вписывается.
+    const box = resolveFrameBox(this.config.zoneOverrides, this.formId, 'shorts_logo_dup', zone.box);
     const obj = view.placeStaticImage(box, imgEl, { clip: false });
-    obj.brandKey = 'shorts_logo_dup';
-    if (!view.brandObjects) view.brandObjects = new Map();
-    view.brandObjects.set('shorts_logo_dup', obj);
+    view.frameContent.set('shorts_logo_dup', obj);
+  }
+
+  // Рамки дублей на шортах — ТОЛЬКО для редактора зон. Покупателю их нет: ключей дублей нет
+  // в placementOptions, поэтому обычный renderZones рамку не создаёт, и раньше админу
+  // приходилось тянуть сам объект. Признак редактора — установленный им хук _afterRender.
+  // Рамка ставится даже когда содержимого нет (номер не введён): админ размечает макет заранее.
+  _placeEditorFrames() {
+    const ЯКОРЬ = { shorts_number_dup: 'shorts_number', shorts_logo_dup: 'shorts_logo' };
+    for (const key of EDITOR_FRAME_KEYS) {
+      const zone = this.formZones.find((z) => z.key === ЯКОРЬ[key]);
+      const view = zone && this.targetView(zone);
+      if (!zone || !view) continue;
+      const box = resolveFrameBox(this.config.zoneOverrides, this.formId, key, zone.box);
+      view.addEditorFrame(key, box);
+    }
   }
 
   // Куда ведёт кнопка на плашке. Клиент 2026-08-28: она должна открывать карточку ИМЕННО той
@@ -1635,7 +1695,7 @@ export class UniformApp {
     const uploadBtn = (has, label) => `
       <div class="opt-upload-row">
         <label class="opt-upload ${has ? 'has' : ''}">
-          <input type="file" accept="image/*" data-field="image" hidden>
+          <input type="file" accept="${UPLOAD_ACCEPT}" data-field="image" hidden>
           <span class="opt-upload-icon">${has ? '✓' : '+'}</span>
           <span class="opt-upload-text">${has ? 'Файл загружен' : label}</span>
           ${has ? '<span class="opt-del" data-act="del" role="button" aria-label="Удалить" title="Удалить">×</span>' : ''}
@@ -1666,7 +1726,7 @@ export class UniformApp {
       <input class="opt-in" type="text" data-field="text" placeholder="${escapeHtml(opt.placeholder || 'Текст')}" value="${escapeHtml(c.text || '')}" ${c.image ? 'disabled' : ''}>
       <div class="opt-or">или</div>
       ${uploadBtn(!!c.image, 'Загрузить логотип')}
-      ${c.image ? '' : this.fontColorHtml(c)}`;
+      ${c.image ? '' : this.fontColorHtml(c, this._ведомыеОтСпины())}`;
   }
 
   // Образец для превью шрифта: текст рисуется САМИМ шрифтом, чтобы человек листал
@@ -1680,11 +1740,14 @@ export class UniformApp {
   }
 
   // Свёрнутый блок «Шрифт и цвет» для текстовых опций.
-  fontColorHtml(c) {
+  // `дефолты` — то, что опция унаследует, пока покупатель не выбрал своё (с 13.09 текстовые
+  // «логотипы» берут шрифт и цвет со спины). Подсветка обязана показывать нарисованное,
+  // иначе в карточке активен один шрифт, а на макете стоит другой.
+  fontColorHtml(c, дефолты = {}) {
     const fonts = this.config.fonts || [];
     const colors = this.config.textColors || [];
-    const curColor = c.color || this.textColor;
-    const curFont = c.fontId || this.defaultFontId();
+    const curColor = c.color || дефолты.color || this.textColor;
+    const curFont = c.fontId || дефолты.fontId || this.defaultFontId();
     // Клиент 2026-07-16 «не могу выбрать шрифт»: латинские шрифты не держат кириллицу,
     // при русском тексте отрисовка молча падала на РПЛ (кнопка «выбиралась», превью не менялось).
     // Блокируем такие шрифты с понятной подсказкой — видно, почему выбрать нельзя.
