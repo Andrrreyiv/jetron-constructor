@@ -417,6 +417,51 @@ function jetron_admin_handle_models($data, $action) {
                 . '. Покупатель увидит новый оттенок после обновления страницы конструктора.');
     }
 
+    if ($action === 'model_move') {
+        $id    = sanitize_text_field(wp_unslash($_POST['form_id'] ?? ''));
+        $куда  = sanitize_key(wp_unslash($_POST['dir'] ?? ''));
+        // Тот же запасной путь, что у удаления: если раздела в admin.json ещё нет, берём базовый
+        // каталог целиком. Иначе перестановка записала бы список из одной модели.
+        $forms = isset($data['forms']) && is_array($data['forms']) ? array_values($data['forms']) : jetron_admin_base_forms();
+        $поз = null;
+        foreach ($forms as $i => $f) {
+            if (($f['id'] ?? '') === $id) {
+                $поз = $i;
+                break;
+            }
+        }
+        if ($поз === null) {
+            return array('error', 'Модель не найдена, обновите страницу и повторите.');
+        }
+        $новая = $поз;
+        if ($куда === 'up') {
+            $новая = $поз - 1;
+        } elseif ($куда === 'down') {
+            $новая = $поз + 1;
+        } elseif ($куда === 'top') {
+            $новая = 0;
+        } else {
+            return array('error', 'Непонятное направление.');
+        }
+        if ($новая < 0 || $новая >= count($forms) || $новая === $поз) {
+            return array('ok', 'Модель уже на этом месте.');
+        }
+        // Вырезаем и вставляем: так одинаково работают и соседний шаг, и переход в начало.
+        // ⚠️ Число моделей запоминаем ДО перестановки: сравнивать после бессмысленно, там
+        // обе стороны уже одинаковые, и страховка молча превращается в пустую строку кода.
+        $было  = count($forms);
+        $кусок = array_splice($forms, $поз, 1);
+        array_splice($forms, $новая, 0, $кусок);
+        if (count($forms) !== $было) {
+            return array('error', 'Перестановка не сошлась, каталог не тронут.');
+        }
+        $data['forms'] = array_values($forms);
+        $первая = $data['forms'][0]['line'] ?? '';
+        return jetron_admin_save($data) === false
+            ? array('error', 'Не удалось записать настройки.')
+            : array('ok', 'Порядок изменён. Первой открывается «' . $первая . '». Обновите страницу конструктора.');
+    }
+
     if ($action === 'model_del') {
         $id    = sanitize_text_field(wp_unslash($_POST['form_id'] ?? ''));
         $forms = isset($data['forms']) && is_array($data['forms']) ? $data['forms'] : jetron_admin_base_forms();
@@ -439,6 +484,37 @@ function jetron_admin_handle_models($data, $action) {
         return jetron_admin_save($data) === false
             ? array('error', 'Не удалось записать настройки.')
             : array('ok', 'Модель удалена из каталога.');
+    }
+
+    if ($action === 'view') {
+        $sent = (array) ($_POST['view'] ?? array());
+        $view = array();
+        $плохие = array();
+        foreach (jetron_admin_view_fields() as $f) {
+            $raw = isset($sent[$f['key']]) && is_scalar($sent[$f['key']]) ? wp_unslash($sent[$f['key']]) : '';
+            if (trim((string) $raw) === '') {
+                continue; // пустое поле = «оставить как в вёрстке», а не «ноль»
+            }
+            $val = jetron_admin_view_value($f['type'], $raw);
+            if ($val === null) {
+                $плохие[] = $f['label'];
+                continue;
+            }
+            $view[$f['key']] = $val;
+        }
+        // Говорим вслух, что именно не приняли: молчаливое отбрасывание читается как
+        // «кнопка не работает», и следующим сообщением придёт жалоба.
+        if ($плохие) {
+            return array('error', 'Не приняты поля: ' . implode(', ', $плохие)
+                . '. Цвет пишется как #ffffff или transparent, отступ — целое число от 0 до '
+                . JETRON_VIEW_PAD_MAX . '.');
+        }
+        // Чекбокс приходит только когда включён, поэтому состояние берём из факта наличия.
+        $view['cardShadow'] = !empty($sent['cardShadow']);
+        $data['appearance'] = $view;
+        return jetron_admin_save($data) === false
+            ? array('error', 'Не удалось записать настройки.')
+            : array('ok', 'Внешний вид сохранён. Обновите страницу конструктора, чтобы увидеть.');
     }
 
     if ($action === 'reset') {
@@ -567,6 +643,7 @@ function jetron_admin_page() {
         'sizes'  => 'Размерные сетки',
         'fonts'  => 'Шрифты',
         'models' => 'Модели и цвета',
+        'view'   => 'Внешний вид',
     );
     $base   = jetron_admin_base_config();
     $nonce  = wp_create_nonce(JETRON_ADMIN_NONCE);
@@ -601,6 +678,8 @@ function jetron_admin_page() {
         jetron_admin_tab_sizes($data, $nonce);
     } elseif ($tab === 'fonts') {
         jetron_admin_tab_fonts($data, $nonce);
+    } elseif ($tab === 'view') {
+        jetron_admin_tab_view($data, $nonce);
     } else {
         jetron_admin_tab_models($data, $nonce);
     }
@@ -742,10 +821,19 @@ function jetron_admin_tab_models($data, $nonce) {
     }
 
     echo '<h3>Каталог моделей <span style="font-weight:400;color:#50575e">(' . count((array) $forms) . ')</span></h3>';
+    // Клиент 13.09: «а здесь можно делать сортировку, чтобы я мог менять местами… наверняка
+    // пригодится». Порядок этого списка — это и порядок моделей у покупателя, и первая строка
+    // открывается по умолчанию. Поводом стал Чемпион: он стоял первым, а взрослой у него нет
+    // ни в одной расцветке, и кнопка «Взрослая» выглядела отсутствующей.
+    echo '<p style="max-width:720px;color:#50575e">Порядок в таблице — это порядок моделей '
+       . 'у покупателя. Самая верхняя открывается первой, когда он заходит в конструктор.</p>';
     $mapped = jetron_admin_mapped_forms();
+    $список = array_values((array) $forms);
+    $всего  = count($список);
     echo '<table class="widefat striped" style="max-width:900px"><thead><tr>'
-       . '<th style="width:90px">Фото</th><th>Линейка</th><th>Цвет</th><th>Зоны нанесения</th><th></th></tr></thead><tbody>';
-    foreach ((array) $forms as $f) {
+       . '<th style="width:90px">Фото</th><th>Линейка</th><th>Цвет</th><th>Зоны нанесения</th>'
+       . '<th style="width:120px">Порядок</th><th></th></tr></thead><tbody>';
+    foreach ($список as $индекс => $f) {
         $img = home_url('/constructor/' . ($f['images']['front'] ?? ''));
         echo '<tr><td><img src="' . esc_url($img) . '" alt="" style="width:70px;height:70px;object-fit:contain"></td>';
         echo '<td>' . esc_html($f['line'] ?? '') . '</td>';
@@ -763,7 +851,29 @@ function jetron_admin_tab_models($data, $nonce) {
         echo '<td>' . ($is_mapped
             ? '<span style="color:#1a7f37">размечены</span><br><a href="' . esc_url($mark_url) . '" target="_blank">поправить</a>'
             : '<span style="color:#bd5d00">не размечены</span><br><a href="' . esc_url($mark_url) . '" target="_blank">разметить</a>')
-           . '</td><td>';
+           . '</td>';
+
+        // Перестановка. Формы СОСЕДНИЕ, не вложенные: вложенный </form> закрыл бы внешний,
+        // и в POST ушло бы чужое действие (та же грабля описана у кнопки сброса раздела).
+        echo '<td>';
+        $кнопка = function ($куда, $подпись, $титул, $выкл) use ($nonce, $f) {
+            if ($выкл) {
+                echo '<span style="display:inline-block;width:22px;text-align:center;color:#c3c4c7">' . $подпись . '</span>';
+                return;
+            }
+            echo '<form method="post" style="display:inline">';
+            echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
+            echo '<input type="hidden" name="jetron_admin_action" value="model_move">';
+            echo '<input type="hidden" name="form_id" value="' . esc_attr($f['id'] ?? '') . '">';
+            echo '<input type="hidden" name="dir" value="' . esc_attr($куда) . '">';
+            echo '<button class="button-link" title="' . esc_attr($титул) . '" '
+               . 'style="display:inline-block;width:22px;text-align:center">' . $подпись . '</button>';
+            echo '</form>';
+        };
+        $кнопка('up', '↑', 'Поднять на одну строку', $индекс === 0);
+        $кнопка('down', '↓', 'Опустить на одну строку', $индекс === $всего - 1);
+        $кнопка('top', 'в начало', 'Сделать первой: её покупатель увидит при входе', $индекс === 0);
+        echo '</td><td>';
         echo '<form method="post" onsubmit="return confirm(&quot;Убрать модель из каталога? Вернуть можно кнопкой внизу страницы.&quot;)">';
         echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
         echo '<input type="hidden" name="jetron_admin_action" value="model_del">';
@@ -883,4 +993,108 @@ function jetron_admin_tab_models($data, $nonce) {
        . '<a href="' . esc_url($editor) . '" target="_blank">открыть редактор зон</a>. '
        . 'Выберите там новую модель, расставьте рамки и нажмите «Сохранить».</p>';
     jetron_admin_reset_form('forms', $nonce, 'Вернуть исходный каталог моделей и цветов');
+}
+
+/**
+ * Поля раздела «Внешний вид».
+ *
+ * 🔴 Список ОБЯЗАН совпадать с `ПОЛЯ_ВИДА` в `src/js/core/Appearance.js`: там по нему значения
+ * превращаются в CSS-переменные. Разъедутся — админ будет менять поле, которого покупатель
+ * не увидит, и это не проявится ни ошибкой, ни тестом на стороне PHP.
+ */
+function jetron_admin_view_fields() {
+    return array(
+        array('key' => 'stageBg',     'type' => 'color', 'label' => 'Фон сцены',              'def' => '#ffffff',
+              'hint' => 'Картинки формы нарисованы на белом листе. Пока фон белый, лист не видно и форма «висит».'),
+        array('key' => 'stageBorder', 'type' => 'color', 'label' => 'Рамка сцены',            'def' => '#ece3d0',
+              'hint' => 'Тонкая линия по краю всей панели с формой.'),
+        array('key' => 'cardBg',      'type' => 'color', 'label' => 'Фон карточки формы',     'def' => 'transparent',
+              'hint' => 'Подложка под самой формой. Прозрачная — форма лежит прямо на фоне сцены.'),
+        array('key' => 'cardBorder',  'type' => 'color', 'label' => 'Рамка карточки формы',   'def' => 'transparent',
+              'hint' => 'Рамка вокруг формы. Убрать нельзя, можно сделать прозрачной: её ширину держит вёрстка.'),
+        array('key' => 'padTop',      'type' => 'px',    'label' => 'Отступ сверху, px',      'def' => 40,
+              'hint' => 'Меньше — форма и кнопки поднимаются выше.'),
+        array('key' => 'padSide',     'type' => 'px',    'label' => 'Отступы по бокам, px',   'def' => 32, 'hint' => ''),
+        array('key' => 'padBottom',   'type' => 'px',    'label' => 'Отступ снизу, px',       'def' => 28, 'hint' => ''),
+    );
+}
+
+/** Потолок отступа. Тот же, что `ПРЕДЕЛ_ОТСТУПА` в Appearance.js. */
+const JETRON_VIEW_PAD_MAX = 200;
+
+/**
+ * Проверка значения поля. Правила повторяют Appearance.js один в один: цвет только `#rrggbb`
+ * либо `transparent`, отступ — целое 0..200. Негодное возвращает null и НЕ сохраняется:
+ * пустое поле означает «оставить как в вёрстке», а не «поставить ноль».
+ * ⚠️ `sanitize_hex_color()` не годится: она пропускает и короткую запись `#fff`, которую
+ * не примет проверка на стороне конструктора, и значение молча потерялось бы уже у покупателя.
+ */
+function jetron_admin_view_value($type, $raw) {
+    $v = trim((string) $raw);
+    if ($v === '') {
+        return null;
+    }
+    if ($type === 'color') {
+        if ($v === 'transparent') {
+            return 'transparent';
+        }
+        return preg_match('/^#[0-9a-fA-F]{6}$/', $v) ? strtolower($v) : null;
+    }
+    if (!preg_match('/^\d{1,3}$/', $v)) {
+        return null;
+    }
+    $n = (int) $v;
+    return ($n >= 0 && $n <= JETRON_VIEW_PAD_MAX) ? $n : null;
+}
+
+/** Вкладка «Внешний вид»: фон, рамки и отступы сцены. */
+function jetron_admin_tab_view($data, $nonce) {
+    $view = jetron_admin_value($data, array('appearance'), array());
+    if (!is_array($view)) {
+        $view = array();
+    }
+    echo '<h3>Внешний вид конструктора</h3>';
+    echo '<p style="max-width:720px;color:#50575e">Здесь настраивается панель с формой: фон, рамки '
+       . 'и отступы. Пустое поле значит «оставить как есть» — тогда работает значение из вёрстки. '
+       . 'Цвет пишется как <code>#ffffff</code> либо словом <code>transparent</code> (прозрачный). '
+       . 'Отступ — целое число от 0 до ' . JETRON_VIEW_PAD_MAX . '.</p>';
+    echo '<p style="max-width:720px;color:#50575e">⚠️ На телефоне отступы свои, вымеренные под узкий '
+       . 'экран, и эта настройка их не трогает. После сохранения обновите страницу конструктора.</p>';
+
+    echo '<form method="post">';
+    echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
+    echo '<input type="hidden" name="jetron_admin_action" value="view">';
+    echo '<table class="form-table" role="presentation"><tbody>';
+    foreach (jetron_admin_view_fields() as $f) {
+        $cur = isset($view[$f['key']]) ? (string) $view[$f['key']] : '';
+        echo '<tr><th scope="row"><label for="view_' . esc_attr($f['key']) . '">' . esc_html($f['label']) . '</label></th><td>';
+        if ($f['type'] === 'color') {
+            // Рядом с текстовым полем — нативный выбор цвета: им удобно тыкать, но он не умеет
+            // «прозрачный», поэтому источником правды остаётся текстовое поле.
+            echo '<input type="text" class="regular-text" id="view_' . esc_attr($f['key']) . '" name="view[' . esc_attr($f['key']) . ']" '
+               . 'value="' . esc_attr($cur) . '" placeholder="' . esc_attr($f['def']) . '" style="max-width:180px">';
+            echo ' <input type="color" value="' . esc_attr(preg_match('/^#[0-9a-fA-F]{6}$/', $cur) ? $cur : (is_string($f['def']) && $f['def'][0] === '#' ? $f['def'] : '#ffffff')) . '" '
+               . 'oninput="document.getElementById(\'view_' . esc_js($f['key']) . '\').value=this.value" '
+               . 'style="vertical-align:middle;width:42px;height:30px;padding:0;border:1px solid #8c8f94">';
+            echo ' <button type="button" class="button-link" style="margin-left:8px" '
+               . 'onclick="document.getElementById(\'view_' . esc_js($f['key']) . '\').value=\'transparent\'">прозрачный</button>';
+        } else {
+            echo '<input type="number" min="0" max="' . JETRON_VIEW_PAD_MAX . '" step="1" id="view_' . esc_attr($f['key']) . '" '
+               . 'name="view[' . esc_attr($f['key']) . ']" value="' . esc_attr($cur) . '" '
+               . 'placeholder="' . esc_attr((string) $f['def']) . '" style="width:100px">';
+        }
+        if ($f['hint'] !== '') {
+            echo '<p class="description">' . esc_html($f['hint']) . '</p>';
+        }
+        echo '</td></tr>';
+    }
+    $shadow = isset($view['cardShadow']) ? (bool) $view['cardShadow'] : false;
+    echo '<tr><th scope="row">Тень под формой</th><td>'
+       . '<label><input type="checkbox" name="view[cardShadow]" value="1" ' . checked($shadow, true, false) . '> показывать</label>'
+       . '<p class="description">При прозрачной карточке тень висит вокруг пустоты, поэтому по умолчанию выключена.</p>'
+       . '</td></tr>';
+    echo '</tbody></table>';
+    submit_button('Сохранить внешний вид');
+    echo '</form>';
+    jetron_admin_reset_form('appearance', $nonce, 'Вернуть внешний вид по умолчанию');
 }

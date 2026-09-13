@@ -1668,13 +1668,6 @@
       "numberZone": "back:back_number"
     },
     {
-      "id": "chest_number",
-      "title": "Номер на груди",
-      "kind": "number",
-      "zone": "front:chest_number",
-      "placeholder": "Номер"
-    },
-    {
       "id": "chest_logo_small",
       "title": "Логотип на груди слева",
       "subtitle": "Логотип на шортах включён в стоимость",
@@ -1696,6 +1689,13 @@
       "placeholder": "Напишите название клуба или спонсора"
     },
     {
+      "id": "chest_number",
+      "title": "Номер на груди",
+      "kind": "number",
+      "zone": "front:chest_number",
+      "placeholder": "Номер"
+    },
+    {
       "id": "shoulder_logo",
       "title": "Логотип на плече",
       "kind": "upload",
@@ -1704,19 +1704,6 @@
   ],
   "_placementOptions_note": "Карточки нанесений для новой панели-конструктора (дизайн клиента 2026-07-12): вместо клика по зоне на макете — список опций с тумблером ON/OFF, аккордеон (открыта одна), кэш при OFF, крестик для удаления. Порядок и тексты подтверждены макетом. Цены берутся из zoneTemplate/zoneSets по зонам (единый источник). kind: name_number (2 поля + шрифт/цвет), upload (файл), number (номер), text_or_upload (текст ИЛИ файл).",
   "forms": [
-    {
-      "id": "champion-white",
-      "line": "Champion",
-      "colorId": "white",
-      "color": "Белый",
-      "colorHex": "#f2f4f7",
-      "images": {
-        "front": "assets/mockups/Champion белый.webp",
-        "back": "assets/mockups/Champion белый.webp",
-        "shoulder": null
-      },
-      "zoneSet": "Champion"
-    },
     {
       "id": "new-white",
       "line": "New",
@@ -1729,6 +1716,19 @@
         "shoulder": null
       },
       "zoneSet": "New"
+    },
+    {
+      "id": "champion-white",
+      "line": "Champion",
+      "colorId": "white",
+      "color": "Белый",
+      "colorHex": "#f2f4f7",
+      "images": {
+        "front": "assets/mockups/Champion белый.webp",
+        "back": "assets/mockups/Champion белый.webp",
+        "shoulder": null
+      },
+      "zoneSet": "Champion"
     },
     {
       "id": "winner-white",

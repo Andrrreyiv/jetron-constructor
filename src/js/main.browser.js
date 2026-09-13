@@ -1,11 +1,12 @@
 // Точка входа стенда: грузим конфиг → валидируем на границе → запускаем приложение.
-import { validateConfig } from './core/ConfigLoader.js?v=20260913a';
-import { validateOverrides, validateCrops } from './core/ZoneOverrides.js?v=20260913a';
-import { applyAdminOverrides } from './core/AdminOverrides.js?v=20260913a';
+import { validateConfig } from './core/ConfigLoader.js?v=20260913g';
+import { validateOverrides, validateCrops } from './core/ZoneOverrides.js?v=20260913g';
+import { applyAdminOverrides } from './core/AdminOverrides.js?v=20260913g';
+import { применитьВид } from './core/Appearance.js?v=20260913g';
 // Версионируем импорты изменённых модулей, чтобы обычная перезагрузка (не только Cmd+Shift+R)
 // подтягивала свежий файл: ESM кешируется по URL, а ?v на index.html не бустит вложенные импорты.
-import { UniformApp } from './ui/app.browser.js?v=20260913a';
-import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260913a';
+import { UniformApp } from './ui/app.browser.js?v=20260913g';
+import { initZoneEditor } from './ui/zone-editor.browser.js?v=20260913g';
 
 async function boot() {
   const statusEl = document.getElementById('status');
@@ -67,6 +68,12 @@ async function boot() {
         if (validateCrops(cr).ok) config.bgCrops = cr;
       }
     } catch { /* остаёмся на нетронутых мокапах из mock-config.json */ }
+
+    // Внешний вид сцены из админки (раздел «Внешний вид»). Ставим ДО создания приложения:
+    // отступы сцены влияют на доступную ширину, а её JS читает при подгонке холста под карточку.
+    // Не заданные поля остаются на умолчаниях `stand.css` — админка диктует только то, что в ней
+    // трогали. Раздел уже вычищен в applyAdminOverrides, битым значениям сюда не дойти.
+    применитьВид(config.appearance);
 
     const app = new UniformApp({
       config,
