@@ -25,7 +25,10 @@ export function buildOrder({ config, formId, ageCategory = 'adult', gaiters = fa
       // priceGroup — по нему UI сливает зоны одной группы в одну строку сводки (фамилия+номер =
       // 600 руб. один раз, клиент 2026-07-27). Значение то же, что берёт calculatePrice для тарификации.
       const item = { view: pl.view, zoneKey: z.key, label: z.label, priceGroup: z.priceGroup || z.key, type: pl.type || z.type, price: z.price || 0 };
-      if (pl.type === 'text') item.text = pl.value;
+      // Шрифт несём в заказ (клиент 15.09: «а то каждый раз придётся его искать вручную, время
+      // много будет занимать, когда много шрифтов будет»): производство читает спецификацию,
+      // а конструктор не открывает. Только у текста — у логотипа шрифта нет.
+      if (pl.type === 'text') { item.text = pl.value; item.fontId = pl.fontId; }
       return item;
     })
     .filter(Boolean);
