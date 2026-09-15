@@ -88,7 +88,56 @@ function jetron_add_cart_item_data($cart_item_data, $product_id) {
         if (!empty($saved['url']))   { $cart_item_data['jetron_png']   = $saved['url']; }
         if (!empty($saved['thumb'])) { $cart_item_data['jetron_thumb'] = $saved['thumb']; }
     }
+    // Исходники логотипов покупателя — в медиатеку, их ID — в additional.logos.
+    // Приёмник уже написан в теме (WC_Cart_Logo_Jetronsport): он сам пишет метки заказа
+    // «Логотипов» и logos и рисует ссылки в админке. Нам остаётся только отдать ID.
+    // Потолок 10 файлов — защита от мусорного POST, комплект столько нанесений не несёт.
+    if (!empty($_POST['jetron_logos']) && is_array($_POST['jetron_logos'])) {
+        $ids = array();
+        foreach ((array) $_POST['jetron_logos'] as $dataurl) {
+            if (count($ids) >= 10) { break; }
+            $id = jetron_save_logo_attachment(wp_unslash($dataurl), $uid, count($ids) + 1);
+            if ($id) { $ids[] = $id; }
+        }
+        if ($ids) { $cart_item_data['additional']['logos'] = $ids; }
+    }
     return $cart_item_data;
+}
+
+// Логотип покупателя → вложение WordPress. Тема ждёт именно ID вложения
+// (делает wp_get_attachment_url), поэтому файла на диске мало — нужна запись в медиатеке.
+// Форматы те же, что принимает загрузчик конструктора, кроме svg: растр печатается как есть.
+function jetron_save_logo_attachment($dataurl, $uid, $n) {
+    if (!preg_match('#^data:image/(png|jpe?g|webp|gif);base64,#i', $dataurl, $m)) { return 0; }
+    $tip  = strtolower($m[1]);
+    $ext  = ($tip === 'jpeg' || $tip === 'jpg') ? 'jpg' : $tip;
+    $mime = ($ext === 'jpg') ? 'image/jpeg' : 'image/' . $ext;
+
+    $b64   = substr($dataurl, strpos($dataurl, ',') + 1);
+    $bytes = base64_decode($b64, true);
+    if ($bytes === false || strlen($bytes) < 32 || strlen($bytes) > 8 * 1024 * 1024) { return 0; }
+
+    $up  = wp_upload_dir();
+    $dir = trailingslashit($up['basedir']) . JETRON_UPLOAD_SUBDIR;
+    if (!is_dir($dir)) { wp_mkdir_p($dir); }
+    $base = 'jetron-logo-' . preg_replace('/[^a-z0-9]/i', '', $uid) . '-' . (int) $n;
+    $path = trailingslashit($dir) . $base . '.' . $ext;
+    if (file_put_contents($path, $bytes) === false) { return 0; }
+
+    $url = trailingslashit($up['baseurl']) . JETRON_UPLOAD_SUBDIR . '/' . $base . '.' . $ext;
+    $id  = wp_insert_attachment(array(
+        'guid'           => $url,
+        'post_mime_type' => $mime,
+        'post_title'     => $base,
+        'post_content'   => '',
+        'post_status'    => 'inherit',
+    ), $path, 0);
+    if (is_wp_error($id) || !$id) { return 0; }
+
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    $meta = wp_generate_attachment_metadata($id, $path);
+    if (!is_wp_error($meta) && $meta) { wp_update_attachment_metadata($id, $meta); }
+    return (int) $id;
 }
 
 function jetron_save_png_dataurl($dataurl, $uid) {

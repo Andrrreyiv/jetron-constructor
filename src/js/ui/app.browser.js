@@ -2,23 +2,23 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260913g';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260913g';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260913g';
-import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260913g';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260913g';
-import { buildOrder } from '../core/OrderSummary.js?v=20260913g';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260913g';
-import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260913g';
-import { productLink } from '../core/ProductLink.js?v=20260913g';
-import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260913g';
-import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260913g';
-import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260913g';
+import { CanvasView } from './canvas.browser.js?v=20260915c';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260915c';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260915c';
+import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260915c';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260915c';
+import { buildOrder } from '../core/OrderSummary.js?v=20260915c';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260915c';
+import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260915c';
+import { productLink } from '../core/ProductLink.js?v=20260915c';
+import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260915c';
+import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260915c';
+import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260915c';
 // `clearDraft` намеренно НЕ импортируется: чистить черновик в конструкторе нечем и незачем.
 // Клиент просил обратного — «зашёл в корзину, оформил, обновил страницу», то есть черновик
 // обязан пережить и корзину, и оформление. Умирает он сам, по сроку в 24 часа.
-import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260913g';
-import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260913g';
+import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260915c';
+import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260915c';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -294,17 +294,48 @@ export class UniformApp {
     }
   }
 
+  // 🔴 Шрифты НЕ держат первую отрисовку (клиент 15.09: «очень долгая загрузка конструктора,
+  // я бы конечно давно ушёл со страницы»). Раньше цепочка была строго последовательной —
+  // каталог, потом ВСЕ шрифты, потом монограмма, — и холст не появлялся, пока не приедет
+  // последний файл: замер боевого дал готовую страницу на 324 мс и последний ресурс на 2132 мс.
+  //
+  // ⚠️ На критическом пути осталась ТОЛЬКО монограмма: её ставит `renderJetron` во время
+  // первой отрисовки. Цены каталога туда не входят — замер 15.09 показал, что ни `renderAll`,
+  // ни `renderJetron` их не читают, а `buildPanel` берёт лишь статический `config.prices`.
+  // Раньше их ждали перед всем, и мокап уходил в сеть только на 1815 мс: сам запрос
+  // `admin-ajax.php?action=jetron_prices` длится 532 мс, а весь критический путь — 438 мс.
   async start() {
-    await this.loadCatalogPrices();
-    await this.loadFonts();
-    await this.loadBranding();
+    // Черновик первым: из него видно, какие шрифты нужны холсту прямо сейчас.
     this._restoreDraft();
+    const цены = this.loadCatalogPrices();          // в фоне, холст её не ждёт
+    const шрифты = this.loadFonts(this._шрифтыЧерновика());
+    await this.loadBranding();
+
+    this.buildViews();
+    await this.renderAll();                          // ← здесь покупатель видит форму
+
     this.buildPanel();
     this.buildColorPicker();
-    this.buildViews();
-    await this.renderAll();
     this._applyRestoredOptions();
     this._installResizeRefit();
+
+    // Цены приезжают позже и уточняют три вещи. ⚠️ `applyColorHexes` внутри `loadCatalogPrices`
+    // красит кружки палитры и рассчитан на то, что идёт ДО `buildColorPicker()` — раз он теперь
+    // идёт после, палитру перерисовываем здесь, иначе оттенки останутся базовыми из конфига.
+    // `ageOptions` без каталога отдаёт оба возраста и не бросает, поэтому панель, собранная
+    // раньше цен, показывает обе кнопки и сужается тут (у Champion взрослой нет вовсе).
+    цены.then(() => {
+      this.buildColorPicker();
+      this.renderSizeBar();
+      this.updatePrice();
+    }).catch(() => {});
+
+    // Перерисовка ОДИН раз и только после стартовой. Защиты от одновременных `renderAll` в коде
+    // нет, поэтому подписываемся здесь, ниже `await this.renderAll()`: даже если шрифты уже
+    // приехали, `then` встанет в микрозадачу и выполнится после этого блока, а не посреди него.
+    // Перерисовать нужно: подгонка текста считает ширину глифов, и до прихода шрифта она мерит
+    // sans-serif. Карточки не трогаем — образцы в палитре подхватят шрифт сами, это делает CSS.
+    шрифты.then(() => this.renderAll({ keepCards: true })).catch(() => {});
   }
 
   // ⚫ Крестик выхода жил здесь с 17.07.2026 («из самого конструктора нет выхода, добавьте
@@ -450,18 +481,55 @@ export class UniformApp {
     }, { passive: true });
   }
 
-  async loadFonts() {
-    this.fontsReady = [];
-    for (const f of this.config.fonts || []) {
-      try {
-        const face = new FontFace(f.id, `url("${encodeURI(f.file)}")`);
-        await face.load();
-        document.fonts.add(face);
-        this.fontsReady.push(f.id);
-      } catch {
-        // шрифт не критичен для стенда — падаем на sans-serif
-      }
+  // 🔴 Шрифты грузятся ПАРАЛЛЕЛЬНО. Раньше здесь стоял `await face.load()` ВНУТРИ цикла,
+  // и каждый следующий файл стартовал только после конца предыдущего. Замер боевого 15.09:
+  // 23 промежутка из 24 последовательные, окно 937 мс на проводном канале при задержке ~25 мс,
+  // 1 679 КБ — это 75 % веса всей страницы. На телефоне задержка 150-300 мс умножается на 23
+  // захода, а не на один; отсюда жалоба клиента «очень долгая загрузка, я бы давно ушёл».
+  // ⚠️ Порядок `fontsReady` теперь произвольный — он и раньше никем не читался, но если
+  // когда-нибудь понадобится порядок из конфига, брать его из `config.fonts`, а не отсюда.
+  // 🔴 ЛЕНИВО: на старте грузим только те шрифты, что реально нужны, остальные — по требованию.
+  // Замер боевого 15.09 на мобильном канале (1,6 Мбит/с, задержка 150 мс) дал цену 23 шрифтов
+  // на старте: холст появлялся на 12 967 мс, а с заблокированными шрифтами — на 5 418 мс.
+  // Разница 7,5 секунды. Сайт на h2, лимита соединений нет — шрифты отнимали именно ПОЛОСУ
+  // у мокапа (1,79 МБ против 75 КБ).
+  //
+  // `loadFonts()` без аргумента — все (так их догружает палитра). `loadFonts([id…])` — только
+  // названные. Уже загруженные и уже летящие пропускаем: метод зовут из нескольких мест.
+  async loadFonts(ids = null) {
+    if (!this.fontsReady) this.fontsReady = [];
+    if (!this._шрифтыВПути) this._шрифтыВПути = new Map();
+    const нужны = (this.config.fonts || [])
+      .filter((f) => !ids || ids.includes(f.id))
+      .filter((f) => !this.fontsReady.includes(f.id));
+    await Promise.all(нужны.map((f) => {
+      if (this._шрифтыВПути.has(f.id)) return this._шрифтыВПути.get(f.id);
+      const обещание = (async () => {
+        try {
+          const face = new FontFace(f.id, `url("${encodeURI(f.file)}")`);
+          await face.load();
+          document.fonts.add(face);
+          this.fontsReady.push(f.id);
+        } catch {
+          // шрифт не критичен для стенда — падаем на sans-serif
+        } finally {
+          this._шрифтыВПути.delete(f.id);
+        }
+      })();
+      this._шрифтыВПути.set(f.id, обещание);
+      return обещание;
+    }));
+  }
+
+  // Какие шрифты нужны, чтобы восстановленный черновик нарисовался правильно.
+  // Пусто — значит покупатель пришёл впервые, и на старте не нужен ни один: подписи в интерфейсе
+  // рисует CSS (Oswald и Manrope там свои), а на холсте до выбора шрифта ничего нет.
+  _шрифтыЧерновика() {
+    const из = new Set();
+    for (const c of Object.values(this.optCache || {})) {
+      if (c && c.fontId) из.add(c.fontId);
     }
+    return [...из];
   }
 
   // Монограмму бренда «JS» грузим один раз в HTMLImageElement, чтобы renderJetron ставил её
@@ -480,8 +548,16 @@ export class UniformApp {
       });
       return img;
     };
-    try { this.brandingImg = await load(b.logo); } catch { /* нет знака — фолбэк на текст */ }
-    try { this.brandingImgWhite = await load(b.logoInverse); } catch { /* нет белой версии — возьмём чёрную */ }
+    // ⚠️ Обе картинки ПАРАЛЛЕЛЬНО. Раньше стояли два `await` подряд, и замер боевого 15.09
+    // поймал это в живом виде: чёрная 1084 → 1376 мс, белая стартовала только на 1378.
+    // Монограмма ждётся перед первой отрисовкой, поэтому лишние 300 мс тут видны покупателю.
+    // Свой catch у каждой: отказ одной не должен лишать нас второй.
+    const [чёрная, белая] = await Promise.all([
+      load(b.logo).catch(() => null),          // нет знака — фолбэк на текст «JS»
+      load(b.logoInverse).catch(() => null),   // нет белой версии — возьмём чёрную
+    ]);
+    this.brandingImg = чёрная;
+    this.brandingImgWhite = белая;
   }
 
   buildViews() {
@@ -1112,6 +1188,15 @@ export class UniformApp {
             jetron: { chest: !!(this.jetron && this.jetron.chest), back: !!(this.jetron && this.jetron.back) }
           }));
           if (png) add('jetron_png', png);
+          // Исходники логотипов уходят в заказ отдельными файлами (клиент 15.09: «в заказе
+          // не подтянулся файл с логотипом, пришлось человека просить присылать отдельно»).
+          // Приёмник уже есть в теме — WC_Cart_Logo_Jetronsport ждёт массив ID вложений
+          // в `additional.logos` и сам пишет метки заказа и рисует ссылки. Раньше уезжал
+          // только сведённый макет, исходник не покидал браузер вовсе.
+          for (const o of (this.config.placementOptions || [])) {
+            const c = this.optCache[o.id];
+            if (c && c.image && this.optionActive(o)) add('jetron_logos[]', c.image);
+          }
           document.body.appendChild(form);
           form.submit();
         } catch (e) {
@@ -1363,7 +1448,13 @@ export class UniformApp {
       L.push('Нанесения:');
       for (const it of o.items) {
         const val = it.type === 'text' ? `«${it.text}»` : 'логотип/изображение';
-        L.push(`  - ${it.label}: ${val}`);
+        // Печатаем ФАКТИЧЕСКИ НАРИСОВАННЫЙ шрифт, а не выбранный: при латинском шрифте и
+        // кириллице в тексте resolveFont откатывает на РПЛ (защита от пустых квадратов),
+        // и в производство обязан уйти тот, что реально на макете.
+        const шрифт = it.type === 'text'
+          ? (this.fontById(this.resolveFont(it.fontId, it.text)) || {}).name
+          : null;
+        L.push(`  - ${it.label}: ${val}${шрифт ? ` (шрифт: ${шрифт})` : ''}`);
       }
     } else {
       L.push('Нанесения: нет');
@@ -1810,6 +1901,15 @@ export class UniformApp {
       };
     });
 
+    // Шрифты на старте больше не грузятся (см. `loadFonts`), поэтому образцы в палитре надо
+    // подтянуть в тот момент, когда покупатель её раскрыл. Регистрация FontFace сама
+    // перерисует образцы — они DOM, а не холст, и живут на `font-family`.
+    const палитра = body.querySelector('details.opt-font');
+    if (палитра) {
+      палитра.ontoggle = () => { if (палитра.open) this.loadFonts().catch(() => {}); };
+      if (палитра.open) this.loadFonts().catch(() => {});   // карточка открылась уже развёрнутой
+    }
+
     // Шрифт: список превью, каждый образец нарисован своим шрифтом.
     body.querySelectorAll('.font-opt').forEach((b) => {
       b.onclick = () => {
@@ -1820,6 +1920,11 @@ export class UniformApp {
           x.setAttribute('aria-selected', String(on));
         });
         this.setOptData(opt, { fontId: b.dataset.font });
+        // ⚠️ Выбранный шрифт мог ещё не приехать: тогда подгонка текста померит sans-serif
+        // и надпись сядет не по рамке. Дожидаемся именно его и перерисовываем.
+        this.loadFonts([b.dataset.font])
+          .then(() => this.renderAll({ keepCards: true }))
+          .catch(() => {});
       };
     });
 
