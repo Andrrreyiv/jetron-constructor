@@ -1836,15 +1836,16 @@ export class UniformApp {
       return `<input class="opt-in" type="text" data-field="number" placeholder="${escapeHtml(opt.placeholder || 'Номер')}" inputmode="numeric" value="${escapeHtml(c.number || '')}">`;
     }
     // text_or_upload — текст ИЛИ логотип.
-    // Клиент 20.09: «а где поле добавить текст, как-то его выделить, а то его по факту нет».
-    // Так и было: кнопка «Загрузить логотип» подписана, а над полем текста не стояло НИЧЕГО —
-    // безымянная плашка, и человек не понимал, что сюда можно писать. Лечит подпись теми же
-    // словами, которыми поле называет сам клиент.
+    // Клиент 20.09, голосовое 14:42 (говорил про футболки, но правило общее): «убрать надпись
+    // добавить текст, она не нужна, просто мы внутри в этом поле напишем добавить текст,
+    // и люди и так поймут». Раньше над полем не стояло ничего и его не находили, потом
+    // появилась отдельная подпись; теперь эти слова живут в самой подсказке поля.
+    // ⚠️ Прежняя подсказка «Напишите название клуба или спонсора» снята сознательно: она
+    // объясняла СОДЕРЖАНИЕ, а человек не понимал самого факта, что здесь можно писать.
     // ⛔ Белый фон полю НЕ давать: карточка ВЫКЛЮЧЕННОЙ опции тоже белая, и поле в ней
     // сливается. Прежний кремовый различим и на белой карточке, и на зелёной у включённой.
     return `
-      <span class="opt-field-cap">Добавить текст</span>
-      <input class="opt-in" type="text" data-field="text" placeholder="${escapeHtml(opt.placeholder || 'Текст')}" value="${escapeHtml(c.text || '')}" ${c.image ? 'disabled' : ''}>
+      <input class="opt-in" type="text" data-field="text" placeholder="Добавить текст" value="${escapeHtml(c.text || '')}" ${c.image ? 'disabled' : ''}>
       <div class="opt-or">или</div>
       ${uploadBtn(!!c.image, 'Загрузить логотип')}
       ${c.image ? '' : this.fontColorHtml(c, this._ведомыеОтСпины(), this._палитраОткрыта(opt.id))}`;
@@ -1882,17 +1883,12 @@ export class UniformApp {
     const имяШрифта = (this.fontById(curFont) || {}).name || '';
     return `
       <div class="opt-fc">
-        <div class="opt-fc-row">
-          <button type="button" class="opt-fc-btn${открыта === 'font' ? ' is-open' : ''}" data-fc="font"
-            aria-expanded="${открыта === 'font'}" aria-label="Шрифт надписи">
-            <span class="opt-fc-label">Шрифт</span>
-            <span class="opt-fc-val" data-role="fc-font">${escapeHtml(имяШрифта)}</span>
-            <span class="opt-fc-chev" aria-hidden="true">›</span>
+        <div class="seg opt-fc-row">
+          <button type="button" class="seg-btn${открыта === 'font' ? ' active' : ''}" data-fc="font"
+            aria-pressed="${открыта === 'font'}" aria-label="Шрифт надписи">Шрифт<small data-role="fc-font">${escapeHtml(имяШрифта)}</small>
           </button>
-          <button type="button" class="opt-fc-btn${открыта === 'color' ? ' is-open' : ''}" data-fc="color"
-            aria-expanded="${открыта === 'color'}" aria-label="Цвет надписи">
-            <span class="opt-fc-label">Цвет</span>
-            <span class="opt-fc-dot" data-role="fc-color" style="background:${escapeHtml(curColor)}"></span>
+          <button type="button" class="seg-btn${открыта === 'color' ? ' active' : ''}" data-fc="color"
+            aria-pressed="${открыта === 'color'}" aria-label="Цвет надписи">Цвет<small class="opt-fc-dot" data-role="fc-color" style="background:${escapeHtml(curColor)}"></small>
           </button>
         </div>
         <div class="font-list" role="listbox" aria-label="Шрифт" ${открыта === 'font' ? '' : 'hidden'}>
@@ -1926,10 +1922,10 @@ export class UniformApp {
     const цвета = body.querySelector('.swatches.color-row');
     if (список) список.hidden = стало !== 'font';
     if (цвета) цвета.hidden = стало !== 'color';
-    body.querySelectorAll('.opt-fc-btn').forEach((к) => {
+    body.querySelectorAll('.seg-btn[data-fc]').forEach((к) => {
       const on = к.dataset.fc === стало;
-      к.classList.toggle('is-open', on);
-      к.setAttribute('aria-expanded', String(on));
+      к.classList.toggle('active', on);
+      к.setAttribute('aria-pressed', String(on));
     });
     return стало;
   }
@@ -1981,7 +1977,7 @@ export class UniformApp {
     // перерисует образцы — они DOM, а не холст, и живут на `font-family`.
     // ☠️ Крючок переехал с прежнего `details.opt-font` на кнопку «Шрифт» (19.09): потерять его
     // здесь — вернуть дефект 15.09, когда в заказ уезжал макет чужим шрифтом.
-    body.querySelectorAll('.opt-fc-btn').forEach((кнопка) => {
+    body.querySelectorAll('.seg-btn[data-fc]').forEach((кнопка) => {
       кнопка.onclick = () => {
         const палитра = this._переключитьПалитру(opt.id, кнопка.dataset.fc, body);
         if (палитра === 'font') this.loadFonts().catch(() => {});

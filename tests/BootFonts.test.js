@@ -95,7 +95,7 @@ test('после прихода шрифтов текст перерисовыв
 // список образцов, нарисованных одним и тем же sans-serif.
 test('палитра шрифтов догружает их при раскрытии, а выбор ждёт свой шрифт', () => {
   // 19.09 крючок переехал с `details.opt-font` на кнопку «Шрифт» — суть та же.
-  assert.match(код, /\.opt-fc-btn/, 'крючок на раскрытие палитры пропал');
+  assert.match(код, /\.seg-btn\[data-fc\]/, 'крючок на раскрытие палитры пропал');
   assert.match(код, /палитра === 'font'\) this\.loadFonts\(\)/,
     'при раскрытии панели «Шрифт» обязаны догружаться все шрифты');
   assert.match(код, /_палитраОткрыта\(opt\.id\) === 'font'\) this\.loadFonts\(\)/,
@@ -164,13 +164,13 @@ test('вход в настройки — две кнопки, список ра�
 test('у поля текста есть подпись и оно не сливается с карточкой', () => {
   const ветка = код.match(/\/\/ text_or_upload — текст ИЛИ логотип\.([\s\S]*?)\n  \}/);
   assert.ok(ветка, 'ветка text_or_upload должна существовать');
-  assert.match(ветка[1], /class="opt-field-cap">Добавить текст</,
-    'подпись над полем текста пропала — поле снова безымянное');
+  assert.match(ветка[1], /placeholder="Добавить текст"/,
+    'подсказка в поле обязана быть этими словами: отдельную подпись клиент просил убрать');
   const css = readFileSync(new URL('../src/css/stand.css', import.meta.url), 'utf8');
   // ⛔ Белый фон полю не возвращать: карточка выключенной опции тоже белая.
   assert.doesNotMatch(css, /input\.opt-in-text/,
     'белый фон поля тонет на карточке выключенной опции');
-  assert.match(css, /\.opt-field-cap \{/, 'стили подписи пропали');
+  assert.doesNotMatch(css, /\.opt-field-cap \{/, 'отдельная подпись над полем вернулась');
 });
 
 // ⚠️ `display: flex` у списков перебивает атрибут hidden: без явного правила панели остаются
@@ -179,5 +179,6 @@ test('скрытые панели действительно скрыты в CSS
   const css = readFileSync(new URL('../src/css/stand.css', import.meta.url), 'utf8');
   assert.match(css, /\.font-list\[hidden\], \.swatches\[hidden\] \{ display: none; \}/,
     'display: flex перебивает hidden — правило гашения обязано быть');
-  assert.match(css, /\.opt-fc-btn \{/, 'стили кнопок входа в настройки пропали');
+  assert.match(css, /\.panel \.opt-fc-row \.seg-btn \{/,
+    'стили сегмента «Шрифт | Цвет» пропали');
 });
