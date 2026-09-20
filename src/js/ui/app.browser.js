@@ -2,23 +2,23 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260920a';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260920a';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260920a';
-import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260920a';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260920a';
-import { buildOrder } from '../core/OrderSummary.js?v=20260920a';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260920a';
-import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260920a';
-import { productLink } from '../core/ProductLink.js?v=20260920a';
-import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260920a';
-import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260920a';
-import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260920a';
+import { CanvasView } from './canvas.browser.js?v=20260920b';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260920b';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260920b';
+import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260920b';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260920b';
+import { buildOrder } from '../core/OrderSummary.js?v=20260920b';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260920b';
+import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260920b';
+import { productLink } from '../core/ProductLink.js?v=20260920b';
+import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260920b';
+import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260920b';
+import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260920b';
 // `clearDraft` намеренно НЕ импортируется: чистить черновик в конструкторе нечем и незачем.
 // Клиент просил обратного — «зашёл в корзину, оформил, обновил страницу», то есть черновик
 // обязан пережить и корзину, и оформление. Умирает он сам, по сроку в 24 часа.
-import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260920a';
-import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260920a';
+import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260920b';
+import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260920b';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (

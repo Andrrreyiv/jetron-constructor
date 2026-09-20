@@ -2,11 +2,11 @@
 // Только браузерный слой (DOM + canvas) — не покрывается node:test, поэтому суффикс .browser.js.
 // Вся чистая логика (цена, геометрия зон, валидация) вынесена в core/ и тестируется.
 import * as fabric from 'fabric';
-import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX, clipRect} from '../core/ZoneManager.js?v=20260920a';
-import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260920a';
-import { яркостьТкани } from '../core/TextColor.js?v=20260920a';
-import { создатьСчётчикЗагрузок } from '../core/LatestLoad.js?v=20260920a';
-import { capWidthByHeight, fitCanvasInCard, FRAME_ASPECT } from '../core/CanvasFit.js?v=20260920a';
+import { zoneToRect, fitFontSize, fitTextToRect, isNumberZone, fitInkToRect, inkAlignedCenter, FABRIC_BOX_RATIO, NUMBER_TOP_INSET_PX, clipRect} from '../core/ZoneManager.js?v=20260920b';
+import { cropToImageRect } from '../core/ZoneOverrides.js?v=20260920b';
+import { яркостьТкани } from '../core/TextColor.js?v=20260920b';
+import { создатьСчётчикЗагрузок } from '../core/LatestLoad.js?v=20260920b';
+import { capWidthByHeight, fitCanvasInCard, FRAME_ASPECT } from '../core/CanvasFit.js?v=20260920b';
 
 export class CanvasView {
   constructor(canvasEl, canvasCfg) {
