@@ -1836,7 +1836,14 @@ export class UniformApp {
       return `<input class="opt-in" type="text" data-field="number" placeholder="${escapeHtml(opt.placeholder || 'Номер')}" inputmode="numeric" value="${escapeHtml(c.number || '')}">`;
     }
     // text_or_upload — текст ИЛИ логотип.
+    // Клиент 20.09: «а где поле добавить текст, как-то его выделить, а то его по факту нет».
+    // Так и было: кнопка «Загрузить логотип» подписана, а над полем текста не стояло НИЧЕГО —
+    // безымянная плашка, и человек не понимал, что сюда можно писать. Лечит подпись теми же
+    // словами, которыми поле называет сам клиент.
+    // ⛔ Белый фон полю НЕ давать: карточка ВЫКЛЮЧЕННОЙ опции тоже белая, и поле в ней
+    // сливается. Прежний кремовый различим и на белой карточке, и на зелёной у включённой.
     return `
+      <span class="opt-field-cap">Добавить текст</span>
       <input class="opt-in" type="text" data-field="text" placeholder="${escapeHtml(opt.placeholder || 'Текст')}" value="${escapeHtml(c.text || '')}" ${c.image ? 'disabled' : ''}>
       <div class="opt-or">или</div>
       ${uploadBtn(!!c.image, 'Загрузить логотип')}

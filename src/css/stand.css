@@ -759,6 +759,13 @@ body {
 .opt-in:focus { outline: none; border-color: var(--brand); background: #fff; box-shadow: 0 0 0 4px var(--brand-ring); }
 .opt-in:disabled { opacity: .5; background: var(--line); cursor: not-allowed; }
 .opt-in-sm { flex: 0 0 88px; text-align: center; }
+/* Клиент 20.09: «а где поле добавить текст, как-то его выделить, а то его по факту нет».
+   У кнопки «Загрузить логотип» подпись была, а над полем текста — ничего, и само поле шло
+   в цвет карточки. Подпись + белый фон: поле видно, не открывая его. */
+.opt-field-cap {
+  display: block; margin: 12px 0 0;
+  font-size: 13px; font-weight: 700; color: var(--brand-strong);
+}
 .opt-or {
   text-align: center; font-size: 12px; color: var(--muted);
   margin: 10px 0 2px; text-transform: uppercase; letter-spacing: .08em;
