@@ -823,15 +823,26 @@ body {
 .opt-del:hover { background: #fde2e2; color: #d1263a; }
 .opt-note { color: #d1263a; font-size: 12.5px; margin: 8px 0 0; }
 
-/* Свёрнутый «Шрифт и цвет» */
-.opt-font { margin-top: 12px; }
-.opt-font summary {
-  font-size: 13px; font-weight: 700; color: var(--brand-strong);
-  cursor: pointer; list-style: none; padding: 4px 0;
-  display: inline-flex; align-items: center; gap: 6px;
+/* Вход в настройки надписи: сегмент «Шрифт | Цвет» того же вида, что «Детская | Взрослая»
+   (клиент 20.09, голосовое: «вместо грудь и спина… кнопку шрифт в белом фоне залить,
+   а цвет сделать залипшим»). Выбранная кнопка залита белым, лежит внутри карточки. */
+.opt-fc { margin-top: 10px; }
+.opt-fc-row { margin: 0; }
+.panel .opt-fc-row .seg-btn { padding: 9px 4px; line-height: 1.25; }
+/* Под подписью кнопки — текущее значение: имя шрифта и кружок цвета, видно до нажатия. */
+.panel .opt-fc-row .seg-btn small {
+  display: block; margin-top: 2px;
+  font-size: 10.5px; font-weight: 600; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.opt-font summary::-webkit-details-marker { display: none; }
-.opt-font summary::before { content: '⚙'; opacity: .6; }
+.panel .opt-fc-row .seg-btn.active small { color: var(--brand); }
+.panel .opt-fc-row .opt-fc-dot {
+  width: 16px; height: 16px; margin: 3px auto 0; border-radius: 50%;
+  border: 1.5px solid var(--line-strong); box-shadow: inset 0 0 0 1px #fff;
+}
+/* ⚠️ display: flex у списков перебивает атрибут hidden — гасить явно, иначе панели
+   всегда раскрыты и карточка вырастает вдвое. */
+.font-list[hidden], .swatches[hidden] { display: none; }
 /* Список превью шрифтов: образец нарисован самим шрифтом, список прокручивается —
    человек листает и сразу видит начертание (клиент 2026-07-12). */
 .font-list {

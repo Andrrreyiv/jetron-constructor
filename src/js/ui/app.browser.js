@@ -2,23 +2,23 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260915c';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260915c';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260915c';
-import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260915c';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260915c';
-import { buildOrder } from '../core/OrderSummary.js?v=20260915c';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260915c';
-import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260915c';
-import { productLink } from '../core/ProductLink.js?v=20260915c';
-import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260915c';
-import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260915c';
-import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260915c';
+import { CanvasView } from './canvas.browser.js?v=20260920c';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260920c';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260920c';
+import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260920c';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260920c';
+import { buildOrder } from '../core/OrderSummary.js?v=20260920c';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260920c';
+import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260920c';
+import { productLink } from '../core/ProductLink.js?v=20260920c';
+import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260920c';
+import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260920c';
+import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260920c';
 // `clearDraft` намеренно НЕ импортируется: чистить черновик в конструкторе нечем и незачем.
 // Клиент просил обратного — «зашёл в корзину, оформил, обновил страницу», то есть черновик
 // обязан пережить и корзину, и оформление. Умирает он сам, по сроку в 24 часа.
-import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260915c';
-import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260915c';
+import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260920c';
+import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260920c';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -522,14 +522,30 @@ export class UniformApp {
   }
 
   // Какие шрифты нужны, чтобы восстановленный черновик нарисовался правильно.
-  // Пусто — значит покупатель пришёл впервые, и на старте не нужен ни один: подписи в интерфейсе
-  // рисует CSS (Oswald и Manrope там свои), а на холсте до выбора шрифта ничего нет.
+  // 🔴 Шрифт ПО УМОЛЧАНИЮ здесь обязателен, и это не перестраховка. Клиент 18.09 (голосовое):
+  // «начинаешь забивать фамилию и номер — РПЛ не применяется… надо нажать на RPL, и тогда
+  // применится». Причина: в optCache `fontId` появляется только когда покупатель сам ткнул
+  // в палитру, а отрисовка подставляет дефолт неявно (`c.fontId || this.defaultFontId()`).
+  // Пока список собирался из одного optCache, FontFace `rpl` не регистрировался вовсе, холст
+  // молча падал на системный sans — и в PNG заказа уезжал чужой шрифт, а спецификация честно
+  // писала «РПЛ». РПЛ весит 41 КБ против 1,79 МБ всех шрифтов, ради которых делалась ленивость.
   _шрифтыЧерновика() {
-    const из = new Set();
+    const из = new Set([this.defaultFontId()]);
     for (const c of Object.values(this.optCache || {})) {
       if (c && c.fontId) из.add(c.fontId);
     }
-    return [...из];
+    return [...из].filter(Boolean);
+  }
+
+  // Какие шрифты нужны УЖЕ НАРИСОВАННОМУ макету — берём их из размещений через `resolveFont`
+  // (он же откатывает латинский клубный шрифт на РПЛ, когда текст кириллицей), плюс дефолт,
+  // который подставляется неявно. Нужен перед сведением PNG: см. `_composeMockupCanvas`.
+  _шрифтыМакета() {
+    const из = new Set([this.defaultFontId()]);
+    for (const p of Object.values(this.placements || {})) {
+      if (p && p.type === 'text') из.add(this.resolveFont(p.fontId, p.value));
+    }
+    return [...из].filter(Boolean);
   }
 
   // Монограмму бренда «JS» грузим один раз в HTMLImageElement, чтобы renderJetron ставил её
@@ -1377,6 +1393,13 @@ export class UniformApp {
 
   // Собрать все виды (перёд/спина/плечо) в один canvas без служебных рамок.
   async _composeMockupCanvas() {
+    // ⚠️ Шрифты ленивые (см. `loadFonts`): к моменту сведения нужный мог ещё не приехать —
+    // тогда в заказ уедет PNG, нарисованный системным sans, а спецификация назовёт РПЛ.
+    // Дожидаемся ровно те шрифты, которыми рисуем, и перерисовываем, если что-то доехало.
+    const былоШрифтов = (this.fontsReady || []).length;
+    await this.loadFonts(this._шрифтыМакета());
+    if ((this.fontsReady || []).length !== былоШрифтов) await this.renderAll({ keepCards: true });
+
     const loadImg = (url) => new Promise((res, rej) => {
       const im = new Image();
       im.onload = () => res(im);
@@ -1804,7 +1827,7 @@ export class UniformApp {
           <input class="opt-in" type="text" data-field="name" placeholder="Фамилия" value="${escapeHtml(c.name || '')}">
           <input class="opt-in opt-in-sm" type="text" data-field="number" placeholder="№" inputmode="numeric" value="${escapeHtml(c.number || '')}">
         </div>
-        ${this.fontColorHtml(c)}`;
+        ${this.fontColorHtml(c, {}, this._палитраОткрыта(opt.id))}`;
     }
     if (opt.kind === 'upload') {
       return uploadBtn(!!c.image, 'Загрузить логотип');
@@ -1813,11 +1836,19 @@ export class UniformApp {
       return `<input class="opt-in" type="text" data-field="number" placeholder="${escapeHtml(opt.placeholder || 'Номер')}" inputmode="numeric" value="${escapeHtml(c.number || '')}">`;
     }
     // text_or_upload — текст ИЛИ логотип.
+    // Клиент 20.09, голосовое 14:42 (говорил про футболки, но правило общее): «убрать надпись
+    // добавить текст, она не нужна, просто мы внутри в этом поле напишем добавить текст,
+    // и люди и так поймут». Раньше над полем не стояло ничего и его не находили, потом
+    // появилась отдельная подпись; теперь эти слова живут в самой подсказке поля.
+    // ⚠️ Прежняя подсказка «Напишите название клуба или спонсора» снята сознательно: она
+    // объясняла СОДЕРЖАНИЕ, а человек не понимал самого факта, что здесь можно писать.
+    // ⛔ Белый фон полю НЕ давать: карточка ВЫКЛЮЧЕННОЙ опции тоже белая, и поле в ней
+    // сливается. Прежний кремовый различим и на белой карточке, и на зелёной у включённой.
     return `
-      <input class="opt-in" type="text" data-field="text" placeholder="${escapeHtml(opt.placeholder || 'Текст')}" value="${escapeHtml(c.text || '')}" ${c.image ? 'disabled' : ''}>
+      <input class="opt-in" type="text" data-field="text" placeholder="Добавить текст" value="${escapeHtml(c.text || '')}" ${c.image ? 'disabled' : ''}>
       <div class="opt-or">или</div>
       ${uploadBtn(!!c.image, 'Загрузить логотип')}
-      ${c.image ? '' : this.fontColorHtml(c, this._ведомыеОтСпины())}`;
+      ${c.image ? '' : this.fontColorHtml(c, this._ведомыеОтСпины(), this._палитраОткрыта(opt.id))}`;
   }
 
   // Образец для превью шрифта: текст рисуется САМИМ шрифтом, чтобы человек листал
@@ -1830,11 +1861,17 @@ export class UniformApp {
     return `${name} ${num}`;
   }
 
-  // Свёрнутый блок «Шрифт и цвет» для текстовых опций.
+  // Вход в настройки надписи: две кнопки «Шрифт» и «Цвет» в одну строку, по виду такие же,
+  // как поля фамилии и номера (клиент 19.09 голосовым: покупательница не нашла мелкую серую
+  // ссылку «Шрифт и цвет»; вариант «две кнопки» согласован голосовым 15:30).
+  // ⛔ Механика прежняя: список выезжает ВНИЗ прямо в карточке и сдвигает блоки под собой.
+  // Всплывающего окна поверх макета быть не должно — на телефоне оно закроет форму, и человек
+  // перестанет видеть, как меняется надпись, пока выбирает шрифт (клиент переспрашивал дважды).
   // `дефолты` — то, что опция унаследует, пока покупатель не выбрал своё (с 13.09 текстовые
   // «логотипы» берут шрифт и цвет со спины). Подсветка обязана показывать нарисованное,
   // иначе в карточке активен один шрифт, а на макете стоит другой.
-  fontColorHtml(c, дефолты = {}) {
+  // `открыта` — какая панель раскрыта: '' | 'font' | 'color'.
+  fontColorHtml(c, дефолты = {}, открыта = '') {
     const fonts = this.config.fonts || [];
     const colors = this.config.textColors || [];
     const curColor = c.color || дефолты.color || this.textColor;
@@ -1843,20 +1880,54 @@ export class UniformApp {
     // при русском тексте отрисовка молча падала на РПЛ (кнопка «выбиралась», превью не менялось).
     // Блокируем такие шрифты с понятной подсказкой — видно, почему выбрать нельзя.
     const userCyr = this.hasCyrillic([c.name, c.number, c.text].filter(Boolean).join(' '));
+    const имяШрифта = (this.fontById(curFont) || {}).name || '';
     return `
-      <details class="opt-font" ${c.fontId || c.color ? 'open' : ''}>
-        <summary>Шрифт и цвет</summary>
-        <div class="font-list" role="listbox" aria-label="Шрифт">
+      <div class="opt-fc">
+        <div class="seg opt-fc-row">
+          <button type="button" class="seg-btn${открыта === 'font' ? ' active' : ''}" data-fc="font"
+            aria-pressed="${открыта === 'font'}" aria-label="Шрифт надписи">Шрифт<small data-role="fc-font">${escapeHtml(имяШрифта)}</small>
+          </button>
+          <button type="button" class="seg-btn${открыта === 'color' ? ' active' : ''}" data-fc="color"
+            aria-pressed="${открыта === 'color'}" aria-label="Цвет надписи">Цвет<small class="opt-fc-dot" data-role="fc-color" style="background:${escapeHtml(curColor)}"></small>
+          </button>
+        </div>
+        <div class="font-list" role="listbox" aria-label="Шрифт" ${открыта === 'font' ? '' : 'hidden'}>
           ${fonts.map((f) => `<button type="button" class="font-opt ${f.id === curFont ? 'active' : ''}${userCyr && !f.cyrillic ? ' locked' : ''}"
              data-font="${f.id}" role="option" aria-selected="${f.id === curFont}" aria-disabled="${userCyr && !f.cyrillic}" title="${userCyr && !f.cyrillic ? 'Шрифт без кириллицы — выберите шрифт с русскими буквами' : escapeHtml(f.name)}">
              <span class="font-opt-sample" style="font-family:'${f.id}', sans-serif">${escapeHtml(this.fontSampleText(f, c))}</span>
              <span class="font-opt-name">${escapeHtml(f.name)}${f.cyrillic ? '' : ' · лат.'}</span>
           </button>`).join('')}
         </div>
-        <div class="swatches color-row">
+        <div class="swatches color-row" ${открыта === 'color' ? '' : 'hidden'}>
           ${colors.map((col) => `<button class="color-sw ${col.hex === curColor ? 'active' : ''}" data-color="${col.hex}" title="${escapeHtml(col.name)}" style="background:${col.hex}"></button>`).join('')}
         </div>
-      </details>`;
+      </div>`;
+  }
+
+  // Какая панель настроек надписи раскрыта в карточке: '' | 'font' | 'color'.
+  // Состояние живёт в памяти, а не в разметке: после выбора шрифта карточка перерисовывается,
+  // и список обязан остаться раскрытым — иначе выбор идёт вслепую по одному клику.
+  _палитраОткрыта(optId) {
+    this._fcOpen = this._fcOpen || {};
+    return this._fcOpen[optId] || '';
+  }
+
+  // Переключить панель: повторное нажатие той же кнопки закрывает, соседняя — подменяет.
+  // Открыта всегда ровно одна, иначе карточка вырастет вдвое (клиент: высоту не увеличивать).
+  _переключитьПалитру(optId, какая, body) {
+    this._fcOpen = this._fcOpen || {};
+    const стало = this._fcOpen[optId] === какая ? '' : какая;
+    this._fcOpen[optId] = стало;
+    const список = body.querySelector('.font-list');
+    const цвета = body.querySelector('.swatches.color-row');
+    if (список) список.hidden = стало !== 'font';
+    if (цвета) цвета.hidden = стало !== 'color';
+    body.querySelectorAll('.seg-btn[data-fc]').forEach((к) => {
+      const on = к.dataset.fc === стало;
+      к.classList.toggle('active', on);
+      к.setAttribute('aria-pressed', String(on));
+    });
+    return стало;
   }
 
   // Пересчитать блокировку латинских шрифтов при вводе русского текста (без пере-рендера
@@ -1904,11 +1975,15 @@ export class UniformApp {
     // Шрифты на старте больше не грузятся (см. `loadFonts`), поэтому образцы в палитре надо
     // подтянуть в тот момент, когда покупатель её раскрыл. Регистрация FontFace сама
     // перерисует образцы — они DOM, а не холст, и живут на `font-family`.
-    const палитра = body.querySelector('details.opt-font');
-    if (палитра) {
-      палитра.ontoggle = () => { if (палитра.open) this.loadFonts().catch(() => {}); };
-      if (палитра.open) this.loadFonts().catch(() => {});   // карточка открылась уже развёрнутой
-    }
+    // ☠️ Крючок переехал с прежнего `details.opt-font` на кнопку «Шрифт» (19.09): потерять его
+    // здесь — вернуть дефект 15.09, когда в заказ уезжал макет чужим шрифтом.
+    body.querySelectorAll('.seg-btn[data-fc]').forEach((кнопка) => {
+      кнопка.onclick = () => {
+        const палитра = this._переключитьПалитру(opt.id, кнопка.dataset.fc, body);
+        if (палитра === 'font') this.loadFonts().catch(() => {});
+      };
+    });
+    if (this._палитраОткрыта(opt.id) === 'font') this.loadFonts().catch(() => {}); // раскрыта с прошлой отрисовки
 
     // Шрифт: список превью, каждый образец нарисован своим шрифтом.
     body.querySelectorAll('.font-opt').forEach((b) => {
@@ -1920,6 +1995,9 @@ export class UniformApp {
           x.setAttribute('aria-selected', String(on));
         });
         this.setOptData(opt, { fontId: b.dataset.font });
+        // Подпись на кнопке «Шрифт» — вручную: renderAll({ keepCards: true }) карточки не пересобирает.
+        const подпись = body.querySelector('[data-role="fc-font"]');
+        if (подпись) подпись.textContent = (this.fontById(b.dataset.font) || {}).name || '';
         // ⚠️ Выбранный шрифт мог ещё не приехать: тогда подгонка текста померит sans-serif
         // и надпись сядет не по рамке. Дожидаемся именно его и перерисовываем.
         this.loadFonts([b.dataset.font])
@@ -1933,6 +2011,8 @@ export class UniformApp {
       b.onclick = () => {
         body.querySelectorAll('.color-sw').forEach((x) => x.classList.toggle('active', x === b));
         this.setOptData(opt, { color: b.dataset.color });
+        const кружок = body.querySelector('[data-role="fc-color"]');
+        if (кружок) кружок.style.background = b.dataset.color;
       };
     });
 
