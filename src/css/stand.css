@@ -823,15 +823,40 @@ body {
 .opt-del:hover { background: #fde2e2; color: #d1263a; }
 .opt-note { color: #d1263a; font-size: 12.5px; margin: 8px 0 0; }
 
-/* Свёрнутый «Шрифт и цвет» */
-.opt-font { margin-top: 12px; }
-.opt-font summary {
-  font-size: 13px; font-weight: 700; color: var(--brand-strong);
-  cursor: pointer; list-style: none; padding: 4px 0;
-  display: inline-flex; align-items: center; gap: 6px;
+/* Вход в настройки надписи: две кнопки «Шрифт» и «Цвет» в одну строку, по виду такие же,
+   как поля фамилии и номера. Клиент 19.09: мелкую серую ссылку «Шрифт и цвет» покупательница
+   не замечала. Вариант «две кнопки» согласован голосовым 15:30; карточка 190 → 211 px,
+   ⛔ выше не пускать — клиент просил высоту не увеличивать. */
+.opt-fc { margin-top: 10px; }
+.opt-fc-row { display: flex; gap: 8px; }
+.opt-fc-btn {
+  flex: 1 1 0; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 13px; cursor: pointer; text-align: left;
+  border: 1.5px solid var(--line-strong); border-radius: var(--r-sm);
+  background: var(--surface-2); color: var(--ink);
+  font-size: 14px; font-family: inherit;
+  transition: border-color .15s var(--ease), box-shadow .15s var(--ease), background .15s var(--ease);
 }
-.opt-font summary::-webkit-details-marker { display: none; }
-.opt-font summary::before { content: '⚙'; opacity: .6; }
+.opt-fc-btn:hover { border-color: var(--brand); }
+.opt-fc-btn.is-open { border-color: var(--brand); background: #fff; box-shadow: 0 0 0 4px var(--brand-ring); }
+.opt-fc-label { flex: 0 0 auto; font-weight: 700; white-space: nowrap; }
+/* Текущее значение прямо на кнопке: человек видит «РПЛ» и цвет ещё до нажатия. */
+.opt-fc-val {
+  flex: 1 1 auto; min-width: 0; text-align: right;
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.opt-fc-chev { flex: 0 0 auto; color: var(--muted); font-size: 17px; line-height: 1; transition: transform .16s var(--ease); }
+.opt-fc-btn.is-open .opt-fc-chev { transform: rotate(90deg); }
+.opt-fc-dot {
+  flex: 0 0 auto; margin-left: auto; width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--line-strong); box-shadow: inset 0 0 0 1px #fff;
+}
+/* ⚠️ display: flex у списков перебивает атрибут hidden — гасить явно, иначе панели
+   всегда раскрыты и карточка вырастает вдвое. */
+.font-list[hidden], .swatches[hidden] { display: none; }
 /* Список превью шрифтов: образец нарисован самим шрифтом, список прокручивается —
    человек листает и сразу видит начертание (клиент 2026-07-12). */
 .font-list {
@@ -1371,6 +1396,7 @@ input[type="radio"], input[type="checkbox"] {
   .extra-toggle .chev, .price-lines-toggle .chev { font-size: 22px; }
   .opt-head { min-height: 56px; }
   .opt-in { min-height: 46px; }
+  .opt-fc-btn { min-height: 46px; }
   .opt-upload, .opt-rmbg { min-height: 50px; }
   .font-opt { min-height: 48px; }
   .qty-stepper button { min-height: 44px; }

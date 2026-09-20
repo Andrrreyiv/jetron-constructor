@@ -42,7 +42,7 @@ test('ведомые значения считаются в одном мест�
   assert.ok(помощник, 'метод _ведомыеОтСпины() должен быть определён');
   assert.match(помощник[1], /linkedNumberFont\(/);
   assert.match(помощник[1], /linkedNumberColor\(/);
-  assert.match(код, /this\.fontColorHtml\(c, this\._ведомыеОтСпины\(\)\)/,
+  assert.match(код, /this\.fontColorHtml\(c, this\._ведомыеОтСпины\(\)/,
     'карточка логотипа подсвечивает то, что реально нарисовано');
   const карточка = код.match(/\n  fontColorHtml\(c[^)]*\)\s*\{([\s\S]*?)\n    \/\//);
   assert.match(карточка[1], /дефолты\.fontId/, 'подсветка учитывает унаследованный шрифт');
