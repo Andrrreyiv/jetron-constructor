@@ -203,12 +203,51 @@ function jetron_cart_item_thumbnail($thumbnail, $cart_item, $cart_item_key) {
         . '" class="attachment-woocommerce_thumbnail size-woocommerce_thumbnail" loading="lazy" />';
 }
 
+/**
+ * Клиент 22.09: «по-прежнему не отображается картинка из конструктора в заказе».
+ * Мета хранит URL, а WooCommerce печатает его текстом. Рисуем картинкой со ссылкой —
+ * фильтр общий для админки и письма покупателю (оба идут через wc_display_item_meta).
+ * ⚠️ Ловим и «Макет», и прежнее «Макет (PNG)»: у заказов до 22.09 имя со скобкой.
+ */
+add_filter('woocommerce_order_item_display_meta_value', 'jetron_order_meta_png', 20, 3);
+function jetron_order_meta_png($value, $meta = null, $item = null) {
+    $key = '';
+    if (is_object($meta) && isset($meta->key)) { $key = (string) $meta->key; }
+    elseif (is_array($meta) && isset($meta['key'])) { $key = (string) $meta['key']; }
+    $макет = "\xd0\x9c\xd0\xb0\xd0\xba\xd0\xb5\xd1\x82";
+    if ($key === '' || strpos($key, $макет) !== 0) { return $value; }
+
+    $url = is_string($value) ? trim(wp_strip_all_tags($value)) : '';
+    if (!preg_match('~^https?://~i', $url)) { return $value; }
+
+    return '<a href="' . esc_url($url) . '" target="_blank" rel="noopener">'
+         . '<img src="' . esc_url($url) . '" alt="' . esc_attr("\xd0\x9c\xd0\xb0\xd0\xba\xd0\xb5\xd1\x82 \xd0\xb7\xd0\xb0\xd0\xba\xd0\xb0\xd0\xb7\xd0\xb0") . '"'
+         . ' style="max-width:260px;height:auto;display:block;margin:6px 0;border:1px solid #ddd" />'
+         . '</a>';
+}
+
+/**
+ * Миниатюра позиции в админке заказа: у товара-заглушки «Индивидуальная форма» изображения
+ * нет, поэтому там был пустой серый квадрат. Показываем сам макет — ровно как в корзине.
+ */
+add_filter('woocommerce_admin_order_item_thumbnail', 'jetron_admin_order_thumbnail', 20, 3);
+function jetron_admin_order_thumbnail($thumbnail, $item_id, $item) {
+    if (!is_object($item) || !method_exists($item, 'get_meta')) { return $thumbnail; }
+    $url = (string) $item->get_meta("\xd0\x9c\xd0\xb0\xd0\xba\xd0\xb5\xd1\x82");
+    if ($url === '') { $url = (string) $item->get_meta("\xd0\x9c\xd0\xb0\xd0\xba\xd0\xb5\xd1\x82 (PNG)"); }
+    if (!preg_match('~^https?://~i', $url)) { return $thumbnail; }
+    return '<img src="' . esc_url($url) . '" alt="' . esc_attr("\xd0\x9c\xd0\xb0\xd0\xba\xd0\xb5\xd1\x82 \xd0\xb7\xd0\xb0\xd0\xba\xd0\xb0\xd0\xb7\xd0\xb0") . '"'
+         . ' style="width:38px;height:38px;object-fit:cover" />';
+}
+
 function jetron_add_order_line_meta($item, $cart_item_key, $values, $order) {
     if (!empty($values['jetron_spec'])) {
         $item->add_meta_data("\xd0\x9a\xd0\xbe\xd0\xbd\xd1\x84\xd0\xb8\xd0\xb3\xd1\x83\xd1\x80\xd0\xb0\xd1\x86\xd0\xb8\xd1\x8f", $values['jetron_spec']);
     }
     if (!empty($values['jetron_png'])) {
-        $item->add_meta_data("\xd0\x9c\xd0\xb0\xd0\xba\xd0\xb5\xd1\x82 (PNG)", $values['jetron_png']);
+        // Имя без «(PNG)»: браузер отдаёт и jpeg, подпись врала (клиент 22.09 смотрел
+        // на .jpg под заголовком «Макет (PNG)»). Старые заказы фильтр ловит по началу строки.
+        $item->add_meta_data("\xd0\x9c\xd0\xb0\xd0\xba\xd0\xb5\xd1\x82", $values['jetron_png']);
     }
     if (!empty($values['jetron_total'])) {
         // ⛔ Клиент 22.09 просил убрать из заказа дублирующие числа: «Расчёт конструктора» снят

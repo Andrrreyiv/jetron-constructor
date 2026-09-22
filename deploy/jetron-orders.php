@@ -347,6 +347,28 @@ function jetron_orders_line_meta($item, $cart_item_key, $values, $order) {
     }
 }
 
+/**
+ * Клиент 22.09: «уберите эту информацию, она полностью копирует верхнюю часть».
+ * Новые заказы этих мет уже не пишут, а у прежних они лежат в базе — прячем их при показе
+ * (админка, письмо покупателю, «Мой аккаунт»). Из базы НИЧЕГО не удаляем: журнал и история
+ * заказа остаются полными, скрыт только вывод.
+ * ⚠️ «Логотипов: N» сюда не входит — это мета ТЕМЫ (class-wc-cart-logo-jetronsport.php).
+ */
+add_filter('woocommerce_order_item_get_formatted_meta_data', 'jetron_orders_hide_meta', 20, 2);
+function jetron_orders_hide_meta($formatted, $item = null) {
+    if (!is_array($formatted)) { return $formatted; }
+    $прятать = array(
+        'Расчёт сервера, ₽ за комплект',
+        'Проверено сервером',
+        'Расчёт конструктора, ₽',
+    );
+    foreach ($formatted as $id => $meta) {
+        $key = is_object($meta) && isset($meta->key) ? (string) $meta->key : '';
+        if ($key !== '' && in_array($key, $прятать, true)) { unset($formatted[$id]); }
+    }
+    return $formatted;
+}
+
 /** Человекочитаемый разбор расчёта — владельцу видно, за что списаны деньги. */
 function jetron_orders_summary($spec, $calc) {
     $parts = array();
