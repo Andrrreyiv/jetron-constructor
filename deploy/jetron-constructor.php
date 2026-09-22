@@ -211,6 +211,8 @@ function jetron_add_order_line_meta($item, $cart_item_key, $values, $order) {
         $item->add_meta_data("\xd0\x9c\xd0\xb0\xd0\xba\xd0\xb5\xd1\x82 (PNG)", $values['jetron_png']);
     }
     if (!empty($values['jetron_total'])) {
-        $item->add_meta_data("\xd0\xa0\xd0\xb0\xd1\x81\xd1\x87\xd1\x91\xd1\x82 \xd0\xba\xd0\xbe\xd0\xbd\xd1\x81\xd1\x82\xd1\x80\xd1\x83\xd0\xba\xd1\x82\xd0\xbe\xd1\x80\xd0\xb0, \xe2\x82\xbd", (int) $values['jetron_total']);
+        // ⛔ Клиент 22.09 просил убрать из заказа дублирующие числа: «Расчёт конструктора» снят
+        // вместе с «Расчёт сервера» и «Проверено сервером» (jetron-orders.php). Число живёт в журнале.
+        // $item->add_meta_data("\xd0\xa0\xd0\xb0\xd1\x81\xd1\x87\xd1\x91\xd1\x82 \xd0\xba\xd0\xbe\xd0\xbd\xd1\x81\xd1\x82\xd1\x80\xd1\x83\xd0\xba\xd1\x82\xd0\xbe\xd1\x80\xd0\xb0, \xe2\x82\xbd", (int) $values['jetron_total']);
     }
 }

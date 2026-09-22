@@ -135,20 +135,83 @@ function jetron_orders_zone_prices() {
     return $cache;
 }
 
+/**
+ * Написание в каталоге расходится с конструктором не только регистром, поэтому таблицы
+ * замен здесь ОБЯЗАНЫ повторять `ЗАМЕНЫ_ЛИНЕЕК` и `ЗАМЕНЫ_ЦВЕТОВ` из
+ * `src/js/core/CatalogPrices.js`. Замер живого каталога 07.09 (91 позиция): линейка Legend
+ * заведена как «Легенда», а у трёх расцветок атрибут цвета разошёлся с самим товаром.
+ * ⚠️ Разъедутся эти таблицы — браузер снова покажет одну цену, а сервер спишет другую
+ * (клиент 22.09: показано 1480, списано 1090).
+ */
+function jetron_orders_line_aliases($line) {
+    $map = array('legend' => array('Легенда'));
+    $key = jetron_orders_norm($line);
+    return isset($map[$key]) ? $map[$key] : array();
+}
+
+function jetron_orders_color_aliases($color) {
+    $map = array(
+        'синий'    => array('Голубой'),
+        'салатовый' => array('Зелёный'),
+        'лаймовый' => array('Жёлтый'),
+    );
+    $key = jetron_orders_norm($color);
+    return isset($map[$key]) ? $map[$key] : array();
+}
+
 /** Цена изделия из карточки товара по линейке/цвету/возрасту. 0 = позиции нет. */
 function jetron_orders_catalog_price($model, $color, $age) {
     if (!function_exists('jetron_catalog_prices')) { return 0.0; }
-    $want = jetron_orders_norm($age) . '|' . jetron_orders_norm($model) . '|' . jetron_orders_norm($color);
+    $index = array();
     foreach ((array) jetron_catalog_prices() as $item) {
         if (empty($item['model']) || empty($item['color'])) { continue; }
+        $price = (float) $item['price'];
+        if ($price <= 0) { continue; }
         $key = jetron_orders_norm(isset($item['age']) ? $item['age'] : '') . '|'
              . jetron_orders_norm($item['model']) . '|' . jetron_orders_norm($item['color']);
-        if ($key === $want) {
-            $price = (float) $item['price'];
-            return $price > 0 ? $price : 0.0;
+        $index[$key] = $price;
+    }
+    // Точное совпадение первым, замены — только после него (тот же порядок, что в браузере).
+    $models = array_merge(array($model), jetron_orders_line_aliases($model));
+    $colors = array_merge(array($color), jetron_orders_color_aliases($color));
+    foreach ($models as $m) {
+        foreach ($colors as $c) {
+            $key = jetron_orders_norm($age) . '|' . jetron_orders_norm($m) . '|' . jetron_orders_norm($c);
+            if (isset($index[$key])) { return $index[$key]; }
         }
     }
     return 0.0;
+}
+
+/**
+ * Запасная цена ПО ЛИНЕЙКЕ: такой расцветки в каталоге нет, но цена внутри линейки одна
+ * на всех. Берём самую частую среди расцветок этой линейки и этого возраста — одна кривая
+ * позиция не должна перетягивать остальные. Повторяет `resolveLinePrice()` из
+ * `src/js/core/CatalogPrices.js` (клиент 09.09: «детские 1480, взрослые 1680,
+ * цены приравниваем к фактическим»). 0 = у линейки нет ни одной позиции этого возраста.
+ */
+function jetron_orders_line_price($model, $age) {
+    if (!function_exists('jetron_catalog_prices')) { return 0.0; }
+    $lines = array(jetron_orders_norm($model));
+    foreach (jetron_orders_line_aliases($model) as $alias) { $lines[] = jetron_orders_norm($alias); }
+    $want_age = jetron_orders_norm($age);
+    $counts = array();
+    foreach ((array) jetron_catalog_prices() as $item) {
+        if (empty($item['model'])) { continue; }
+        $price = (float) $item['price'];
+        if ($price <= 0) { continue; }
+        if (jetron_orders_norm(isset($item['age']) ? $item['age'] : '') !== $want_age) { continue; }
+        if (!in_array(jetron_orders_norm($item['model']), $lines, true)) { continue; }
+        $k = (string) $price;
+        $counts[$k] = isset($counts[$k]) ? $counts[$k] + 1 : 1;
+    }
+    $best = 0.0;
+    $max = 0;
+    foreach ($counts as $price => $times) {
+        $price = (float) $price;
+        if ($times > $max || ($times === $max && $best > 0 && $price < $best)) { $best = $price; $max = $times; }
+    }
+    return $best;
 }
 
 /**
@@ -161,13 +224,22 @@ function jetron_orders_calc($order, $quantity) {
     $prices = jetron_orders_prices();
     if (empty($prices['form']) || !is_array($prices['form'])) { return null; }
 
-    // Цена изделия: карточка товара — источник правды, прайс конфига — запасной (клиент 27.07).
+    // Цена изделия, три источника по убыванию точности — ровно как в браузере:
+    // карточка этой расцветки → цена её ЛИНЕЙКИ того же возраста → общий прайс конфига.
+    // ⚠️ Средний шаг добавлен 22.09: без него Legend Бирюзовый детская падал с 1480 на 1090.
     $form = jetron_orders_catalog_price($order['model'], $order['color'], $order['age']);
     $from_catalog = $form > 0;
+    $price_source = 'карточка товара';
     if (!$from_catalog) {
-        $fallback = isset($prices['form'][$order['age']]) ? (float) $prices['form'][$order['age']] : 0.0;
-        if ($fallback <= 0) { return null; }
-        $form = $fallback;
+        $form = jetron_orders_line_price($order['model'], $order['age']);
+        if ($form > 0) {
+            $price_source = 'цена линейки (расцветки нет в каталоге)';
+        } else {
+            $fallback = isset($prices['form'][$order['age']]) ? (float) $prices['form'][$order['age']] : 0.0;
+            if ($fallback <= 0) { return null; }
+            $form = $fallback;
+            $price_source = 'прайс конфига, позиция не найдена';
+        }
     }
 
     $table = isset($prices['placement']) && is_array($prices['placement']) ? $prices['placement'] : array();
@@ -211,6 +283,7 @@ function jetron_orders_calc($order, $quantity) {
         'unit'         => $unit,
         'form'         => $form,
         'from_catalog' => $from_catalog,
+        'price_source' => $price_source,
         'placement'    => $placement_total,
         'charged'      => $charged,
         'gaiters'      => $gaiters,
@@ -261,8 +334,11 @@ function jetron_orders_line_meta($item, $cart_item_key, $values, $order) {
     if (!$calc) { return; }
 
     $spec = $values['jetron_order'];
-    $item->add_meta_data('Расчёт сервера, ₽ за комплект', (int) $calc['unit']);
-    $item->add_meta_data('Проверено сервером', jetron_orders_summary($spec, $calc));
+    // ⛔ Клиент 22.09: «эту информацию из заказа и из информации у клиента убрать, она
+    // полностью копирует верхнюю часть… это переполняет». Меты «Расчёт сервера» и
+    // «Проверено сервером» больше не пишем.
+    // ⚠️ Контроль расхождений жив: оба числа уходят в журнал ниже (таблица jetron_orders_log),
+    // там и смотреть, если браузер и сервер разойдутся. Возвращать сюда — только по просьбе.
 
     try {
         jetron_orders_log_write($spec, $calc, $qty, $order, $values);
@@ -278,7 +354,8 @@ function jetron_orders_summary($spec, $calc) {
              . ' / ' . ($spec['age'] === 'child' ? 'детская' : 'взрослая')
              . ($spec['size'] !== '' ? ' / размер ' . $spec['size'] : '');
     $parts[] = 'Цена изделия: ' . (int) $calc['form'] . ' ₽ ('
-             . ($calc['from_catalog'] ? 'карточка товара' : 'прайс конфига, позиция не найдена') . ')';
+             . (isset($calc['price_source']) ? $calc['price_source']
+                : ($calc['from_catalog'] ? 'карточка товара' : 'прайс конфига, позиция не найдена')) . ')';
     if ($calc['charged']) {
         $bits = array();
         foreach ($calc['charged'] as $group => $sum) {
