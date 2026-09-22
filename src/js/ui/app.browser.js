@@ -180,7 +180,13 @@ export class UniformApp {
         if (!out.startsWith('data:image/webp')) {
           out = canvas.toDataURL('image/jpeg', cfg.quality); // fallback
         }
-        resolve({ url: out });
+        // Исходник отдаём рядом: пережатая копия нужна холсту и черновику, а в ЗАКАЗ
+        // обязан уехать тот файл, который выбрал покупатель (клиент 22.09: «он говорит,
+        // наоборот, я старался в хорошем качестве загрузить»).
+        const чтец = new FileReader();
+        чтец.onload = () => resolve({ url: out, original: String(чтец.result) });
+        чтец.onerror = () => resolve({ url: out }); // не прочитался — едет пережатая копия
+        чтец.readAsDataURL(file);
       };
       img.onerror = () => {
         URL.revokeObjectURL(objUrl);
@@ -918,6 +924,7 @@ export class UniformApp {
     this.hideOption(opt);
     delete this.optCache[opt.id];
     delete this.optShown[opt.id];
+    if (this.logoOriginals) { delete this.logoOriginals[opt.id]; }
     this.renderJetron();
     this.renderOptionCards();
     this.updatePrice();
@@ -1211,7 +1218,12 @@ export class UniformApp {
           // только сведённый макет, исходник не покидал браузер вовсе.
           for (const o of (this.config.placementOptions || [])) {
             const c = this.optCache[o.id];
-            if (c && c.image && this.optionActive(o)) add('jetron_logos[]', c.image);
+            if (c && c.image && this.optionActive(o)) {
+              // Исходный файл покупателя, если он у нас есть: пережатая копия годится
+              // для экрана, но не для печати (клиент 22.09 просил «именно тем файлом»).
+              const исходник = this.logoOriginals && this.logoOriginals[o.id];
+              add('jetron_logos[]', исходник || c.image);
+            }
           }
           document.body.appendChild(form);
           form.submit();
@@ -2028,6 +2040,10 @@ export class UniformApp {
         e.target.value = '';
         return;
       }
+      // ⚠️ НЕ в optCache: он целиком уходит в черновик (snapshotOf), а там лимит 3 МБ.
+      this.logoOriginals = this.logoOriginals || {};
+      if (res.original) { this.logoOriginals[opt.id] = res.original; }
+      else { delete this.logoOriginals[opt.id]; }
       this.setOptData(opt, { image: res.url });
       this.renderOptionCards();
     };

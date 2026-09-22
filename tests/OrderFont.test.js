@@ -56,6 +56,24 @@ test('спецификация берёт шрифт через resolveFont, а 
 // Исходники логотипов уходят в заказ: тема ждёт их в jetron_logos[], иначе в заказе снова
 // будет только сведённый макет и пустое поле «Логотипы».
 test('логотипы отправляются в корзину отдельными файлами', () => {
-  assert.match(app, /add\('jetron_logos\[\]', c\.image\)/, 'логотипы должны уходить полем jetron_logos[]');
+  assert.match(app, /add\('jetron_logos\[\]', исходник \|\| c\.image\)/,
+    'логотипы должны уходить полем jetron_logos[]');
   assert.match(app, /this\.optionActive\(o\)/, 'отправляем только показанные на макете логотипы');
+});
+
+// Клиент 22.09: покупатель грузил хорошее качество, а в заказ уезжал webp 1600 px —
+// это наш `prepareImage()` пережимает всё тяжелее 1,5 МБ. Пережатая копия нужна холсту,
+// но в ЗАКАЗ обязан идти исходный файл.
+test('в заказ уходит ИСХОДНЫЙ файл логотипа, а не пережатая копия', () => {
+  assert.match(app, /resolve\(\{ url: out, original: String\(чтец\.result\) \}\)/,
+    'prepareImage обязан отдавать исходник рядом с пережатой копией');
+  assert.match(app, /const исходник = this\.logoOriginals && this\.logoOriginals\[o\.id\]/,
+    'при отправке заказа исходник обязан иметь приоритет');
+  // ⚠️ Оригиналы живут ОТДЕЛЬНО от optCache: тот целиком уезжает в черновик (snapshotOf),
+  // а у черновика лимит 3 МБ — исходники его бы разорвали.
+  const снимок = app.match(/export function snapshotOf[\s\S]*?\n\}/)
+    || app.match(/snapshotOf\(app\)[\s\S]{0,400}/);
+  assert.ok(!/logoOriginals/.test(String(снимок)), 'исходники не должны попадать в черновик');
+  assert.match(app, /if \(this\.logoOriginals\) \{ delete this\.logoOriginals\[opt\.id\]; \}/,
+    'удаление логотипа обязано чистить и исходник');
 });
