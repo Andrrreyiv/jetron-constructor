@@ -46,9 +46,10 @@ headless-обход мёртвых Preview MCP / Claude in Chrome).
 
 ## 🌿 Git и выкладка
 
-- `github.com/Andrrreyiv/jetron-constructor`. **Замер 23.09 (без fetch):** `origin/main` = `ad19905` (PR #34,
-  20.09). 🔴 **`feat/knopki-shrift-cvet-2026-09-20` = `feb2ff2`, запушена, впереди на 7 коммитов (22.09),
-  в `main` НЕ влита, PR не открыт** — демо отстаёт от боевого. Локальный `main` = `24b2ed1` (отстал).
+- `github.com/Andrrreyiv/jetron-constructor`. **Замер 24.09:** `origin/main` = `ad19905` (PR #34, 20.09).
+  🔴 **`feat/knopki-shrift-cvet-2026-09-20` = `0b429ee` (работа 24.09), запушена, в `main` НЕ влита,
+  PR не открыт** — демо отстаёт от боевого. Локальный `main` = `24b2ed1` (отстал). Счёт коммитов
+  здесь не держим, он протухает от самой записи.
 - 🔴 В `main` только через PR, кнопку жмёт человек. ⚠️ `git push origin <ветка>:main` проходит мимо
   `dangerous-actions-blocker.mjs` — дырка, не разрешение. ⚠️ Хэш — только `git rev-parse origin/main`,
   «влито» — `git merge-base --is-ancestor`, не логом. ⚠️ Токены `gh`/MCP мертвы (401): `git push` через
@@ -77,7 +78,7 @@ headless-обход мёртвых Preview MCP / Claude in Chrome).
 
 🟢 **24.09 два голосовых клиента закрыты и ВЫЛОЖЕНЫ** (8 файлов + токен рамки 3443, снимок
 `docs/screens-2026-09-24/`). Боевой — **PHP 8.3.33; mbstring, getimagesizefromstring,
-IMAGETYPE_WEBP есть** (замер серверным линтом).
+IMAGETYPE_WEBP есть.**
 
 - **Шрифты по алфавиту.** Порядок задаётся ОДИН раз — `упорядочитьШрифты()` в `AdminOverrides.js`
   (через него идёт список и админки, и покупателя); `jetron_admin_sort_fonts()` нужен лишь чтобы
@@ -88,7 +89,7 @@ IMAGETYPE_WEBP есть** (замер серверным линтом).
   `jetron_admin_font_cmp()` повторяет `localeCompare(…, {numeric:true, sensitivity:'base'})`.
   ⚠️ **На 25 шрифтах дефект не виден, сверять только на живом списке.** Стерегут
   `tests/test_font_order_php.py` и тест про пробел в `AdminOverrides.test.js`.
-- **Защита полей ввода** (его вопрос «вы их как-то защищали?»). Уже было: цену считает сервер, разбор
+- **Защита полей ввода** (его вопрос). Уже было: цену считает сервер, разбор
   по белым спискам (`jetron_orders_parse`), `sanitize_*` на входе и `esc_html`/`esc_url` на выводе,
   `escapeHtml` в браузере, логотипы только `data:image/*` ≤8 МБ и ≤10 шт, имя из серверного UUID,
   админка за `manage_options` + нонс. Замер: `<img src=x onerror=…>` в «Фамилию» и `"><script>`
