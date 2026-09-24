@@ -62,6 +62,57 @@ test('позиции без обязательных полей выкидыва
   assert.equal(r.fonts[0].id, 'ok');
 });
 
+// Клиент 24.09: «шрифты в алфавитном порядке выстраивать… где кириллица да — их лучше бы
+// не трогать, а вот где кириллица нет — вот там в алфавитном порядке». Новые клубные шрифты
+// дописываются в конец файла, и владелец искал их глазами по всему списку.
+test('клубные шрифты идут по алфавиту, русские остаются первыми в своём порядке', () => {
+  const шрифт = (id, name, cyrillic) => ({ id, name, file: 'assets/fonts/' + id + '.ttf', cyrillic });
+  const r = applyAdminOverrides(base, {
+    fonts: [
+      шрифт('rpl', 'РПЛ', true),
+      шрифт('oswald', 'Oswald', true),
+      шрифт('udinese', 'Udinese 19/20', false),
+      шрифт('brazil2024', 'Brazil 2024', false),
+      шрифт('brazil2021', 'Brazil 2021', false),
+      шрифт('alhilal', 'AL Hilal', false), // добавлен последним — и падал в хвост списка
+    ],
+  });
+  assert.deepEqual(r.fonts.map((f) => f.name),
+    ['РПЛ', 'Oswald', 'AL Hilal', 'Brazil 2021', 'Brazil 2024', 'Udinese 19/20']);
+  // ⚠️ Первым обязан остаться русский: fonts[0] — запасной шрифт по умолчанию (main.browser.js),
+  // клубный на этом месте показал бы фамилию квадратами.
+  assert.equal(r.fonts[0].cyrillic, true);
+});
+
+// ☠️ Замер на боевом 24.09 (43 шрифта): админка и конструктор дали РАЗНЫЙ порядок,
+// потому что PHP-шный strnatcasecmp пропускает пробелы, а localeCompare нет. Владелец
+// видел «Manchester City» впереди «Man City», покупатель наоборот. Этот тест стережёт
+// сторону покупателя; сторона PHP — tests/test_font_order_php.py, и оба списка обязаны
+// совпадать. На составе из 25 шрифтов дефект не проявлялся: нужны именно такие пары.
+test('пробел в названии не выбрасывается при сортировке', () => {
+  const шрифт = (name) => ({ id: name.toLowerCase().replace(/\W+/g, ''), name, file: 'f.ttf', cyrillic: false });
+  const r = applyAdminOverrides(base, {
+    fonts: [
+      шрифт('Manchester City 23-24'), шрифт('Man City 24/25'),
+      шрифт('BarcelonaLaliga-Regular'), шрифт('Barcelona La Liga 2023 2024'),
+      шрифт('Real Madrid 2021'), шрифт('Real Madrid 21/22'),
+    ],
+  });
+  assert.deepEqual(r.fonts.map((f) => f.name), [
+    'Barcelona La Liga 2023 2024', 'BarcelonaLaliga-Regular',
+    'Man City 24/25', 'Manchester City 23-24',
+    'Real Madrid 21/22', 'Real Madrid 2021',
+  ]);
+});
+
+test('русские шрифты не пересортировываются, даже если идут не по алфавиту', () => {
+  const шрифт = (id, name, cyrillic) => ({ id, name, file: 'assets/fonts/' + id + '.ttf', cyrillic });
+  const r = applyAdminOverrides(base, {
+    fonts: [шрифт('rpl', 'РПЛ', true), шрифт('play', 'Play', true), шрифт('oswald', 'Oswald', true)],
+  });
+  assert.deepEqual(r.fonts.map((f) => f.name), ['РПЛ', 'Play', 'Oswald']);
+});
+
 // Новая модель из админки должна попасть в каталог и карусель.
 test('модели: список из админки заменяет каталог форм', () => {
   const forms = [{ id: 'x-white', line: 'X', colorId: 'white', color: 'Белый', colorHex: '#fff',

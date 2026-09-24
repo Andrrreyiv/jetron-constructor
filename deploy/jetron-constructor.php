@@ -78,7 +78,13 @@ function jetron_add_cart_item_data($cart_item_data, $product_id) {
     $cart_item_data['jetron_uid'] = $uid;
 
     if (isset($_POST['jetron_spec'])) {
-        $cart_item_data['jetron_spec'] = sanitize_textarea_field(wp_unslash($_POST['jetron_spec']));
+        // Текст спецификации (модель, цвет, размер, надписи — в том числе фамилия покупателя).
+        // sanitize_textarea_field снимает теги и управляющие символы, но длину не ограничивает,
+        // а поле приходит из браузера: подставленный мегабайт лёг бы в мету заказа целиком.
+        // Живая спецификация — сотни символов, потолок с большим запасом.
+        $spec = sanitize_textarea_field(wp_unslash($_POST['jetron_spec']));
+        $cart_item_data['jetron_spec'] = function_exists('mb_substr')
+            ? mb_substr($spec, 0, 4000) : substr($spec, 0, 4000);
     }
     if (isset($_POST['jetron_total'])) {
         $cart_item_data['jetron_total'] = (int) $_POST['jetron_total'];
@@ -104,6 +110,22 @@ function jetron_add_cart_item_data($cart_item_data, $product_id) {
     return $cart_item_data;
 }
 
+/**
+ * Присланные байты — действительно картинка? Заголовок `data:image/...` пишет браузер,
+ * то есть кто угодно, и верить ему нельзя: смотрим само содержимое.
+ * ⚠️ Исполняемым такой файл на сайте не станет и без этой проверки — расширение мы навязываем
+ * сами, а PHP из каталога загрузок не выполняется. Проверка нужна, чтобы в медиатеку и в заказ
+ * не попадало то, что картинкой не является.
+ * ⚠️ WebP читается getimagesize только с PHP 7.1. Если константы нет, webp пропускаем как
+ * раньше: отвергнуть настоящий логотип покупателя хуже, чем принять лишний файл.
+ */
+function jetron_looks_like_image($bytes, $ext) {
+    if (!function_exists('getimagesizefromstring')) { return true; }
+    if ($ext === 'webp' && !defined('IMAGETYPE_WEBP')) { return true; }
+    $info = @getimagesizefromstring($bytes);
+    return is_array($info) && !empty($info[0]) && !empty($info[1]);
+}
+
 // Логотип покупателя → вложение WordPress. Тема ждёт именно ID вложения
 // (делает wp_get_attachment_url), поэтому файла на диске мало — нужна запись в медиатеке.
 // Форматы те же, что принимает загрузчик конструктора, кроме svg: растр печатается как есть.
@@ -116,6 +138,7 @@ function jetron_save_logo_attachment($dataurl, $uid, $n) {
     $b64   = substr($dataurl, strpos($dataurl, ',') + 1);
     $bytes = base64_decode($b64, true);
     if ($bytes === false || strlen($bytes) < 32 || strlen($bytes) > 8 * 1024 * 1024) { return 0; }
+    if (!jetron_looks_like_image($bytes, $ext)) { return 0; }
 
     $up  = wp_upload_dir();
     $dir = trailingslashit($up['basedir']) . JETRON_UPLOAD_SUBDIR;
@@ -146,6 +169,9 @@ function jetron_save_png_dataurl($dataurl, $uid) {
     $b64 = substr($dataurl, strpos($dataurl, ',') + 1);
     $bytes = base64_decode($b64, true);
     if ($bytes === false || strlen($bytes) < 32 || strlen($bytes) > 8 * 1024 * 1024) { return array(); }
+    // Заголовка data: мало: он приходит из браузера и пишется кем угодно. Расширение мы
+    // навязываем сами (png/jpg), но в файл не должно лечь то, что картинкой не является.
+    if (!jetron_looks_like_image($bytes, $ext)) { return array(); }
 
     $up = wp_upload_dir();
     $dir = trailingslashit($up['basedir']) . JETRON_UPLOAD_SUBDIR;

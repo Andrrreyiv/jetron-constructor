@@ -261,7 +261,7 @@ function jetron_admin_handle_post() {
             'file'     => $file,
             'cyrillic' => !empty($_POST['font_cyrillic']),
         );
-        $data['fonts'] = $fonts;
+        $data['fonts'] = jetron_admin_sort_fonts($fonts);
         return jetron_admin_save($data) === false
             ? array('error', 'Не удалось записать настройки.')
             : array('ok', 'Шрифт «' . $name . '» добавлен.');
@@ -270,9 +270,9 @@ function jetron_admin_handle_post() {
     if ($action === 'font_del') {
         $id = sanitize_text_field(wp_unslash($_POST['font_id'] ?? ''));
         $fonts = isset($data['fonts']) && is_array($data['fonts']) ? $data['fonts'] : jetron_admin_base_fonts();
-        $data['fonts'] = array_values(array_filter($fonts, function ($f) use ($id) {
+        $data['fonts'] = jetron_admin_sort_fonts(array_values(array_filter($fonts, function ($f) use ($id) {
             return ($f['id'] ?? '') !== $id;
-        }));
+        })));
         return jetron_admin_save($data) === false
             ? array('error', 'Не удалось записать настройки.')
             : array('ok', 'Шрифт удалён.');
@@ -566,6 +566,92 @@ function jetron_admin_base_fonts() {
     $c = jetron_admin_base_config();
     return isset($c['fonts']) && is_array($c['fonts']) ? $c['fonts'] : array();
 }
+
+/**
+ * Сравнение названий шрифтов. Строки уже приведены к нижнему регистру.
+ *
+ * ☠️ **`strnatcasecmp` здесь НЕ годится: он пропускает пробелы.** Замер на живом списке
+ * (43 шрифта, 24.09) показал два расхождения с конструктором: админка ставила
+ * «Manchester City 23-24» впереди «Man City 24/25», а «BarcelonaLaliga-Regular» впереди
+ * «Barcelona La Liga 2023 2024». У покупателя `localeCompare` пробел не выбрасывает
+ * и даёт обратный порядок, то есть владелец и покупатель видели РАЗНЫЕ списки.
+ *
+ * Правило здесь повторяет `localeCompare(…, { numeric: true, sensitivity: 'base' })`:
+ * пробелы и знаки — обычные символы (и, как более младшие коды, идут впереди букв),
+ * а подряд идущие цифры сравниваются числом, поэтому «21/22» раньше «2021», а
+ * «Brazil 2021» раньше «Brazil 2024». Байтовое сравнение годится и для кириллицы:
+ * UTF-8 сохраняет порядок кодовых точек.
+ */
+function jetron_admin_font_cmp($x, $y) {
+    $i = 0;
+    $j = 0;
+    $lx = strlen($x);
+    $ly = strlen($y);
+    while ($i < $lx && $j < $ly) {
+        $цифраX = $x[$i] >= '0' && $x[$i] <= '9';
+        $цифраY = $y[$j] >= '0' && $y[$j] <= '9';
+        if ($цифраX && $цифраY) {
+            $нx = $i;
+            while ($i < $lx && $x[$i] >= '0' && $x[$i] <= '9') { $i++; }
+            $нy = $j;
+            while ($j < $ly && $y[$j] >= '0' && $y[$j] <= '9') { $j++; }
+            // Ведущие нули не должны делать число «длиннее»: 007 и 7 это одно и то же.
+            $чx = ltrim(substr($x, $нx, $i - $нx), '0');
+            $чy = ltrim(substr($y, $нy, $j - $нy), '0');
+            if (strlen($чx) !== strlen($чy)) { return strlen($чx) < strlen($чy) ? -1 : 1; }
+            if ($чx !== $чy) { return $чx < $чy ? -1 : 1; }
+            continue;
+        }
+        if ($x[$i] !== $y[$j]) { return ord($x[$i]) < ord($y[$j]) ? -1 : 1; }
+        $i++;
+        $j++;
+    }
+    if ($i >= $lx && $j >= $ly) { return 0; }
+    return $i >= $lx ? -1 : 1;   // более короткая строка идёт первой
+}
+
+/**
+ * Порядок шрифтов (клиент 24.09): русские первыми и в том порядке, в котором их завёл
+ * владелец — «где кириллица да, их лучше бы не трогать»; клубные по алфавиту.
+ * Сравнение натуральное, поэтому «Brazil 2021» идёт раньше «Brazil 2024», а добавленный
+ * последним «AL Hilal» встаёт на своё место, а не в хвост.
+ * ⚠️ Тот же порядок задаёт фронт (`упорядочитьШрифты` в AdminOverrides.js) — он и решает,
+ * что видит покупатель. Здесь сортировка нужна, чтобы admin.json на диске совпадал с экраном.
+ * ⚠️ Русские обязаны остаться первыми: запасной шрифт по умолчанию берётся как fonts[0].
+ * ⚠️ Сверять порядок обязательно на ЖИВОМ списке: на составе из 25 шрифтов расхождение
+ * с конструктором не проявлялось, а на боевых 43 вылезло сразу (см. jetron_admin_font_cmp).
+ * Расходиться эти два порядка могут ещё на клубном шрифте с РУССКИМ названием при сборке
+ * PHP без mbstring; на боевом mbstring есть (PHP 8.3.33, замер 24.09), таких имён тоже нет.
+ */
+function jetron_admin_sort_fonts($fonts) {
+    if (!is_array($fonts)) {
+        return $fonts;
+    }
+    $ru = array();
+    $club = array();
+    foreach ($fonts as $f) {
+        if (!empty($f['cyrillic'])) {
+            $ru[] = $f;
+        } else {
+            $club[] = $f;
+        }
+    }
+    usort($club, function ($a, $b) {
+        $x = (string) (is_array($a) && isset($a['name']) ? $a['name'] : '');
+        $y = (string) (is_array($b) && isset($b['name']) ? $b['name'] : '');
+        // Русское название идёт впереди латинского — так же, как localeCompare(…, 'ru')
+        // у конструктора. Без этого правила «Зенит» оказался бы в конце списка в админке
+        // и в начале у покупателя: два разных порядка на двух экранах.
+        $кир = function ($s) { return (bool) preg_match('/[\xd0-\xd1]/', $s); };
+        if ($кир($x) !== $кир($y)) { return $кир($x) ? -1 : 1; }
+        // Регистр гасим mb_strtolower ради кириллицы; где mbstring не собран, латиницу
+        // догасит strtolower — иначе «AL Hilal» встал бы впереди «Adventor».
+        $x = function_exists('mb_strtolower') ? mb_strtolower($x, 'UTF-8') : strtolower($x);
+        $y = function_exists('mb_strtolower') ? mb_strtolower($y, 'UTF-8') : strtolower($y);
+        return jetron_admin_font_cmp($x, $y);
+    });
+    return array_values(array_merge($ru, $club));
+}
 function jetron_admin_base_colors() {
     $c = jetron_admin_base_config();
     return isset($c['colors']) && is_array($c['colors']) ? $c['colors'] : array();
@@ -770,7 +856,10 @@ function jetron_admin_tab_sizes($data, $nonce) {
 
 /** Вкладка «Шрифты»: список с удалением + загрузка нового файла. */
 function jetron_admin_tab_fonts($data, $nonce) {
-    $fonts = jetron_admin_value($data, array('fonts'), array());
+    // Показываем в том же порядке, в каком список уйдёт покупателю: русские сверху,
+    // клубные по алфавиту (клиент 24.09). Данные при показе не переписываются — файл
+    // нормализуется при ближайшем добавлении или удалении шрифта.
+    $fonts = jetron_admin_sort_fonts(jetron_admin_value($data, array('fonts'), array()));
     echo '<h3>Установленные шрифты</h3><table class="widefat striped" style="max-width:760px"><thead><tr>'
        . '<th>Название</th><th>Файл</th><th>Кириллица</th><th></th></tr></thead><tbody>';
     foreach ((array) $fonts as $f) {

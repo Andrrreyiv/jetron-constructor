@@ -11,7 +11,7 @@ export function applyAdminOverrides(config, admin) {
 
   applyPrices(out, admin.prices);
   applySizes(out, admin.sizes);
-  out.fonts = listOr(out.fonts, admin.fonts, isFont);
+  out.fonts = упорядочитьШрифты(listOr(out.fonts, admin.fonts, isFont));
   out.colors = listOr(out.colors, admin.colors, isColor);
   out.forms = listOr(out.forms, admin.forms, isForm);
   // Внешний вид сцены (раздел «Внешний вид» в админке). Поля чистятся поштучно в Appearance.js;
@@ -43,6 +43,23 @@ function applySizes(out, sizes) {
     const grid = sizes[key];
     if (isGrid(grid)) out.sizes[key] = clone(grid);
   }
+}
+
+// Порядок шрифтов (клиент 24.09): русские идут первыми в том порядке, в котором их завёл
+// владелец — «где кириллица да, их лучше бы не трогать»; клубные выстраиваются по алфавиту.
+// Сортировка с учётом чисел, чтобы «Brazil 2021» шёл раньше «Brazil 2024», а добавленный
+// последним «AL Hilal» не оставался в хвосте списка.
+// ⚠️ Русские обязаны оставаться первыми: запасной шрифт по умолчанию берётся как fonts[0]
+// (main.browser.js), и клубный без кириллицы на этом месте показал бы фамилию квадратами.
+// ⚠️ Список один и тот же у админки и у покупателя, поэтому порядок задаётся здесь, один раз;
+// вторая сортировка в jetron-admin.php нужна только для самого файла admin.json.
+function упорядочитьШрифты(fonts) {
+  if (!Array.isArray(fonts)) return fonts;
+  const имя = (f) => String((f && f.name) || '');
+  const русские = fonts.filter((f) => f && f.cyrillic);
+  const клубные = fonts.filter((f) => !f || !f.cyrillic)
+    .sort((a, b) => имя(a).localeCompare(имя(b), 'ru', { numeric: true, sensitivity: 'base' }));
+  return русские.concat(клубные);
 }
 
 // Пустой список из админки означает «не трогай», а не «удали всё»: иначе одна случайная

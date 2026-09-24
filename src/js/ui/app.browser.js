@@ -2,23 +2,23 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260922a';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260922a';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260922a';
-import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260922a';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260922a';
-import { buildOrder } from '../core/OrderSummary.js?v=20260922a';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260922a';
-import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260922a';
-import { productLink } from '../core/ProductLink.js?v=20260922a';
-import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260922a';
-import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260922a';
-import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260922a';
+import { CanvasView } from './canvas.browser.js?v=20260924a';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260924a';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260924a';
+import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260924a';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260924a';
+import { buildOrder } from '../core/OrderSummary.js?v=20260924a';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260924a';
+import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260924a';
+import { productLink } from '../core/ProductLink.js?v=20260924a';
+import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260924a';
+import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260924a';
+import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260924a';
 // `clearDraft` намеренно НЕ импортируется: чистить черновик в конструкторе нечем и незачем.
 // Клиент просил обратного — «зашёл в корзину, оформил, обновил страницу», то есть черновик
 // обязан пережить и корзину, и оформление. Умирает он сам, по сроку в 24 часа.
-import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260922a';
-import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260922a';
+import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260924a';
+import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260924a';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -1834,10 +1834,19 @@ export class UniformApp {
       <p class="opt-note" data-role="note" hidden></p>`;
 
     if (opt.kind === 'name_number') {
+      // Потолки длины (клиент 24.09 спрашивал, защищены ли поля ввода). Раньше потолка
+      // не было вовсе: в «Фамилию» и «Номер» влезала строка любой длины и уезжала в заказ.
+      // Значения подобраны так, чтобы настоящий заказ в них заведомо помещался — самая
+      // длинная двойная фамилия короче 24 знаков, игровой номер больше трёх цифр не бывает.
+      // ⚠️ На макете номер НЕ обрезается (три знака берёт только образец в превью шрифта,
+      // fontSampleText) — до этой правки «12345» так и печаталось бы на спине.
+      // ⚠️ Это опрятность, а не защита: браузеру верить нельзя, maxlength снимается
+      // в инструментах разработчика. Настоящий предел стоит на сервере — потолок
+      // спецификации в jetron-constructor.php и разбор в jetron_orders_parse.
       return `
         <div class="opt-fields">
-          <input class="opt-in" type="text" data-field="name" placeholder="Фамилия" value="${escapeHtml(c.name || '')}">
-          <input class="opt-in opt-in-sm" type="text" data-field="number" placeholder="№" inputmode="numeric" value="${escapeHtml(c.number || '')}">
+          <input class="opt-in" type="text" data-field="name" placeholder="Фамилия" maxlength="24" value="${escapeHtml(c.name || '')}">
+          <input class="opt-in opt-in-sm" type="text" data-field="number" placeholder="№" inputmode="numeric" maxlength="3" value="${escapeHtml(c.number || '')}">
         </div>
         ${this.fontColorHtml(c, {}, this._палитраОткрыта(opt.id))}`;
     }
@@ -1845,7 +1854,7 @@ export class UniformApp {
       return uploadBtn(!!c.image, 'Загрузить логотип');
     }
     if (opt.kind === 'number') {
-      return `<input class="opt-in" type="text" data-field="number" placeholder="${escapeHtml(opt.placeholder || 'Номер')}" inputmode="numeric" value="${escapeHtml(c.number || '')}">`;
+      return `<input class="opt-in" type="text" data-field="number" placeholder="${escapeHtml(opt.placeholder || 'Номер')}" inputmode="numeric" maxlength="3" value="${escapeHtml(c.number || '')}">`;
     }
     // text_or_upload — текст ИЛИ логотип.
     // Клиент 20.09, голосовое 14:42 (говорил про футболки, но правило общее): «убрать надпись
@@ -1857,7 +1866,7 @@ export class UniformApp {
     // ⛔ Белый фон полю НЕ давать: карточка ВЫКЛЮЧЕННОЙ опции тоже белая, и поле в ней
     // сливается. Прежний кремовый различим и на белой карточке, и на зелёной у включённой.
     return `
-      <input class="opt-in" type="text" data-field="text" placeholder="Добавить текст" value="${escapeHtml(c.text || '')}" ${c.image ? 'disabled' : ''}>
+      <input class="opt-in" type="text" data-field="text" placeholder="Добавить текст" maxlength="40" value="${escapeHtml(c.text || '')}" ${c.image ? 'disabled' : ''}>
       <div class="opt-or">или</div>
       ${uploadBtn(!!c.image, 'Загрузить логотип')}
       ${c.image ? '' : this.fontColorHtml(c, this._ведомыеОтСпины(), this._палитраОткрыта(opt.id))}`;
