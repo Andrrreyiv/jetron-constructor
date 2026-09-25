@@ -2,23 +2,23 @@
 // Браузерный слой (.browser.js, вне node:test). Источник правды о размещениях — this.edit
 // (чистая модель EditHistory: undo + перенос между зонами). Канвас лишь отображает.
 // Цена считается тестируемой calculatePrice из core/.
-import { CanvasView } from './canvas.browser.js?v=20260924a';
-import { calculatePrice } from '../core/PriceCalculator.js?v=20260924a';
-import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260924a';
-import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260924a';
-import { filterGridBySizes } from '../core/SizeMatch.js?v=20260924a';
-import { buildOrder } from '../core/OrderSummary.js?v=20260924a';
-import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260924a';
-import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260924a';
-import { productLink } from '../core/ProductLink.js?v=20260924a';
-import { linkedNumberColor, linkedNumberFont, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260924a';
-import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260924a';
-import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260924a';
+import { CanvasView } from './canvas.browser.js?v=20260925b';
+import { calculatePrice } from '../core/PriceCalculator.js?v=20260925b';
+import { indexCatalogPrices, resolveFormPrice, resolveFormSizes, resolveFormSizeGrid, resolveFormProductUrl, resolveLinePrice, indexColorHexes, applyColorHexes } from '../core/CatalogPrices.js?v=20260925b';
+import { ageOptions, normalizeAge, ВОЗРАСТ_ПО_УМОЛЧАНИЮ } from '../core/AgeOptions.js?v=20260925b';
+import { filterGridBySizes } from '../core/SizeMatch.js?v=20260925b';
+import { buildOrder } from '../core/OrderSummary.js?v=20260925b';
+import { createState, setPlacement, removePlacement } from '../core/EditHistory.js?v=20260925b';
+import { applyZoneOverrides, resolveBrandBox, resolveBrandColor, resolveFrameBox, EDITOR_FRAME_KEYS } from '../core/ZoneOverrides.js?v=20260925b';
+import { productLink } from '../core/ProductLink.js?v=20260925b';
+import { linkedNumberColor, linkedNumberFont, linkedLetterFont, шрифтНомера, шрифтПоКлику, латиницаЗакрытаНаСпине, ведомыеПерерисовать, цветЗнака, источникЗнака } from '../core/TextColor.js?v=20260925b';
+import { needsViewsRebuild } from '../core/ViewsRebuild.js?v=20260925b';
+import { обеспечитьУзелМоделей } from '../core/ModelHost.js?v=20260925b';
 // `clearDraft` намеренно НЕ импортируется: чистить черновик в конструкторе нечем и незачем.
 // Клиент просил обратного — «зашёл в корзину, оформил, обновил страницу», то есть черновик
 // обязан пережить и корзину, и оформление. Умирает он сам, по сроку в 24 часа.
-import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260924a';
-import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260924a';
+import { saveDraft, loadDraft } from '../core/DraftStorage.js?v=20260925b';
+import { snapshotOf, sanitizeDraft } from '../core/DraftShape.js?v=20260925b';
 
 const money = (n) => `${n.toLocaleString('ru-RU')} ₽`;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -539,6 +539,7 @@ export class UniformApp {
     const из = new Set([this.defaultFontId()]);
     for (const c of Object.values(this.optCache || {})) {
       if (c && c.fontId) из.add(c.fontId);
+      if (c && c.numberFontId) из.add(c.numberFontId); // свой шрифт номера (25.09)
     }
     return [...из].filter(Boolean);
   }
@@ -847,10 +848,13 @@ export class UniformApp {
     };
     if (opt.kind === 'name_number') {
       const fontId = c.fontId || this.defaultFontId();
+      // Клиент 25.09: у номера свой шрифт, по умолчанию — шрифт фамилии. Номер на шортах
+      // зеркалит эту же запись (`_placeShortsNumber`), поэтому идёт тем же шрифтом.
+      const номерШрифт = шрифтНомера(c, fontId);
       const color = c.color || this.textColor;
       if (c.name) draw(opt.nameZone, { type: 'text', value: c.name, fontId, color });
       else this.removePk(opt.nameZone);
-      if (c.number) draw(opt.numberZone, { type: 'text', value: c.number, fontId, color });
+      if (c.number) draw(opt.numberZone, { type: 'text', value: c.number, fontId: номерШрифт, color });
       else this.removePk(opt.numberZone);
     } else if (opt.kind === 'upload') {
       if (c.image) draw(opt.zone, { type: 'image', value: c.image });
@@ -877,9 +881,11 @@ export class UniformApp {
   // Шрифт и цвет, которые ведомая надпись берёт со спины, пока покупатель не выбрал свои.
   // Одно место на отрисовку и на карточку опции: разъехавшись, они дали бы подсвеченный
   // в карточке шрифт, не совпадающий с тем, что нарисовано на макете.
+  // ⚠️ С 25.09 шрифт надписям даёт ФАМИЛИЯ, а не номер (голосовое 13:35: «шрифт на груди
+  // логотипа и под номером, он привязан к фамилии»): у номера бывает латинский клубный шрифт.
   _ведомыеОтСпины() {
     return {
-      fontId: linkedNumberFont(this.config.placementOptions, this.optCache, this.defaultFontId()),
+      fontId: linkedLetterFont(this.config.placementOptions, this.optCache, this.defaultFontId()),
       color: linkedNumberColor(this.config.placementOptions, this.optCache, this.textColor)
     };
   }
@@ -1848,7 +1854,7 @@ export class UniformApp {
           <input class="opt-in" type="text" data-field="name" placeholder="Фамилия" maxlength="24" value="${escapeHtml(c.name || '')}">
           <input class="opt-in opt-in-sm" type="text" data-field="number" placeholder="№" inputmode="numeric" maxlength="3" value="${escapeHtml(c.number || '')}">
         </div>
-        ${this.fontColorHtml(c, {}, this._палитраОткрыта(opt.id))}`;
+        ${this.fontColorHtml(c, {}, this._палитраОткрыта(opt.id), true)}`;
     }
     if (opt.kind === 'upload') {
       return uploadBtn(!!c.image, 'Загрузить логотип');
@@ -1892,15 +1898,19 @@ export class UniformApp {
   // «логотипы» берут шрифт и цвет со спины). Подсветка обязана показывать нарисованное,
   // иначе в карточке активен один шрифт, а на макете стоит другой.
   // `открыта` — какая панель раскрыта: '' | 'font' | 'color'.
-  fontColorHtml(c, дефолты = {}, открыта = '') {
+  // `спина` — это карточка «Фамилия и номер» (клиент 25.09: у номера свой шрифт, правило
+  // клика — `шрифтПоКлику`). У остальных опций `false`, поведение прежнее.
+  fontColorHtml(c, дефолты = {}, открыта = '', спина = false) {
     const fonts = this.config.fonts || [];
     const colors = this.config.textColors || [];
     const curColor = c.color || дефолты.color || this.textColor;
-    const curFont = c.fontId || дефолты.fontId || this.defaultFontId();
+    const curFont = this._шрифтПалитры(c, спина, дефолты.fontId);
     // Клиент 2026-07-16 «не могу выбрать шрифт»: латинские шрифты не держат кириллицу,
     // при русском тексте отрисовка молча падала на РПЛ (кнопка «выбиралась», превью не менялось).
     // Блокируем такие шрифты с понятной подсказкой — видно, почему выбрать нельзя.
-    const userCyr = this.hasCyrillic([c.name, c.number, c.text].filter(Boolean).join(' '));
+    // ⚠️ С 25.09 у «Фамилии и номера» латиница открыта, как только есть номер: клик по ней
+    // меняет цифру, а русская фамилия остаётся своим шрифтом (см. `_латиницаЗакрыта`).
+    const латЗакрыта = this._латиницаЗакрыта(c, спина);
     const имяШрифта = (this.fontById(curFont) || {}).name || '';
     return `
       <div class="opt-fc">
@@ -1913,8 +1923,8 @@ export class UniformApp {
           </button>
         </div>
         <div class="font-list" role="listbox" aria-label="Шрифт" ${открыта === 'font' ? '' : 'hidden'}>
-          ${fonts.map((f) => `<button type="button" class="font-opt ${f.id === curFont ? 'active' : ''}${userCyr && !f.cyrillic ? ' locked' : ''}"
-             data-font="${f.id}" role="option" aria-selected="${f.id === curFont}" aria-disabled="${userCyr && !f.cyrillic}" title="${userCyr && !f.cyrillic ? 'Шрифт без кириллицы — выберите шрифт с русскими буквами' : escapeHtml(f.name)}">
+          ${fonts.map((f) => `<button type="button" class="font-opt ${f.id === curFont ? 'active' : ''}${латЗакрыта && !f.cyrillic ? ' locked' : ''}"
+             data-font="${f.id}" role="option" aria-selected="${f.id === curFont}" aria-disabled="${латЗакрыта && !f.cyrillic}" title="${латЗакрыта && !f.cyrillic ? 'Шрифт без кириллицы — выберите шрифт с русскими буквами' : escapeHtml(f.name)}">
              <span class="font-opt-sample" style="font-family:'${f.id}', sans-serif">${escapeHtml(this.fontSampleText(f, c))}</span>
              <span class="font-opt-name">${escapeHtml(f.name)}${f.cyrillic ? '' : ' · лат.'}</span>
           </button>`).join('')}
@@ -1923,6 +1933,29 @@ export class UniformApp {
           ${colors.map((col) => `<button class="color-sw ${col.hex === curColor ? 'active' : ''}" data-color="${col.hex}" title="${escapeHtml(col.name)}" style="background:${col.hex}"></button>`).join('')}
         </div>
       </div>`;
+  }
+
+  // ── Раздельный шрифт фамилии и номера (клиент 25.09) ─────────────────────────────────
+  // Правило клика и замков — в `core/TextColor.js` (`шрифтПоКлику`, `латиницаЗакрытаНаСпине`),
+  // здесь только состояние палитры. ☠️ Привязки к курсору НЕТ и не возвращать: её отменил
+  // клиент в 15:21 («никто не догадается переставить курсор на фамилию»).
+
+  // Закрыты ли латинские шрифты в палитре этой карточки.
+  //  • «Фамилия и номер»: только русская фамилия без номера — иначе клик по латинице
+  //    меняет цифру, и закрывать её нельзя;
+  //  • остальные опции — как было с 16.07: есть кириллица в тексте, значит латиница закрыта.
+  _латиницаЗакрыта(c, спина) {
+    if (спина) return латиницаЗакрытаНаСпине(this.hasCyrillic(c.name), !!c.number);
+    return this.hasCyrillic([c.name, c.number, c.text].filter(Boolean).join(' '));
+  }
+
+  // Шрифт, который подсвечивает палитра и называет кнопка «Шрифт».
+  // У «Фамилии и номера» при вписанном номере это шрифт НОМЕРА: он меняется от каждого клика,
+  // то есть это последний выбранный. Без номера — шрифт фамилии.
+  // `унаследованный` — шрифт, который опция берёт со спины (у текстовых логотипов).
+  _шрифтПалитры(c, спина, унаследованный) {
+    const фамилия = c.fontId || унаследованный || this.defaultFontId();
+    return спина && c.number ? шрифтНомера(c, фамилия) : фамилия;
   }
 
   // Какая панель настроек надписи раскрыта в карточке: '' | 'font' | 'color'.
@@ -1953,16 +1986,31 @@ export class UniformApp {
 
   // Пересчитать блокировку латинских шрифтов при вводе русского текста (без пере-рендера
   // карточки, чтобы не терять фокус в поле). Клиент 2026-07-16 «не могу выбрать шрифт».
+  // С 25.09 у «Фамилии и номера» латиница открывается, как только вписан номер (клик по ней
+  // поменяет цифру), и закрывается снова, если номер стёрли, а фамилия русская.
   updateFontLocks(card, opt) {
     const c = this.optCache[opt.id] || {};
-    const cyr = this.hasCyrillic([c.name, c.number, c.text].filter(Boolean).join(' '));
+    const спина = opt.kind === 'name_number';
+    const cyr = this._латиницаЗакрыта(c, спина);
+    // Подсветку и подпись на кнопке трогаем только у «Фамилии и номера»: у остальных опций
+    // подсвеченный шрифт учитывает унаследованный со спины, его считает fontColorHtml.
+    const текущий = спина ? this._шрифтПалитры(c, true) : null;
     card.querySelectorAll('.font-opt').forEach((b) => {
       const f = this.fontById(b.dataset.font);
       const locked = cyr && f && !f.cyrillic;
       b.classList.toggle('locked', locked);
       b.setAttribute('aria-disabled', String(locked));
       b.title = locked ? 'Шрифт без кириллицы — выберите шрифт с русскими буквами' : (f ? f.name : '');
+      if (текущий) {
+        const on = b.dataset.font === текущий;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', String(on));
+      }
     });
+    if (текущий) {
+      const подпись = card.querySelector('[data-role="fc-font"]');
+      if (подпись) подпись.textContent = (this.fontById(текущий) || {}).name || '';
+    }
   }
 
   wireOptionCard(opt) {
@@ -2015,7 +2063,13 @@ export class UniformApp {
           x.classList.toggle('active', on);
           x.setAttribute('aria-selected', String(on));
         });
-        this.setOptData(opt, { fontId: b.dataset.font });
+        // Клиент 25.09 (15:21): у «Фамилии и номера» решает латиница, а не курсор. Шрифт
+        // с кириллицей меняет обе надписи; латинский при русской фамилии — только номер.
+        const шрифт = this.fontById(b.dataset.font) || { id: b.dataset.font };
+        const c = this.optCache[opt.id] || {};
+        this.setOptData(opt, opt.kind === 'name_number'
+          ? шрифтПоКлику(шрифт, this.hasCyrillic(c.name))
+          : { fontId: b.dataset.font });
         // Подпись на кнопке «Шрифт» — вручную: renderAll({ keepCards: true }) карточки не пересобирает.
         const подпись = body.querySelector('[data-role="fc-font"]');
         if (подпись) подпись.textContent = (this.fontById(b.dataset.font) || {}).name || '';
