@@ -186,7 +186,7 @@ function jetron_admin_handle_post() {
     if (!current_user_can('manage_options')) {
         return array('error', 'Недостаточно прав.');
     }
-    if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], JETRON_ADMIN_NONCE)) {
+    if (!isset($_POST['_wpnonce']) || !is_string($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], JETRON_ADMIN_NONCE)) {
         return array('error', 'Страница устарела, обновите её и повторите.');
     }
 
@@ -240,6 +240,47 @@ function jetron_admin_handle_post() {
         return jetron_admin_save($data) === false
             ? array('error', 'Не удалось записать настройки.')
             : array('ok', 'Размерные сетки сохранены.');
+    }
+
+    if ($action === 'font_update') {
+        // Не превращаем повреждённый конфиг в пустой: иначе потеряются чужие настройки.
+        $path = jetron_admin_file_path();
+        if (file_exists($path)) {
+            $raw = @file_get_contents($path);
+            if ($raw === false || !(json_decode($raw) instanceof stdClass)) {
+                return array('error', 'Не удалось прочитать настройки. Изменения не сохранены.');
+            }
+            $data = json_decode($raw, true);
+        }
+        $id = $_POST['font_id'] ?? null;
+        $flag = $_POST['font_cyrillic'] ?? null;
+        if (!is_string($id) || trim($id) === ''
+            || (array_key_exists('font_cyrillic', $_POST) && $flag !== '1')) {
+            return array('error', 'Некорректные параметры шрифта. Обновите страницу и повторите.');
+        }
+        $id = sanitize_text_field(wp_unslash($id));
+        if (array_key_exists('fonts', $data) && !is_array($data['fonts'])) {
+            return array('error', 'Список шрифтов повреждён. Изменения не сохранены.');
+        }
+        $fonts = isset($data['fonts']) ? $data['fonts'] : jetron_admin_base_fonts();
+        $matches = array();
+        foreach ($fonts as $key => $font) {
+            if (!is_array($font)) {
+                return array('error', 'Список шрифтов повреждён. Изменения не сохранены.');
+            }
+            if (($font['id'] ?? '') === $id) {
+                $matches[] = $key;
+            }
+        }
+        if (count($matches) !== 1) {
+            return array('error', 'Шрифт не найден или его идентификатор повторяется. Обновите страницу.');
+        }
+        $key = $matches[0];
+        $fonts[$key]['cyrillic'] = $flag === '1';
+        $data['fonts'] = jetron_admin_sort_fonts($fonts);
+        return jetron_admin_save($data) === false
+            ? array('error', 'Не удалось записать настройки.')
+            : array('ok', 'Настройка шрифта «' . ($fonts[$key]['name'] ?? $id) . '» сохранена.');
     }
 
     if ($action === 'font_add') {
@@ -854,18 +895,25 @@ function jetron_admin_tab_sizes($data, $nonce) {
     jetron_admin_reset_form('sizes', $nonce, 'Сбросить к значениям по умолчанию');
 }
 
-/** Вкладка «Шрифты»: список с удалением + загрузка нового файла. */
+/** Вкладка «Шрифты»: изменение кириллицы, удаление и загрузка нового файла. */
 function jetron_admin_tab_fonts($data, $nonce) {
     // Показываем в том же порядке, в каком список уйдёт покупателю: русские сверху,
     // клубные по алфавиту (клиент 24.09). Данные при показе не переписываются — файл
-    // нормализуется при ближайшем добавлении или удалении шрифта.
+    // нормализуется при ближайшем изменении, добавлении или удалении шрифта.
     $fonts = jetron_admin_sort_fonts(jetron_admin_value($data, array('fonts'), array()));
     echo '<h3>Установленные шрифты</h3><table class="widefat striped" style="max-width:760px"><thead><tr>'
        . '<th>Название</th><th>Файл</th><th>Кириллица</th><th></th></tr></thead><tbody>';
     foreach ((array) $fonts as $f) {
         echo '<tr><td>' . esc_html($f['name'] ?? '') . '</td>';
         echo '<td><code>' . esc_html($f['file'] ?? '') . '</code></td>';
-        echo '<td>' . (!empty($f['cyrillic']) ? 'да' : 'нет') . '</td><td>';
+        echo '<td><form method="post">';
+        echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
+        echo '<input type="hidden" name="jetron_admin_action" value="font_update">';
+        echo '<input type="hidden" name="font_id" value="' . esc_attr($f['id'] ?? '') . '">';
+        echo '<label><input type="checkbox" name="font_cyrillic" value="1"'
+           . (!empty($f['cyrillic']) ? ' checked' : '')
+           . ' aria-label="' . esc_attr('Поддерживает кириллицу: ' . ($f['name'] ?? '')) . '"> да</label> ';
+        echo '<button type="submit" class="button button-small">Сохранить</button></form></td><td>';
         echo '<form method="post" onsubmit="return confirm(&quot;Убрать шрифт из списка?&quot;)">';
         echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
         echo '<input type="hidden" name="jetron_admin_action" value="font_del">';
